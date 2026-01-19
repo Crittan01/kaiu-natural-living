@@ -2,10 +2,19 @@ import { motion } from 'framer-motion';
 import { Layout } from '@/components/layout/Layout';
 import { mockRituals, mockProducts } from '@/lib/data';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Leaf, ArrowRight } from 'lucide-react';
+import { MessageCircle, Leaf, ArrowRight, Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { filterRitualsByQuery } from '@/lib/searchUtils';
+import { Input } from '@/components/ui/input';
 
 const Rituales = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredRituals = useMemo(() => {
+    return filterRitualsByQuery(mockRituals, searchQuery);
+  }, [searchQuery]);
+
   const getRelatedProduct = (productName: string) => {
     return mockProducts.find((p) => 
       p.nombre.toLowerCase().includes(productName.toLowerCase()) ||
@@ -32,81 +41,121 @@ const Rituales = () => {
             </p>
           </motion.div>
 
+          {/* Search Bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-md mx-auto mb-16 relative"
+          >
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Buscar ritual (ej. Sueño, Energía...)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-10 rounded-full border-primary/20 focus:border-primary bg-background/50 backdrop-blur-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </motion.div>
+
           {/* Rituals */}
           <div className="space-y-16">
-            {mockRituals.map((ritual, index) => (
-              <motion.article
-                key={ritual.titulo}
-                id={ritual.titulo.toLowerCase().replace(/\s+/g, '-')}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="grid md:grid-cols-2 gap-8 items-center"
-              >
-                {/* Image */}
-                <div className={`${index % 2 === 1 ? 'md:order-2' : ''}`}>
-                  <div className="aspect-[4/3] rounded-3xl overflow-hidden shadow-card">
-                    <img
-                      src={ritual.imagen_url}
-                      alt={ritual.titulo}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className={`${index % 2 === 1 ? 'md:order-1' : ''}`}>
-                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-sm font-medium mb-4">
-                    <Leaf className="w-4 h-4" />
-                    Ritual
-                  </span>
-                  
-                  <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground">
-                    {ritual.titulo}
-                  </h2>
-                  
-                  <p className="mt-4 text-lg text-muted-foreground">
-                    {ritual.resumen}
-                  </p>
-                  
-                  <div className="mt-6 p-6 rounded-2xl bg-secondary/50 border border-border">
-                    <p className="text-foreground leading-relaxed">
-                      {ritual.contenido}
-                    </p>
-                  </div>
-
-                  {/* Related Product */}
-                  {ritual.productos_relacionados && (
-                    <div className="mt-8">
-                      <Link
-                        to={`/catalogo?categoria=${encodeURIComponent(
-                          getRelatedProduct(ritual.productos_relacionados)?.categoria || ''
-                        )}`}
-                        className="group flex items-center gap-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-all hover:shadow-sm"
-                      >
-                        <img
-                          src={getRelatedProduct(ritual.productos_relacionados)?.imagen_url}
-                          alt={ritual.productos_relacionados}
-                          className="w-16 h-16 rounded-xl object-cover shadow-sm"
-                        />
-                        <div className="flex-1">
-                          <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
-                            Ideal para este ritual
-                          </p>
-                          <h4 className="font-display font-bold text-lg text-foreground group-hover:text-primary transition-colors">
-                            {ritual.productos_relacionados}
-                          </h4>
-                        </div>
-                        <div className="w-10 h-10 rounded-full bg-background flex items-center justify-center text-primary shadow-sm group-hover:scale-110 transition-transform">
-                          <ArrowRight className="w-5 h-5" />
-                        </div>
-                      </Link>
+            {filteredRituals.length > 0 ? (
+              filteredRituals.map((ritual, index) => (
+                <motion.article
+                  key={ritual.titulo}
+                  id={ritual.titulo.toLowerCase().replace(/\s+/g, '-')}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="grid md:grid-cols-2 gap-8 items-center"
+                >
+                  {/* Image */}
+                  <div className={`${index % 2 === 1 ? 'md:order-2' : ''}`}>
+                    <div className="aspect-[4/3] rounded-3xl overflow-hidden shadow-card">
+                      <img
+                        src={ritual.imagen_url}
+                        alt={ritual.titulo}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                  )}
-                </div>
-              </motion.article>
-            ))}
+                  </div>
+
+                  {/* Content */}
+                  <div className={`${index % 2 === 1 ? 'md:order-1' : ''}`}>
+                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-sm font-medium mb-4">
+                      <Leaf className="w-4 h-4" />
+                      Ritual
+                    </span>
+                    
+                    <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground">
+                      {ritual.titulo}
+                    </h2>
+                    
+                    <p className="mt-4 text-lg text-muted-foreground">
+                      {ritual.resumen}
+                    </p>
+                    
+                    <div className="mt-6 p-6 rounded-2xl bg-secondary/50 border border-border">
+                      <p className="text-foreground leading-relaxed">
+                        {ritual.contenido}
+                      </p>
+                    </div>
+
+                    {/* Related Product */}
+                    {ritual.productos_relacionados && (
+                      <div className="mt-8">
+                        <Link
+                          to={`/catalogo?categoria=${encodeURIComponent(
+                            getRelatedProduct(ritual.productos_relacionados)?.categoria || ''
+                          )}`}
+                          className="group flex items-center gap-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-all hover:shadow-sm"
+                        >
+                          <img
+                            src={getRelatedProduct(ritual.productos_relacionados)?.imagen_url}
+                            alt={ritual.productos_relacionados}
+                            className="w-16 h-16 rounded-xl object-cover shadow-sm"
+                          />
+                          <div className="flex-1">
+                            <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
+                              Ideal para este ritual
+                            </p>
+                            <h4 className="font-display font-bold text-lg text-foreground group-hover:text-primary transition-colors">
+                              {ritual.productos_relacionados}
+                            </h4>
+                          </div>
+                          <div className="w-10 h-10 rounded-full bg-background flex items-center justify-center text-primary shadow-sm group-hover:scale-110 transition-transform">
+                            <ArrowRight className="w-5 h-5" />
+                          </div>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </motion.article>
+              ))
+            ) : (
+              <div className="text-center py-16">
+                <p className="text-muted-foreground text-lg">
+                  No encontramos rituales que coincidan con tu búsqueda.
+                </p>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="mt-4 text-primary hover:text-accent transition-colors"
+                >
+                  Ver todos los rituales
+                </button>
+              </div>
+            )}
           </div>
 
           {/* CTA */}

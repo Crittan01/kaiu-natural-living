@@ -1,4 +1,4 @@
-import { Product } from './types';
+import { Product, Ritual } from './types';
 
 /**
  * Calculates the Levenshtein distance between two strings.
@@ -63,6 +63,37 @@ export function filterProductsByQuery(products: Product[], query: string): Produ
     const nameWords = product.nombre.toLowerCase().split(' ');
     const isFuzzyMatch = nameWords.some(word => {
       // Only check overlapping length to avoid high distance on short query vs long word
+      if (Math.abs(word.length - normalizedQuery.length) > maxDistance) return false;
+      return levenshteinDistance(word, normalizedQuery) <= maxDistance;
+    });
+    
+    return isFuzzyMatch;
+  });
+}
+
+/**
+ * Filters rituals based on a query using fuzzy matching.
+ * Checks title, summary, and content.
+ */
+export function filterRitualsByQuery(rituals: Ritual[], query: string): Ritual[] {
+  if (!query) return rituals;
+  
+  const normalizedQuery = query.toLowerCase().trim();
+  const maxDistance = 3; // Allow up to 3 errors
+  
+  return rituals.filter((ritual) => {
+    // Check direct includes (fast path)
+    if (
+      ritual.titulo.toLowerCase().includes(normalizedQuery) ||
+      ritual.resumen.toLowerCase().includes(normalizedQuery) ||
+      ritual.contenido.toLowerCase().includes(normalizedQuery)
+    ) {
+      return true;
+    }
+    
+    // Check fuzzy match on Title (words)
+    const titleWords = ritual.titulo.toLowerCase().split(' ');
+    const isFuzzyMatch = titleWords.some(word => {
       if (Math.abs(word.length - normalizedQuery.length) > maxDistance) return false;
       return levenshteinDistance(word, normalizedQuery) <= maxDistance;
     });
