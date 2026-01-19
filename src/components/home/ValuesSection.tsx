@@ -20,7 +20,7 @@ const values = [
   {
     icon: Shield,
     title: 'Envío Seguro',
-    description: 'A toda la República Mexicana',
+    description: 'A toda Colombia',
   },
 ];
 
