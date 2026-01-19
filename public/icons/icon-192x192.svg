@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="192" height="192" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo verde Kaiu -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2E5D4F;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1E4D3F;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="192" height="192" fill="url(#bg)" rx="19.200000000000003"/>
+  
+  <!-- Letra K -->
+  <text 
+    x="50%" 
+    y="50%" 
+    font-family="Arial, sans-serif" 
+    font-size="105.60000000000001" 
+    font-weight="bold" 
+    fill="#F5F0E8" 
+    text-anchor="middle" 
+    dominant-baseline="central">K</text>
+  
+  <!-- Círculo decorativo -->
+  <circle cx="144" cy="48" r="15.36" 
+          stroke="#8AB89B" stroke-width="3.84" fill="none"/>
+</svg>
