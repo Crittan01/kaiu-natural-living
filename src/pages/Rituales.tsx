@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Layout } from '@/components/layout/Layout';
 import { mockRituals, mockProducts } from '@/lib/data';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Leaf } from 'lucide-react';
+import { MessageCircle, Leaf, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Rituales = () => {
@@ -78,17 +78,29 @@ const Rituales = () => {
 
                   {/* Related Product */}
                   {ritual.productos_relacionados && (
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      <span className="text-sm text-muted-foreground">
-                        Producto recomendado:
-                      </span>
+                    <div className="mt-8">
                       <Link
                         to={`/catalogo?categoria=${encodeURIComponent(
                           getRelatedProduct(ritual.productos_relacionados)?.categoria || ''
                         )}`}
-                        className="text-sm font-medium text-primary hover:text-accent transition-colors"
+                        className="group flex items-center gap-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-all hover:shadow-sm"
                       >
-                        {ritual.productos_relacionados}
+                        <img
+                          src={getRelatedProduct(ritual.productos_relacionados)?.imagen_url}
+                          alt={ritual.productos_relacionados}
+                          className="w-16 h-16 rounded-xl object-cover shadow-sm"
+                        />
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
+                            Ideal para este ritual
+                          </p>
+                          <h4 className="font-display font-bold text-lg text-foreground group-hover:text-primary transition-colors">
+                            {ritual.productos_relacionados}
+                          </h4>
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-background flex items-center justify-center text-primary shadow-sm group-hover:scale-110 transition-transform">
+                          <ArrowRight className="w-5 h-5" />
+                        </div>
                       </Link>
                     </div>
                   )}
