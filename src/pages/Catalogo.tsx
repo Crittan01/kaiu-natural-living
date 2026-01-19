@@ -3,7 +3,10 @@ import { motion } from 'framer-motion';
 import { Layout } from '@/components/layout/Layout';
 import { ProductCard } from '@/components/products/ProductCard';
 import { mockProducts } from '@/lib/data';
+import { filterProductsByQuery } from '@/lib/searchUtils';
 import { useSearchParams } from 'react-router-dom';
+import { Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 const Catalogo = () => {
   const [searchParams] = useSearchParams();
@@ -11,6 +14,7 @@ const Catalogo = () => {
   
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -29,7 +33,8 @@ const Catalogo = () => {
 
   // Filter products
   const filteredProducts = useMemo(() => {
-    return mockProducts.filter((product) => {
+    // First apply traditional filters
+    const baseFiltered = mockProducts.filter((product) => {
       const matchesCategory =
         !selectedCategory ||
         selectedCategory === 'Todos' ||
@@ -43,7 +48,10 @@ const Catalogo = () => {
 
       return matchesCategory && matchesBenefits;
     });
-  }, [selectedCategory, selectedBenefits]);
+
+    // Then apply fuzzy search
+    return filterProductsByQuery(baseFiltered, searchQuery);
+  }, [selectedCategory, selectedBenefits, searchQuery]);
 
   const toggleBenefit = (benefit: string) => {
     setSelectedBenefits((prev) =>
@@ -69,6 +77,32 @@ const Catalogo = () => {
             <p className="mt-4 text-lg text-muted-foreground max-w-xl mx-auto">
               Aceites esenciales y vegetales 100% puros y naturales
             </p>
+          </motion.div>
+
+          {/* Search Bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-md mx-auto mb-10 relative"
+          >
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Buscar (ej. Lavanda, Relax...)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-10 rounded-full border-primary/20 focus:border-primary bg-background/50 backdrop-blur-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </motion.div>
 
           {/* Filters */}
@@ -133,6 +167,7 @@ const Catalogo = () => {
                 onClick={() => {
                   setSelectedCategory('');
                   setSelectedBenefits([]);
+                  setSearchQuery('');
                 }}
                 className="mt-4 text-primary hover:text-accent transition-colors"
               >
