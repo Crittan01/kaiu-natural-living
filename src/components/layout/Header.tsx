@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Leaf } from 'lucide-react';
+import { Menu, X, Leaf, Heart } from 'lucide-react';
+import { useWishlist } from '@/context/WishlistContext';
 import { Button } from '@/components/ui/button';
 import kaiuLogo from '@/assets/kaiu-logo.jpg';
 
@@ -15,6 +16,7 @@ const navLinks = [
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const { items } = useWishlist();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-40 glass-effect border-b border-border/50">
@@ -47,6 +49,15 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
+            
+            <Link to="/wishlist" className="relative group" aria-label="Lista de Deseos">
+              <Heart className={`w-6 h-6 transition-colors ${location.pathname === '/wishlist' ? 'text-accent fill-accent' : 'text-foreground group-hover:text-accent'}`} />
+              {items.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-accent text-accent-foreground text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shadow-sm">
+                  {items.length}
+                </span>
+              )}
+            </Link>
           </div>
 
           {/* CTA Button - Desktop */}
@@ -99,6 +110,15 @@ export function Header() {
                   {link.label}
                 </Link>
               ))}
+              
+              <Link
+                to="/wishlist" 
+                onClick={() => setIsMenuOpen(false)}
+                className="flex items-center gap-2 font-medium py-2 text-foreground hover:text-accent"
+              >
+                <Heart className="w-5 h-5" />
+                Lista de Deseos ({items.length})
+              </Link>
               <Button variant="gold" className="mt-2" asChild>
                 <a
                   href="https://wa.me/521234567890?text=¡Hola!%20Estoy%20desde%20la%20app%20de%20Kaiu"

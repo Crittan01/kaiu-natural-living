@@ -11,7 +11,8 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useWishlist } from '@/context/WishlistContext';
 
 interface ProductCardProps {
   product: Product;
@@ -21,8 +22,9 @@ export function ProductCard({ product }: ProductCardProps) {
   const [selectedVariant, setSelectedVariant] = useState(
     product.variantes.split(',')[0]
   );
-  const [isSaved, setIsSaved] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const isSaved = isInWishlist(product.id);
 
   const benefits = product.beneficios.split(',');
   const variants = product.variantes.split(',');
@@ -35,9 +37,13 @@ export function ProductCard({ product }: ProductCardProps) {
     );
   };
 
-  const handleSave = () => {
-    setIsSaved(!isSaved);
-    // TODO: Implement localStorage saving
+  const handleSave = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent opening Quick View if clicking heart
+    if (isSaved) {
+      removeFromWishlist(product.id);
+    } else {
+      addToWishlist(product);
+    }
   };
 
   const QuickViewContent = () => (

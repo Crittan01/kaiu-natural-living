@@ -8,6 +8,7 @@ import ritualMorning from '@/assets/ritual-morning.jpg';
 // Mock data - Replace with SheetDB API calls
 export const mockProducts: Product[] = [
   {
+    id: 1,
     nombre: "Aceite Esencial de Lavanda",
     categoria: "Aceites Esenciales",
     beneficios: "relajación,sueño,calma",
@@ -17,6 +18,7 @@ export const mockProducts: Product[] = [
     descripcion: "Aceite 100% puro, ideal para difusores y masajes relajantes. Destilado de lavanda orgánica francesa."
   },
   {
+    id: 2,
     nombre: "Aceite Vegetal de Argán",
     categoria: "Aceites Vegetales",
     beneficios: "hidratación,cabello,piel",
@@ -26,6 +28,7 @@ export const mockProducts: Product[] = [
     descripcion: "Rico en vitamina E, revitaliza piel y cabello. Prensado en frío de nueces de argán marroquí."
   },
   {
+    id: 3,
     nombre: "Aceite Esencial de Eucalipto",
     categoria: "Aceites Esenciales",
     beneficios: "respiración,frescura,energía",
@@ -35,6 +38,7 @@ export const mockProducts: Product[] = [
     descripcion: "Aceite purificante con aroma refrescante. Perfecto para limpiar el ambiente y despejar las vías respiratorias."
   },
   {
+    id: 4,
     nombre: "Aceite de Jojoba Dorado",
     categoria: "Aceites Vegetales",
     beneficios: "hidratación,antienvejecimiento,piel",
