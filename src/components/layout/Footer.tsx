@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Leaf, Instagram, Mail } from 'lucide-react';
+import { MessageCircleHeart, Instagram, Mail, Facebook } from 'lucide-react';
 import kaiuLogo from '@/assets/kaiu-logo.jpg';
 
 export function Footer() {
@@ -49,31 +49,40 @@ export function Footer() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 hover:text-accent transition-colors"
               >
-                <Leaf className="w-4 h-4" />
+                <MessageCircleHeart className="w-4 h-4" />
                 WhatsApp
               </a>
               <a 
-                href="mailto:hola@kaiu.mx" 
+                href="mailto:kaiu.oficialco@gmail.com" 
                 className="flex items-center gap-2 hover:text-accent transition-colors"
               >
                 <Mail className="w-4 h-4" />
-                hola@kaiu.mx
+                kaiu.oficialco@gmail.com
               </a>
               <a 
-                href="https://instagram.com/kaiu.mx" 
+                href="https://instagram.com/kaiu.oficial" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 hover:text-accent transition-colors"
               >
                 <Instagram className="w-4 h-4" />
-                @kaiu.mx
+                @kaiu.oficial
+              </a>
+              <a 
+                href="https://facebook.com/kaiu.oficial" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-accent transition-colors"
+              >
+                <Facebook className="w-4 h-4" />
+                Kaiu Natural Living
               </a>
             </div>
           </div>
         </div>
 
         <div className="mt-12 pt-8 border-t border-primary-foreground/20 text-center text-sm text-primary-foreground/60">
-          <p>© {new Date().getFullYear()} Kaiu Cosmética Natural. Hecho con 🌿 en México.</p>
+          <p>© {new Date().getFullYear()} Kaiu Cosmética Natural. Hecho con 🌿 en Colombia.</p>
         </div>
       </div>
     </footer>
