@@ -79,8 +79,8 @@ export const mockFAQs: FAQ[] = [
     respuesta: "Los aceites esenciales son extractos concentrados de plantas con propiedades aromáticas y terapéuticas. Los aceites vegetales son grasas prensadas de semillas o nueces, usados como base para diluir esenciales o como hidratantes."
   },
   {
-    pregunta: "¿Realizan envíos a todo México?",
-    respuesta: "Sí, realizamos envíos a toda la República Mexicana. Los tiempos de entrega varían según la zona, generalmente entre 3-7 días hábiles."
+    pregunta: "¿Realizan envíos a todo Colombia?",
+    respuesta: "Sí, realizamos envíos a toda Colombia. Los tiempos de entrega varían según la zona, generalmente entre 3-7 días hábiles."
   },
   {
     pregunta: "¿Los productos son 100% naturales?",
