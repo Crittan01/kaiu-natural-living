@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { MessageCircleHeart, Instagram, Mail, Facebook } from 'lucide-react';
+import { MessageCircleHeart, Instagram, Mail, Facebook, Music } from 'lucide-react';
 import kaiuLogo from '@/assets/kaiu-logo.jpg';
 
 export function Footer() {
@@ -76,6 +76,15 @@ export function Footer() {
               >
                 <Facebook className="w-4 h-4" />
                 Kaiu Natural Living
+              </a>
+              <a 
+                href="https://tiktok.com/@kaiu.oficial" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-accent transition-colors"
+              >
+                <Music className="w-4 h-4" />
+                TikTok
               </a>
             </div>
           </div>

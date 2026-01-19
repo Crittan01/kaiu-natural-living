@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Leaf, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import heroBg from '@/assets/hero-bg.jpg';
+import heroBg from '@/assets/kaiu-logo.jpg';
 
 export function HeroSection() {
   return (
