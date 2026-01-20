@@ -38,8 +38,8 @@ export function CategoriesSection() {
           </p>
         </motion.div>
 
-        {/* Categories Grid */}
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        {/* Categories Grid - Mobile Compact */}
+        <div className="grid grid-cols-2 gap-4 max-w-4xl mx-auto">
           {categories.map((category, index) => (
             <motion.div
               key={category.name}
@@ -50,15 +50,15 @@ export function CategoriesSection() {
             >
               <Link
                 to={category.href}
-                className={`block p-8 rounded-3xl bg-gradient-to-br ${category.color} border border-border/50 hover:shadow-card transition-all duration-500 group`}
+                className={`block p-4 md:p-8 rounded-2xl md:rounded-3xl bg-gradient-to-br ${category.color} border border-border/50 hover:shadow-card transition-all duration-500 group h-full`}
               >
-                <div className="w-14 h-14 rounded-2xl bg-card flex items-center justify-center shadow-soft mb-6 group-hover:scale-110 transition-transform">
-                  <category.icon className="w-7 h-7 text-primary" />
+                <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-card flex items-center justify-center shadow-soft mb-3 md:mb-6 group-hover:scale-110 transition-transform">
+                  <category.icon className="w-5 h-5 md:w-7 md:h-7 text-primary" />
                 </div>
-                <h3 className="font-display text-2xl font-semibold text-foreground">
+                <h3 className="font-display text-lg md:text-2xl font-semibold text-foreground leading-tight">
                   {category.name}
                 </h3>
-                <p className="mt-2 text-muted-foreground">
+                <p className="mt-1 md:mt-2 text-xs md:text-base text-muted-foreground line-clamp-2 md:line-clamp-none">
                   {category.description}
                 </p>
               </Link>

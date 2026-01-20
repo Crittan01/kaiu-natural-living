@@ -26,10 +26,10 @@ export function FeaturedProducts() {
           </p>
         </motion.div>
 
-        {/* Products Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Products List - Mobile Compact */}
+        <div className="flex flex-col gap-4 max-w-2xl mx-auto">
           {featuredProducts.map((product) => (
-            <ProductCard key={product.nombre} product={product} />
+            <ProductCard key={product.nombre} product={product} layout="list" />
           ))}
         </div>
 

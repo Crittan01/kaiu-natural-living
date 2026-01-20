@@ -26,10 +26,25 @@ export function RitualsPreview() {
           </p>
         </motion.div>
 
-        {/* Rituals Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Rituals List - Mobile Compact */}
+        <div className="flex flex-col gap-4 max-w-2xl mx-auto">
           {previewRituals.map((ritual, index) => (
-            <RitualCard key={ritual.titulo} ritual={ritual} index={index} />
+             <Link 
+                to={`/rituales#${ritual.titulo.toLowerCase().replace(/\s+/g, '-')}`} 
+                key={ritual.titulo}
+                className="flex gap-4 p-3 bg-secondary/10 rounded-2xl items-center hover:bg-secondary/20 transition-colors"
+             >
+                <div className="w-20 h-20 shrink-0 rounded-xl overflow-hidden">
+                    <img src={ritual.imagen_url} alt={ritual.titulo} className="w-full h-full object-cover" />
+                </div>
+                <div>
+                     <h3 className="font-display font-bold text-foreground text-lg">{ritual.titulo}</h3>
+                     <p className="text-sm text-muted-foreground line-clamp-2 leading-snug">{ritual.resumen}</p>
+                     <span className="text-xs font-medium text-primary mt-1 inline-flex items-center">
+                        Ver ritual <ArrowRight className="w-3 h-3 ml-1" />
+                     </span>
+                </div>
+             </Link>
           ))}
         </div>
 
