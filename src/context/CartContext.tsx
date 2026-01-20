@@ -92,13 +92,17 @@ export function CartProvider({ children }: CartProviderProps) {
   };
 
   const getSubtotal = () => {
-    // Note: This is a simplified calculation
-    // In a real implementation, you would have prices in the Product type
+    // TODO: Calculate actual subtotal when Product interface includes price
+    // Current Product type doesn't have a price field
+    // When Venndelo integration is active, products will have pricing via VenndeloProduct
+    // For now, return 0 as prices are managed externally (Mercado Libre links)
     return 0;
   };
 
   const getTotal = () => {
-    // Note: This would include tax, shipping, etc.
+    // TODO: Calculate total including tax, shipping when pricing is available
+    // This would be: getSubtotal() + tax + shipping - discounts
+    // Currently not implemented as Product type doesn't include price
     return getSubtotal();
   };
 

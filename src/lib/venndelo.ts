@@ -307,37 +307,83 @@ export interface WebhookEvent {
 
 /**
  * Verify webhook signature for security
+ * @param payload - The raw request body as string
+ * @param signature - The signature from the webhook header
+ * @param secret - The webhook secret key
+ * @returns boolean indicating if signature is valid
+ * 
+ * NOTE: This is a placeholder implementation. Actual implementation should:
+ * 1. Use HMAC-SHA256 to compute expected signature
+ * 2. Compare with provided signature using constant-time comparison
+ * 3. Refer to Venndelo's webhook documentation for their specific algorithm
+ * 
+ * Example implementation (requires crypto library):
+ * ```
+ * import { createHmac, timingSafeEqual } from 'crypto';
+ * 
+ * const expectedSignature = createHmac('sha256', secret)
+ *   .update(payload)
+ *   .digest('hex');
+ * 
+ * return timingSafeEqual(
+ *   Buffer.from(signature),
+ *   Buffer.from(expectedSignature)
+ * );
+ * ```
  */
 export function verifyWebhookSignature(
   payload: string,
   signature: string,
   secret: string
 ): boolean {
-  // Implementation would depend on Venndelo's webhook signature algorithm
-  // Typically using HMAC-SHA256
-  // This is a placeholder - actual implementation needed based on Venndelo docs
-  return true;
+  // TODO: Implement proper HMAC-SHA256 signature verification
+  // For now, reject all webhooks for security
+  console.warn('Webhook signature verification not implemented - rejecting request');
+  return false;
 }
 
 /**
  * Handle webhook events
+ * 
+ * NOTE: This is a placeholder implementation that only logs events.
+ * Production implementation should:
+ * 1. Invalidate React Query cache for affected resources
+ * 2. Trigger notifications or alerts
+ * 3. Update application state
+ * 4. Handle error cases
+ * 
+ * Example production implementation:
+ * ```
+ * import { queryClient } from '@/App';
+ * import { toast } from 'sonner';
+ * 
+ * switch (event.event) {
+ *   case 'order.created':
+ *     queryClient.invalidateQueries({ queryKey: ['venndelo-orders'] });
+ *     toast.info('New order received');
+ *     break;
+ *   // ... handle other events
+ * }
+ * ```
  */
 export async function handleWebhook(event: WebhookEvent): Promise<void> {
+  // TODO: Implement proper webhook event handling
+  // Current implementation only logs for development/debugging
   switch (event.event) {
     case 'order.created':
-      console.log('New order created:', event.data);
+      console.log('Webhook: New order created:', event.data);
       break;
     case 'order.updated':
-      console.log('Order updated:', event.data);
+      console.log('Webhook: Order updated:', event.data);
       break;
     case 'payment.completed':
-      console.log('Payment completed:', event.data);
+      console.log('Webhook: Payment completed:', event.data);
       break;
     case 'inventory.low_stock':
-      console.log('Low stock alert:', event.data);
+      console.log('Webhook: Low stock alert:', event.data);
       break;
     default:
-      console.log('Unknown webhook event:', event.event);
+      console.log('Webhook: Unknown event:', event.event);
   }
 }
 

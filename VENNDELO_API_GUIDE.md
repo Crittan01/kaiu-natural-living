@@ -437,6 +437,8 @@ function CartSidebar() {
 }
 ```
 
+**Nota sobre precios**: El tipo `Product` actual no incluye campos de precio ya que los productos actuales se venden a través de enlaces de Mercado Libre. Cuando se migre completamente a Venndelo, los productos tendrán precios y las funciones `getSubtotal()` y `getTotal()` se implementarán completamente.
+
 ## Mejores Prácticas
 
 ### 1. Manejo de Errores
@@ -667,6 +669,94 @@ const { data, error } = useQuery({
     return Math.min(1000 * 2 ** attemptIndex, 30000);
   },
 });
+```
+
+## Seguridad
+
+### Protección de Credenciales
+
+**IMPORTANTE**: Nunca expongas las credenciales de API en el código del cliente.
+
+```typescript
+// ❌ NO HACER - Expone credenciales en el bundle del cliente
+const API_KEY = 'vnd_live_xxxxxxxx';
+
+// ✅ HACER - Usar variables de entorno
+const API_KEY = import.meta.env.VITE_VENNDELO_API_KEY;
+```
+
+Las variables `VITE_*` están disponibles en el cliente, por lo que:
+- Solo úsalas para operaciones de lectura pública
+- Para operaciones sensibles (crear pedidos, pagos), usa un backend proxy
+- Considera implementar un servidor intermedio para operaciones críticas
+
+### Implementación de Backend Proxy (Recomendado)
+
+Para producción, implementa un backend que maneje:
+
+```typescript
+// Backend Node.js/Express
+import { createOrder } from './venndelo-server'; // No expuesto al cliente
+
+app.post('/api/orders', authenticate, async (req, res) => {
+  // Validar datos del cliente
+  const orderData = validateOrder(req.body);
+  
+  // Usar credenciales del servidor (no del cliente)
+  const result = await createOrder(orderData);
+  
+  res.json(result);
+});
+```
+
+### Webhooks - Verificación de Firma
+
+La función `verifyWebhookSignature` actualmente rechaza todas las peticiones por seguridad. Antes de usar webhooks en producción:
+
+1. Consulta la documentación de Venndelo sobre su algoritmo de firma
+2. Implementa verificación HMAC-SHA256 adecuada
+3. Usa comparación de tiempo constante para prevenir timing attacks
+
+```typescript
+// Ejemplo de implementación segura (requiere Node.js crypto)
+import { createHmac, timingSafeEqual } from 'crypto';
+
+function verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {
+  const expectedSignature = createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
+  
+  return timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expectedSignature)
+  );
+}
+```
+
+### Validación de Datos
+
+Siempre valida datos antes de enviarlos a la API:
+
+```typescript
+import { z } from 'zod';
+
+const orderSchema = z.object({
+  customer: z.object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    phone: z.string().regex(/^\+?[1-9]\d{1,14}$/),
+  }),
+  items: z.array(z.object({
+    productId: z.string(),
+    quantity: z.number().positive(),
+    price: z.number().positive(),
+  })).min(1),
+  total: z.number().positive(),
+});
+
+// Validar antes de enviar
+const validatedOrder = orderSchema.parse(orderData);
+await createOrder(validatedOrder);
 ```
 
 ## Recursos Adicionales
