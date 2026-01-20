@@ -1,4 +1,4 @@
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, Trash2 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +15,7 @@ import { Link } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function CartSheet() {
-  const { items, cartTotal, itemCount } = useCart();
+  const { items, cartTotal, itemCount, clearCart } = useCart();
 
   return (
     <Sheet>
@@ -30,11 +30,22 @@ export function CartSheet() {
         </button>
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md flex flex-col">
-        <SheetHeader className="border-b pb-4">
+        <SheetHeader className="border-b pb-4 flex flex-row items-center justify-between">
           <SheetTitle className="flex items-center gap-2">
             <ShoppingBag className="w-5 h-5" />
-            Tu Bolsa de Compras
+            Tu Bolsa
           </SheetTitle>
+          {items.length > 0 && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-muted-foreground hover:text-destructive text-xs h-8 px-2"
+              onClick={clearCart}
+            >
+              <Trash2 className="w-3 h-3 mr-1" />
+              Vaciar
+            </Button>
+          )}
         </SheetHeader>
 
         {items.length > 0 ? (
