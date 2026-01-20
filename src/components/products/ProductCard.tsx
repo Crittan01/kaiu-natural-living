@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
-import { Product } from '@/lib/types';
+import { Product, Variant } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, ExternalLink, Heart, Eye } from 'lucide-react';
+import { MessageCircle, ExternalLink, Heart, Eye, ShoppingBag } from 'lucide-react';
+import { useCart } from '@/context/CartContext';
 import {
   Dialog,
   DialogContent,
@@ -19,18 +20,27 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const [selectedVariant, setSelectedVariant] = useState(
-    product.variantes.split(',')[0]
+  const [selectedVariant, setSelectedVariant] = useState<Variant>(
+    product.variantes[0]
   );
   const [isExpanded, setIsExpanded] = useState(false);
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const { addToCart } = useCart();
   const isSaved = isInWishlist(product.id);
 
   const benefits = product.beneficios.split(',');
-  const variants = product.variantes.split(',');
+
+  // Keep selectedVariant in sync if props change (though typically static)
+  // Not strictly necessary if product doesn't change, but good practice
+  useEffect(() => {
+    if (product.variantes.length > 0) {
+      setSelectedVariant(product.variantes[0]);
+    }
+  }, [product]);
+
 
   const handleWhatsApp = () => {
-    const message = `¡Hola! Quiero comprar ${product.nombre} en tamaño ${selectedVariant}.`;
+    const message = `¡Hola! Quiero comprar ${product.nombre} en tamaño ${selectedVariant.nombre}.`;
     window.open(
       `https://wa.me/521234567890?text=${encodeURIComponent(message)}`,
       '_blank'
@@ -38,7 +48,7 @@ export function ProductCard({ product }: ProductCardProps) {
   };
 
   const handleSave = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent opening Quick View if clicking heart
+    e.stopPropagation(); 
     if (isSaved) {
       removeFromWishlist(product.id);
     } else {
@@ -48,7 +58,6 @@ export function ProductCard({ product }: ProductCardProps) {
 
   const QuickViewContent = () => (
     <div className="grid md:grid-cols-2 h-[80vh] md:h-auto">
-      {/* Modal Image */}
       <div className="relative h-64 md:h-full bg-secondary/20">
         <img
           src={product.imagen_url}
@@ -57,7 +66,6 @@ export function ProductCard({ product }: ProductCardProps) {
         />
       </div>
 
-      {/* Modal Content */}
       <ScrollArea className="h-full max-h-[calc(80vh-2rem)] md:max-h-[600px]">
         <div className="p-6 md:p-8 flex flex-col gap-6">
           <div>
@@ -87,25 +95,37 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
 
           <div className="space-y-4">
-            <h4 className="font-semibold text-foreground">Variantes Disponibles</h4>
+            <h4 className="font-semibold text-foreground">Selecciona Tamaño</h4>
             <div className="flex gap-2">
-              {variants.map((variant) => (
+              {product.variantes.map((variant) => (
                 <button
-                  key={variant}
-                  onClick={() => setSelectedVariant(variant.trim())}
+                  key={variant.id}
+                  onClick={() => setSelectedVariant(variant)}
                   className={`px-4 py-2 text-sm font-medium rounded-full border transition-all ${
-                    selectedVariant === variant.trim()
+                    selectedVariant.id === variant.id
                       ? 'border-primary bg-primary text-primary-foreground shadow-md'
                       : 'border-border text-foreground hover:border-primary hover:bg-primary/5'
                   }`}
                 >
-                  {variant.trim()}
+                  {variant.nombre} - ${variant.precio.toLocaleString()}
                 </button>
               ))}
             </div>
           </div>
+          
+           <div className="mt-4">
+            <p className="text-2xl font-bold text-primary">
+               ${selectedVariant.precio.toLocaleString()}
+            </p>
+           </div>
 
-          <div className="flex pt-4 border-t border-border mt-auto justify-end">
+          <div className="flex pt-4 border-t border-border mt-auto justify-end gap-2">
+              <Button 
+                className="flex-1"
+                onClick={() => addToCart(product, selectedVariant)}
+              >
+                Agregar al Carrito
+              </Button>
              <DialogClose asChild>
               <Button variant="outline">
                 Cerrar
@@ -125,7 +145,6 @@ export function ProductCard({ product }: ProductCardProps) {
       viewport={{ once: true }}
       transition={{ duration: 0.5 }}
     >
-      {/* Image */}
       <div className="relative aspect-square overflow-hidden">
         <img
           src={product.imagen_url}
@@ -143,7 +162,6 @@ export function ProductCard({ product }: ProductCardProps) {
           />
         </button>
         
-        {/* Quick View Trigger on Image */}
         <Dialog>
           <DialogTrigger asChild>
             <button
@@ -159,19 +177,15 @@ export function ProductCard({ product }: ProductCardProps) {
         </Dialog>
       </div>
 
-      {/* Content */}
       <div className="p-5">
-        {/* Category */}
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           {product.categoria}
         </span>
 
-        {/* Name */}
         <h3 className="mt-2 font-display text-xl font-semibold text-foreground">
           {product.nombre}
         </h3>
 
-        {/* Benefits */}
         <div className="mt-3 flex flex-wrap gap-2">
           {benefits.map((benefit) => (
             <span key={benefit} className="tag-benefit">
@@ -180,7 +194,6 @@ export function ProductCard({ product }: ProductCardProps) {
           ))}
         </div>
 
-        {/* Description */}
         <div className="mt-3">
           <p className={`text-sm text-muted-foreground transition-all duration-300 ${
             isExpanded ? '' : 'line-clamp-2'
@@ -206,43 +219,56 @@ export function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
 
-        {/* Variants */}
-        <div className="mt-4 flex gap-2">
-          {variants.map((variant) => (
-            <button
-              key={variant}
-              onClick={() => setSelectedVariant(variant.trim())}
-              className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
-                selectedVariant === variant.trim()
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border text-foreground hover:border-primary'
-              }`}
-            >
-              {variant.trim()}
-            </button>
-          ))}
+
+        {/* Price and Variants Row */}
+        <div className="mt-4 flex flex-col gap-3">
+          <div className="flex items-baseline justify-between">
+             <div className="flex items-baseline gap-2">
+              <span className="text-lg font-bold text-foreground">
+                ${selectedVariant.precio.toLocaleString()}
+              </span>
+              {selectedVariant.precio_antes && (
+                <span className="text-sm text-muted-foreground line-through decoration-destructive/50">
+                  ${selectedVariant.precio_antes.toLocaleString()}
+                </span>
+              )}
+            </div>
+            
+             <div className="flex gap-1">
+              {product.variantes.map((variant) => (
+                <button
+                  key={variant.id}
+                  onClick={() => setSelectedVariant(variant)}
+                  className={`px-2 py-1 text-[10px] font-medium rounded-full border transition-colors ${
+                    selectedVariant.id === variant.id
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border text-foreground hover:border-primary'
+                  }`}
+                >
+                  {variant.nombre}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Actions */}
         <div className="mt-5 flex gap-2">
           <Button
-            variant="whatsapp"
+            variant="default" 
             size="sm"
-            className="flex-1"
-            onClick={handleWhatsApp}
+            className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => addToCart(product, selectedVariant)}
           >
-            <MessageCircle className="w-4 h-4" />
-            Pedir
+            <ShoppingBag className="w-4 h-4 mr-2" />
+            Agregar
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <a
-              href={product.enlace_ml}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Tienda
-            </a>
+          <Button variant="outline" size="icon" onClick={handleSave} title={isSaved ? "Quitar de lista" : "Guardar para después"}>
+             <Heart
+              className={`w-4 h-4 transition-colors ${
+                isSaved ? 'fill-accent text-accent' : 'text-muted-foreground'
+              }`}
+            />
           </Button>
         </div>
       </div>

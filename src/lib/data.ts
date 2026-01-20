@@ -11,8 +11,14 @@ export const mockProducts: Product[] = [
     id: 1,
     nombre: "Aceite Esencial de Lavanda",
     categoria: "Aceites Esenciales",
+    precio: 25000,
+    precio_antes: 28000, 
     beneficios: "relajación,sueño,calma",
-    variantes: "10ml,30ml,100ml",
+    variantes: [
+      { id: "10ml", nombre: "10ml", precio: 25000, precio_antes: 28000, sku: "ACE-LAV-10ML" },
+      { id: "30ml", nombre: "30ml", precio: 60000, precio_antes: 75000, sku: "ACE-LAV-30ML" },
+      { id: "100ml", nombre: "100ml", precio: 180000, sku: "ACE-LAV-100ML" }
+    ],
     imagen_url: productLavanda,
     enlace_ml: "https://bit.ly/kaiu-lavanda",
     descripcion: "Aceite 100% puro, ideal para difusores y masajes relajantes. Destilado de lavanda orgánica francesa."
@@ -21,8 +27,12 @@ export const mockProducts: Product[] = [
     id: 2,
     nombre: "Aceite Vegetal de Argán",
     categoria: "Aceites Vegetales",
+    precio: 55000,
     beneficios: "hidratación,cabello,piel",
-    variantes: "30ml,100ml",
+    variantes: [
+      { id: "30ml", nombre: "30ml", precio: 55000, sku: "ACE-ARG-30ML" },
+      { id: "100ml", nombre: "100ml", precio: 150000, sku: "ACE-ARG-100ML" }
+    ],
     imagen_url: productArgan,
     enlace_ml: "https://bit.ly/kaiu-argan",
     descripcion: "Rico en vitamina E, revitaliza piel y cabello. Prensado en frío de nueces de argán marroquí."
@@ -31,8 +41,12 @@ export const mockProducts: Product[] = [
     id: 3,
     nombre: "Aceite Esencial de Eucalipto",
     categoria: "Aceites Esenciales",
+    precio: 38000,
     beneficios: "respiración,frescura,energía",
-    variantes: "10ml,30ml",
+    variantes: [
+      { id: "10ml", nombre: "10ml", precio: 38000, sku: "ACE-EUC-10ML" },
+      { id: "30ml", nombre: "30ml", precio: 95000, sku: "ACE-EUC-30ML" }
+    ],
     imagen_url: productEucalipto,
     enlace_ml: "https://bit.ly/kaiu-eucalipto",
     descripcion: "Aceite purificante con aroma refrescante. Perfecto para limpiar el ambiente y despejar las vías respiratorias."
@@ -41,8 +55,12 @@ export const mockProducts: Product[] = [
     id: 4,
     nombre: "Aceite de Jojoba Dorado",
     categoria: "Aceites Vegetales",
+    precio: 42000,
     beneficios: "hidratación,antienvejecimiento,piel",
-    variantes: "30ml,100ml",
+    variantes: [
+      { id: "30ml", nombre: "30ml", precio: 42000, sku: "ACE-JOJ-30ML" },
+      { id: "100ml", nombre: "100ml", precio: 110000, sku: "ACE-JOJ-100ML" }
+    ],
     imagen_url: productJojoba,
     enlace_ml: "https://bit.ly/kaiu-jojoba",
     descripcion: "Aceite portador ideal para mezclar con esenciales. Nutre profundamente sin dejar sensación grasa."

@@ -1,9 +1,20 @@
+export interface Variant {
+  id: string;
+  nombre: string; // "10ml"
+  precio: number;
+  precio_antes?: number;
+  sku: string;
+}
+
 export interface Product {
   id: number;
   nombre: string;
   categoria: string;
   beneficios: string;
-  variantes: string;
+  // Main/Default price for display "From $X" or default variant
+  precio: number; 
+  precio_antes?: number;
+  variantes: Variant[]; // Array of structured objects
   imagen_url: string;
   enlace_ml: string;
   descripcion: string;

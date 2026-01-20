@@ -1,5 +1,13 @@
 import { Product, Ritual } from './types';
 
+// Normalizes text by removing accents and converting to lowercase
+export function normalizeText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 /**
  * Calculates the Levenshtein distance between two strings.
  * @param a First string
@@ -39,65 +47,73 @@ export function levenshteinDistance(a: string, b: string): number {
   return matrix[bn][an];
 }
 
-/**
- * Filters products based on a query using fuzzy matching.
- * Checks name, category, and benefits.
- */
 export function filterProductsByQuery(products: Product[], query: string): Product[] {
   if (!query) return products;
-  
-  const normalizedQuery = query.toLowerCase().trim();
-  const maxDistance = 3; // Allow up to 3 errors
-  
+
+  const normalizedQuery = normalizeText(query);
+  const queryTokens = normalizedQuery.split(/\s+/).filter(t => t.length > 0);
+
   return products.filter((product) => {
-    // Check direct includes (fast path)
-    if (
-      product.nombre.toLowerCase().includes(normalizedQuery) ||
-      product.categoria.toLowerCase().includes(normalizedQuery) ||
-      product.beneficios.toLowerCase().includes(normalizedQuery)
-    ) {
-      return true;
-    }
-    
-    // Check fuzzy match on Name (words)
-    const nameWords = product.nombre.toLowerCase().split(' ');
-    const isFuzzyMatch = nameWords.some(word => {
-      // Only check overlapping length to avoid high distance on short query vs long word
-      if (Math.abs(word.length - normalizedQuery.length) > maxDistance) return false;
-      return levenshteinDistance(word, normalizedQuery) <= maxDistance;
+    const textToSearch = normalizeText(
+      `${product.nombre} ${product.categoria} ${product.beneficios} ${product.descripcion}`
+    );
+
+    // 1. Exact Includes (Fastest & Strongest)
+    if (textToSearch.includes(normalizedQuery)) return true;
+
+    // 2. Token Matching (supports "aceite lavanda" finding "Aceite Esencial de Lavanda")
+    // Every word typed must be somewhat present in the product text
+    const allTokensMatch = queryTokens.every((token) => {
+      // Direct match
+      if (textToSearch.includes(token)) return true;
+
+      // Fuzzy match per token (allows typos like "labanda")
+      // We check if the token appears as a "close enough" substring in the text
+      const tokenLen = token.length;
+      if (tokenLen < 3) return false; // Don't fuzzy match very short words (de, el, la)
+
+      // Split product text into words to compare against the token
+      const productWords = textToSearch.split(/\s+/);
+      return productWords.some(word => {
+        // Allow distance of 1 for 3-5 chars, 2 for longer
+        const maxDist = tokenLen > 5 ? 2 : 1;
+        
+        // Optimization: Don't compare completely different length words
+        if (Math.abs(word.length - tokenLen) > maxDist) return false;
+
+        return levenshteinDistance(token, word) <= maxDist;
+      });
     });
-    
-    return isFuzzyMatch;
+
+    return allTokensMatch;
   });
 }
 
-/**
- * Filters rituals based on a query using fuzzy matching.
- * Checks title, summary, and content.
- */
 export function filterRitualsByQuery(rituals: Ritual[], query: string): Ritual[] {
   if (!query) return rituals;
-  
-  const normalizedQuery = query.toLowerCase().trim();
-  const maxDistance = 3; // Allow up to 3 errors
-  
+
+  const normalizedQuery = normalizeText(query);
+  const queryTokens = normalizedQuery.split(/\s+/).filter(t => t.length > 0);
+
   return rituals.filter((ritual) => {
-    // Check direct includes (fast path)
-    if (
-      ritual.titulo.toLowerCase().includes(normalizedQuery) ||
-      ritual.resumen.toLowerCase().includes(normalizedQuery) ||
-      ritual.contenido.toLowerCase().includes(normalizedQuery)
-    ) {
-      return true;
-    }
-    
-    // Check fuzzy match on Title (words)
-    const titleWords = ritual.titulo.toLowerCase().split(' ');
-    const isFuzzyMatch = titleWords.some(word => {
-      if (Math.abs(word.length - normalizedQuery.length) > maxDistance) return false;
-      return levenshteinDistance(word, normalizedQuery) <= maxDistance;
+    const textToSearch = normalizeText(
+      `${ritual.titulo} ${ritual.resumen} ${ritual.contenido}`
+    );
+
+    if (textToSearch.includes(normalizedQuery)) return true;
+
+    return queryTokens.every((token) => {
+      if (textToSearch.includes(token)) return true;
+
+      const tokenLen = token.length;
+      if (tokenLen < 3) return false;
+
+      const words = textToSearch.split(/\s+/);
+      return words.some(word => {
+        const maxDist = tokenLen > 5 ? 2 : 1;
+        if (Math.abs(word.length - tokenLen) > maxDist) return false;
+        return levenshteinDistance(token, word) <= maxDist;
+      });
     });
-    
-    return isFuzzyMatch;
   });
 }

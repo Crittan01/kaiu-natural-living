@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Leaf, Heart } from 'lucide-react';
 import { useWishlist } from '@/context/WishlistContext';
+import { CartSheet } from '@/components/cart/CartSheet';
 import { Button } from '@/components/ui/button';
 import kaiuLogo from '@/assets/kaiu-logo.jpg';
 
@@ -50,7 +51,7 @@ export function Header() {
               </Link>
             ))}
             
-            <Link to="/wishlist" className="relative group" aria-label="Lista de Deseos">
+            <Link to="/wishlist" className="relative group mr-4" aria-label="Lista de Deseos">
               <Heart className={`w-6 h-6 transition-colors ${location.pathname === '/wishlist' ? 'text-accent fill-accent' : 'text-foreground group-hover:text-accent'}`} />
               {items.length > 0 && (
                 <span className="absolute -top-2 -right-2 bg-accent text-accent-foreground text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shadow-sm">
@@ -58,6 +59,8 @@ export function Header() {
                 </span>
               )}
             </Link>
+            
+            <CartSheet />
           </div>
 
           {/* CTA Button - Desktop */}
@@ -74,15 +77,18 @@ export function Header() {
             </Button>
           </div>
 
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </Button>
+          
+          <div className="flex md:hidden items-center gap-4">
+            <CartSheet />
+            {/* Mobile Menu Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </Button>
+          </div>
         </div>
       </nav>
 
