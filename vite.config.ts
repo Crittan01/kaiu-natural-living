@@ -52,6 +52,18 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ["**/*.{js,css,html,ico,png,jpg,jpeg,svg,webp}"],
         runtimeCaching: [
           {
+            urlPattern: /^https:\/\/api\.venndelo\.com\/.*/i,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "venndelo-api-cache",
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 5, // 5 minutes
+              },
+              networkTimeoutSeconds: 10,
+            },
+          },
+          {
             urlPattern: /^https:\/\/sheetdb\.io\/api\/.*/i,
             handler: "NetworkFirst",
             options: {
