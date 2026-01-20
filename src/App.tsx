@@ -9,6 +9,7 @@ import ScrollToTop from "./components/ScrollToTop";
 import Index from "./pages/Index";
 import Catalogo from "./pages/Catalogo";
 import Rituales from "./pages/Rituales";
+import Kits from "./pages/Kits";
 import FAQ from "./pages/FAQ";
 import Wishlist from "./pages/Wishlist";
 import Install from "./pages/Install";
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/catalogo" element={<Catalogo />} />
               <Route path="/rituales" element={<Rituales />} />
+              <Route path="/kits" element={<Kits />} />
               <Route path="/faq" element={<FAQ />} />
               <Route path="/wishlist" element={<Wishlist />} />
               <Route path="/install" element={<Install />} />

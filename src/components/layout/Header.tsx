@@ -11,6 +11,7 @@ const navLinks = [
   { href: '/', label: 'Inicio' },
   { href: '/catalogo', label: 'Catálogo' },
   { href: '/rituales', label: 'Rituales' },
+  { href: '/kits', label: 'Kits' },
   { href: '/faq', label: 'Preguntas' },
 ];
 

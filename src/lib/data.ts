@@ -64,6 +64,20 @@ export const mockProducts: Product[] = [
     imagen_url: productJojoba,
     enlace_ml: "https://bit.ly/kaiu-jojoba",
     descripcion: "Aceite portador ideal para mezclar con esenciales. Nutre profundamente sin dejar sensación grasa."
+  },
+  {
+    id: 5,
+    nombre: "Kit Sueño Profundo",
+    categoria: "Kits",
+    precio: 65000,
+    precio_antes: 75000,
+    beneficios: "regalo,sueño,ahorro",
+    variantes: [
+      { id: "unico", nombre: "Kit Estándar", precio: 65000, precio_antes: 75000, sku: "KIT-SUENO-01" }
+    ],
+    imagen_url: productLavanda, // Placeholder
+    enlace_ml: "https://bit.ly/kaiu-kit-sueno",
+    descripcion: "El regalo perfecto para el descanso. Incluye: 1 Aceite Esencial de Lavanda + 1 Aceite de Eucalipto."
   }
 ];
 
