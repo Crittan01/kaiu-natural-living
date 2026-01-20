@@ -25,7 +25,7 @@ export interface Ritual {
   resumen: string;
   contenido: string;
   imagen_url: string;
-  productos_relacionados: string;
+  productos_relacionados: string[];
 }
 
 export interface FAQ {

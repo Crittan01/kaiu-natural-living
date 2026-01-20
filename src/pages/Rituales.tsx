@@ -2,11 +2,19 @@ import { motion } from 'framer-motion';
 import { Layout } from '@/components/layout/Layout';
 import { mockRituals, mockProducts } from '@/lib/data';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Leaf, ArrowRight, Search, X } from 'lucide-react';
+import { MessageCircle, Leaf, ArrowRight, Search, X, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { filterRitualsByQuery } from '@/lib/searchUtils';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { RitualProductRow } from '@/components/products/RitualProductRow';
 
 const Rituales = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -112,32 +120,38 @@ const Rituales = () => {
                       </p>
                     </div>
 
-                    {/* Related Product */}
-                    {ritual.productos_relacionados && (
+                    {/* Related Products - Preview Modal */}
+                    {ritual.productos_relacionados && ritual.productos_relacionados.length > 0 && (
                       <div className="mt-8">
-                        <Link
-                          to={`/catalogo?categoria=${encodeURIComponent(
-                            getRelatedProduct(ritual.productos_relacionados)?.categoria || ''
-                          )}`}
-                          className="group flex items-center gap-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-all hover:shadow-sm"
-                        >
-                          <img
-                            src={getRelatedProduct(ritual.productos_relacionados)?.imagen_url}
-                            alt={ritual.productos_relacionados}
-                            className="w-16 h-16 rounded-xl object-cover shadow-sm"
-                          />
-                          <div className="flex-1">
-                            <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
-                              Ideal para este ritual
-                            </p>
-                            <h4 className="font-display font-bold text-lg text-foreground group-hover:text-primary transition-colors">
-                              {ritual.productos_relacionados}
-                            </h4>
-                          </div>
-                          <div className="w-10 h-10 rounded-full bg-background flex items-center justify-center text-primary shadow-sm group-hover:scale-110 transition-transform">
-                            <ArrowRight className="w-5 h-5" />
-                          </div>
-                        </Link>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all">
+                              <Sparkles className="w-4 h-4 mr-2" />
+                              Ver productos del ritual
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-md bg-white/95 backdrop-blur-md border-primary/10">
+                            <DialogHeader>
+                              <DialogTitle className="font-display text-2xl text-center text-primary mb-2">
+                                Esenciales para tu Ritual
+                              </DialogTitle>
+                              <p className="text-center text-muted-foreground text-sm">
+                                Estos son los productos recomendados para la experiencia completa:
+                              </p>
+                            </DialogHeader>
+                            
+                            <div className="grid gap-4 py-4 mt-2">
+                              {ritual.productos_relacionados.map((productName) => {
+                                 const product = getRelatedProduct(productName);
+                                 if (!product) return null;
+                                 
+                                 return (
+                                   <RitualProductRow key={productName} product={product} />
+                                 );
+                              })}
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     )}
                   </div>
