@@ -26,6 +26,7 @@ export interface Ritual {
   contenido: string;
   imagen_url: string;
   productos_relacionados: string[];
+  tags: string[]; // For filtering (e.g., "Sueño", "Energía")
 }
 
 export interface FAQ {

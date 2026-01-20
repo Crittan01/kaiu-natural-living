@@ -18,10 +18,35 @@ import { RitualProductRow } from '@/components/products/RitualProductRow';
 
 const Rituales = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Get unique tags
+  const allTags = useMemo(() => {
+    const tags = new Set<string>();
+    mockRituals.forEach((r) => {
+      r.tags.forEach((t) => tags.add(t));
+    });
+    return [...tags].sort();
+  }, []);
 
   const filteredRituals = useMemo(() => {
-    return filterRitualsByQuery(mockRituals, searchQuery);
-  }, [searchQuery]);
+    // 1. Text Search
+    const searchFiltered = filterRitualsByQuery(mockRituals, searchQuery);
+
+    // 2. Tag Filter
+    return searchFiltered.filter((ritual) => {
+      if (selectedTags.length === 0) return true;
+      return selectedTags.some((tag) => ritual.tags.includes(tag));
+    });
+  }, [searchQuery, selectedTags]);
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag)
+        ? prev.filter((t) => t !== tag)
+        : [...prev, tag]
+    );
+  };
 
   const getRelatedProduct = (productName: string) => {
     return mockProducts.find((p) => 
@@ -49,29 +74,49 @@ const Rituales = () => {
             </p>
           </motion.div>
 
-          {/* Search Bar */}
+          {/* Search & Filters */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="max-w-md mx-auto mb-16 relative"
+            className="max-w-4xl mx-auto mb-16 space-y-6"
           >
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Buscar ritual (ej. Sueño, Energía...)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-10 rounded-full border-primary/20 focus:border-primary bg-background/50 backdrop-blur-sm"
-              />
-              {searchQuery && (
+            {/* Search Bar */}
+            <div className="max-w-md mx-auto relative">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Buscar ritual (ej. Sueño, Energía...)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 pr-10 rounded-full border-primary/20 focus:border-primary bg-background/50 backdrop-blur-sm"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Tags Filter */}
+            <div className="flex flex-wrap justify-center gap-2">
+              {allTags.map((tag) => (
                 <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className={`px-3 py-1 text-sm rounded-full transition-all ${
+                    selectedTags.includes(tag)
+                      ? 'bg-accent text-accent-foreground'
+                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  }`}
                 >
-                  <X className="w-4 h-4" />
+                  {tag}
                 </button>
-              )}
+              ))}
             </div>
           </motion.div>
 
@@ -163,7 +208,10 @@ const Rituales = () => {
                   No encontramos rituales que coincidan con tu búsqueda.
                 </p>
                 <button
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedTags([]);
+                  }}
                   className="mt-4 text-primary hover:text-accent transition-colors"
                 >
                   Ver todos los rituales

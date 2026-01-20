@@ -87,21 +87,24 @@ export const mockRituals: Ritual[] = [
     resumen: "Comienza tu día con intención y vitalidad",
     contenido: "Despierta tu cuerpo y mente con este ritual de 5 minutos. Coloca 3 gotas de aceite de eucalipto en tu difusor mientras preparas tu espacio. Respira profundamente tres veces, sintiendo cómo el aroma fresco llena tus pulmones. Aplica una gota de aceite de menta diluido en tus sienes para despertar tus sentidos.",
     imagen_url: ritualMorning,
-    productos_relacionados: ["Aceite Esencial de Eucalipto"]
+    productos_relacionados: ["Aceite Esencial de Eucalipto"],
+    tags: ["Energía", "Mañana", "Respiración"]
   },
   {
     titulo: "Ritual de Relajación Nocturna",
     resumen: "Prepara cuerpo y mente para un sueño reparador",
     contenido: "Una hora antes de dormir, prepara tu espacio de descanso. Difunde 4 gotas de lavanda y 2 de manzanilla. Aplica unas gotas de aceite de jojoba mezclado con lavanda en tus muñecas. Realiza respiraciones profundas mientras visualizas paz y tranquilidad.",
     imagen_url: ritualMorning,
-    productos_relacionados: ["Aceite Esencial de Lavanda", "Aceite de Jojoba Dorado"]
+    productos_relacionados: ["Aceite Esencial de Lavanda", "Aceite de Jojoba Dorado"],
+    tags: ["Sueño", "Relajación", "Noche"]
   },
   {
     titulo: "Ritual de Cuidado Capilar",
     resumen: "Nutre tu cabello con aceites naturales",
     contenido: "Calienta 2 cucharadas de aceite de argán entre tus palmas. Aplica desde medios hasta puntas en cabello seco. Masajea el cuero cabelludo con movimientos circulares durante 5 minutos. Deja actuar mínimo 30 minutos o toda la noche. Lava con tu shampoo habitual.",
     imagen_url: ritualMorning,
-    productos_relacionados: ["Aceite Vegetal de Argán"]
+    productos_relacionados: ["Aceite Vegetal de Argán"],
+    tags: ["Cabello", "Nutrición", "Belleza"]
   }
 ];
 
