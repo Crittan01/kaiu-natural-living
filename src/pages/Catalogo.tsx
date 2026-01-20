@@ -5,7 +5,7 @@ import { ProductCard } from '@/components/products/ProductCard';
 import { mockProducts } from '@/lib/data';
 import { filterProductsByQuery } from '@/lib/searchUtils';
 import { useSearchParams } from 'react-router-dom';
-import { Search, X } from 'lucide-react';
+import { Search, X, LayoutGrid, List } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 const Catalogo = () => {
@@ -15,6 +15,11 @@ const Catalogo = () => {
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  // Default to list on mobile (< 768px), grid on desktop
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => 
+    typeof window !== 'undefined' && window.innerWidth < 768 ? 'list' : 'grid'
+  );
+
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -106,30 +111,59 @@ const Catalogo = () => {
           </motion.div>
 
           {/* Filters */}
+          {/* Filters and Controls */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="mb-10 space-y-6"
           >
-            {/* Category Filter */}
-            <div className="flex flex-wrap justify-center gap-3">
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() =>
-                    setSelectedCategory(category === 'Todos' ? '' : category)
-                  }
-                  className={`px-5 py-2 rounded-full font-medium transition-all ${
-                    (category === 'Todos' && !selectedCategory) ||
-                    selectedCategory === category
-                      ? 'bg-primary text-primary-foreground shadow-soft'
-                      : 'bg-card text-foreground hover:bg-secondary border border-border'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                {/* Category Filter */}
+                <div className="flex flex-wrap justify-center gap-3">
+                {categories.map((category) => (
+                    <button
+                    key={category}
+                    onClick={() =>
+                        setSelectedCategory(category === 'Todos' ? '' : category)
+                    }
+                    className={`px-5 py-2 rounded-full font-medium transition-all ${
+                        (category === 'Todos' && !selectedCategory) ||
+                        selectedCategory === category
+                        ? 'bg-primary text-primary-foreground shadow-soft'
+                        : 'bg-card text-foreground hover:bg-secondary border border-border'
+                    }`}
+                    >
+                    {category}
+                    </button>
+                ))}
+                </div>
+
+                {/* View Toggle */}
+                <div className="flex items-center bg-card border border-border rounded-full p-1 shadow-sm">
+                    <button
+                        onClick={() => setViewMode('grid')}
+                        className={`p-2 rounded-full transition-all ${
+                            viewMode === 'grid' 
+                            ? 'bg-primary text-primary-foreground shadow-sm' 
+                            : 'text-muted-foreground hover:bg-secondary'
+                        }`}
+                        title="Vista Cuadrícula"
+                    >
+                        <LayoutGrid className="w-5 h-5" />
+                    </button>
+                    <button
+                         onClick={() => setViewMode('list')}
+                         className={`p-2 rounded-full transition-all ${
+                            viewMode === 'list' 
+                            ? 'bg-primary text-primary-foreground shadow-sm' 
+                            : 'text-muted-foreground hover:bg-secondary'
+                        }`}
+                         title="Vista Lista"
+                    >
+                        <List className="w-5 h-5" />
+                    </button>
+                </div>
             </div>
 
             {/* Benefits Filter */}
@@ -150,10 +184,14 @@ const Catalogo = () => {
             </div>
           </motion.div>
 
-          {/* Products Grid */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {/* Products Grid/List */}
+          <div className={`gap-6 ${
+              viewMode === 'grid' 
+              ? 'grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
+              : 'flex flex-col max-w-4xl mx-auto'
+          }`}>
             {filteredProducts.map((product) => (
-              <ProductCard key={product.nombre} product={product} />
+              <ProductCard key={product.nombre} product={product} layout={viewMode} />
             ))}
           </div>
 

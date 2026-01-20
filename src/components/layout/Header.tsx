@@ -80,6 +80,14 @@ export function Header() {
 
           
           <div className="flex md:hidden items-center gap-4">
+            <Link to="/wishlist" className="relative" aria-label="Lista de Deseos">
+              <Heart className={`w-6 h-6 transition-colors ${location.pathname === '/wishlist' ? 'text-accent fill-accent' : 'text-foreground'}`} />
+              {items.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-accent text-accent-foreground text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full shadow-sm">
+                  {items.length}
+                </span>
+              )}
+            </Link>
             <CartSheet />
             {/* Mobile Menu Button */}
             <Button
