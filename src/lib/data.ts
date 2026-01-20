@@ -100,22 +100,46 @@ export const mockFAQs: FAQ[] = [
   }
 ];
 
-// API functions for SheetDB integration
+// API functions for SheetDB and Venndelo integration
 const SHEETDB_BASE_URL = import.meta.env.VITE_SHEETDB_URL || '';
+const USE_VENNDELO = import.meta.env.VITE_USE_VENNDELO === 'true';
 
+/**
+ * Fetch products with priority: Venndelo > SheetDB > Mock Data
+ * This allows seamless migration from mock data to Venndelo
+ */
 export async function fetchProducts(): Promise<Product[]> {
-  if (!SHEETDB_BASE_URL) {
-    return mockProducts;
+  // Priority 1: Try Venndelo if configured
+  if (USE_VENNDELO) {
+    try {
+      const { fetchVenndeloProducts, convertFromVenndeloProduct, isVenndeloConfigured } = await import('./venndelo');
+      
+      if (isVenndeloConfigured()) {
+        const response = await fetchVenndeloProducts();
+        if (response.success && response.data) {
+          return response.data.map(convertFromVenndeloProduct);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching from Venndelo:', error);
+      // Continue to fallback options
+    }
+  }
+
+  // Priority 2: Try SheetDB if configured
+  if (SHEETDB_BASE_URL) {
+    try {
+      const response = await fetch(`${SHEETDB_BASE_URL}?sheet=catalogo`);
+      if (!response.ok) throw new Error('Failed to fetch products');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching from SheetDB:', error);
+      // Continue to fallback
+    }
   }
   
-  try {
-    const response = await fetch(`${SHEETDB_BASE_URL}?sheet=catalogo`);
-    if (!response.ok) throw new Error('Failed to fetch products');
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching products:', error);
-    return mockProducts;
-  }
+  // Priority 3: Return mock data
+  return mockProducts;
 }
 
 export async function fetchRituals(): Promise<Ritual[]> {
