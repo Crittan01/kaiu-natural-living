@@ -12,7 +12,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useWishlist } from '@/context/WishlistContext';
 
 interface ProductCardProps {
@@ -40,6 +40,56 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
   }, [product]);
 
 
+  // Grouping Logic for Variants (Roll-on vs Gotero)
+  const variantGroups = useMemo(() => {
+    const groups: Record<string, Variant[]> = {};
+    const types = new Set<string>();
+    
+    // Keywords to detect types
+    const keywords = [
+        { key: 'roll', label: 'Roll-on' },
+        { key: 'gotero', label: 'Gotero' },
+        { key: 'cuenta gotas', label: 'Gotero' },
+        { key: 'spray', label: 'Spray' },
+        { key: 'kit', label: 'Kit' },
+        { key: 'difusor', label: 'Difusor' }
+    ];
+
+    product.variantes.forEach(v => {
+        let type = 'Estándar';
+        const name = v.nombre.toLowerCase();
+        
+        for (const kw of keywords) {
+            if (name.includes(kw.key)) {
+                type = kw.label;
+                break;
+            }
+        }
+        
+        if (!groups[type]) groups[type] = [];
+        groups[type].push(v);
+        types.add(type);
+    });
+
+    // Check if we have multiple groups distinct from just "Estándar"
+    // If only "Estándar", we won't show labels
+    const isGrouped = types.size > 1 || (types.size === 1 && !types.has('Estándar'));
+    
+    return {
+        isGrouped,
+        // Sort types: Put "Estándar" last if exists, specific order otherwise
+        types: Array.from(types).sort(),
+        groups
+    };
+  }, [product.variantes]);
+
+  // Helper to remove redundancy in display name if grouped
+  // e.g. Group "Roll-on", variant "Roll-on 5ml" -> display "5ml"
+  const getCleanVariantName = (name: string, type: string) => {
+    if (type === 'Estándar') return name;
+    return name.replace(new RegExp(`${type}\\s*|-?\\s*`, 'i'), '').trim() || name;
+  };
+  
   const handleWhatsApp = () => {
     const message = `¡Hola! Quiero comprar ${product.nombre} en tamaño ${selectedVariant.nombre}.`;
     window.open(
@@ -100,20 +150,34 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
           </div>
 
           <div className="space-y-4">
-            <h4 className="font-semibold text-foreground">Selecciona Tamaño</h4>
-            <div className="flex gap-2">
-              {product.variantes.map((variant) => (
-                <button
-                  key={variant.id}
-                  onClick={() => setSelectedVariant(variant)}
-                  className={`px-4 py-2 text-sm font-medium rounded-full border transition-all ${
-                    selectedVariant.id === variant.id
-                      ? 'border-primary bg-primary text-primary-foreground shadow-md'
-                      : 'border-border text-foreground hover:border-primary hover:bg-primary/5'
-                  }`}
-                >
-                  {variant.nombre} - ${variant.precio.toLocaleString()}
-                </button>
+            <h4 className="font-semibold text-foreground">Selecciona Presentación</h4>
+            
+            {/* Grouped Display */}
+            <div className="space-y-3">
+              {variantGroups.types.map((type) => (
+                <div key={type} className="flex flex-col sm:flex-row sm:items-baseline gap-2">
+                   {variantGroups.isGrouped && (
+                       <span className="text-sm font-medium text-muted-foreground w-20 shrink-0">
+                         {type}:
+                       </span>
+                   )}
+                   <div className="flex flex-wrap gap-2">
+                       {variantGroups.groups[type].map(variant => (
+                           <button
+                             key={variant.id}
+                             onClick={() => setSelectedVariant(variant)}
+                             className={`px-3 py-1.5 text-sm font-medium rounded-full border transition-all ${
+                               selectedVariant.id === variant.id
+                                 ? 'border-primary bg-primary text-primary-foreground shadow-md'
+                                 : 'border-border text-foreground hover:border-primary hover:bg-primary/5'
+                             }`}
+                           >
+                             {variantGroups.isGrouped ? getCleanVariantName(variant.nombre, type) : variant.nombre} 
+                             {' '}- ${variant.precio.toLocaleString()}
+                           </button>
+                       ))}
+                   </div>
+                </div>
               ))}
             </div>
           </div>
@@ -202,20 +266,29 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
 
             <div className="mt-auto space-y-2 md:space-y-4">
                  {/* Variants - Compact on mobile */}
-                 <div className="flex flex-wrap gap-1.5 md:gap-2 items-center">
-                    <span className="text-xs md:text-sm text-muted-foreground mr-1 hidden sm:inline">Tamaño:</span>
-                    {product.variantes.map((variant) => (
-                        <button
-                        key={variant.id}
-                        onClick={() => setSelectedVariant(variant)}
-                        className={`px-2 py-0.5 md:px-3 md:py-1 text-[10px] md:text-xs font-medium rounded-full border transition-colors ${
-                            selectedVariant.id === variant.id
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border text-foreground hover:border-primary'
-                        }`}
-                        >
-                        {variant.nombre}
-                        </button>
+                 <div className="flex flex-col gap-1.5">
+                     {/* Grouped List Display */}
+                    {variantGroups.types.map((type) => (
+                        <div key={type} className="flex flex-wrap items-center gap-1.5">
+                        {variantGroups.isGrouped && (
+                            <span className="text-[10px] md:text-xs font-semibold text-muted-foreground mr-0.5">
+                                {type}:
+                            </span>
+                        )}
+                        {variantGroups.groups[type].map(variant => (
+                                <button
+                                key={variant.id}
+                                onClick={() => setSelectedVariant(variant)}
+                                className={`px-2 py-0.5 md:px-3 md:py-1 text-[10px] md:text-xs font-medium rounded-full border transition-colors ${
+                                    selectedVariant.id === variant.id
+                                    ? 'border-primary bg-primary text-primary-foreground'
+                                    : 'border-border text-foreground hover:border-primary'
+                                }`}
+                                >
+                                {variantGroups.isGrouped ? getCleanVariantName(variant.nombre, type) : variant.nombre}
+                                </button>
+                        ))}
+                        </div>
                     ))}
                  </div>
 
@@ -362,19 +435,29 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
               )}
             </div>
             
-             <div className="flex gap-1">
-              {product.variantes.map((variant) => (
-                <button
-                  key={variant.id}
-                  onClick={() => setSelectedVariant(variant)}
-                  className={`px-2 py-1 text-[10px] font-medium rounded-full border transition-colors ${
-                    selectedVariant.id === variant.id
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border text-foreground hover:border-primary'
-                  }`}
-                >
-                  {variant.nombre}
-                </button>
+            <div className="flex flex-col gap-1.5">
+              {/* Grouped List Display */}
+              {variantGroups.types.map((type) => (
+                <div key={type} className="flex flex-wrap items-center gap-1.5">
+                   {variantGroups.isGrouped && (
+                       <span className="text-[10px] font-semibold text-muted-foreground mr-0.5">
+                        {type}:
+                       </span>
+                   )}
+                   {variantGroups.groups[type].map(variant => (
+                        <button
+                          key={variant.id}
+                          onClick={() => setSelectedVariant(variant)}
+                          className={`px-2 py-0.5 text-[10px] font-medium rounded-full border transition-colors ${
+                            selectedVariant.id === variant.id
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border text-foreground hover:border-primary'
+                          }`}
+                        >
+                          {variantGroups.isGrouped ? getCleanVariantName(variant.nombre, type) : variant.nombre}
+                        </button>
+                   ))}
+                </div>
               ))}
             </div>
           </div>

@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Product, Variant } from '@/lib/types';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,42 @@ export function RitualProductRow({ product }: RitualProductRowProps) {
     addToCart(product, selectedVariant);
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 2000); // Visual feedback
+  };
+
+  // Grouping Logic (duplicated from ProductCard for self-containment)
+  const variantGroups = useMemo(() => {
+    const groups: Record<string, Variant[]> = {};
+    const types = new Set<string>();
+    const keywords = [
+        { key: 'roll', label: 'Roll-on' },
+        { key: 'gotero', label: 'Gotero' },
+        { key: 'cuenta gotas', label: 'Gotero' },
+        { key: 'spray', label: 'Spray' },
+         { key: 'kit', label: 'Kit' },
+        { key: 'difusor', label: 'Difusor' }
+    ];
+
+    product.variantes.forEach(v => {
+        let type = 'Estándar';
+        const name = v.nombre.toLowerCase();
+        for (const kw of keywords) {
+            if (name.includes(kw.key)) {
+                type = kw.label;
+                break;
+            }
+        }
+        if (!groups[type]) groups[type] = [];
+        groups[type].push(v);
+        types.add(type);
+    });
+
+    const isGrouped = types.size > 1 || (types.size === 1 && !types.has('Estándar'));
+    return { isGrouped, types: Array.from(types).sort(), groups };
+  }, [product.variantes]);
+
+  const getCleanVariantName = (name: string, type: string) => {
+    if (type === 'Estándar') return name;
+    return name.replace(new RegExp(`${type}\\s*|-?\\s*`, 'i'), '').trim() || name;
   };
 
   return (
@@ -58,23 +94,32 @@ export function RitualProductRow({ product }: RitualProductRowProps) {
         </div>
 
         {/* Variant Selector & Add Button Row */}
-        <div className="flex items-center gap-3 mt-auto">
-            {/* Simple Pill Selector for Variants */}
-             <div className="flex gap-1 bg-background p-1 rounded-lg border border-input">
-              {product.variantes.map((variant) => (
-                <button
-                  key={variant.id}
-                  onClick={() => setSelectedVariant(variant)}
-                  className={cn(
-                    "px-2 py-1 text-[10px] sm:text-xs font-medium rounded-md transition-all",
-                    selectedVariant.id === variant.id
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  )}
-                >
-                  {variant.nombre}
-                </button>
-              ))}
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3 mt-auto">
+            {/* Grouped Variant Selector */}
+             <div className="flex flex-col gap-1 w-full sm:w-auto">
+                {variantGroups.types.map((type) => (
+                    <div key={type} className="flex flex-wrap items-center gap-1.5">
+                        {variantGroups.isGrouped && (
+                            <span className="text-[10px] font-semibold text-muted-foreground mr-0.5">
+                                {type}:
+                            </span>
+                        )}
+                        {variantGroups.groups[type].map((variant) => (
+                            <button
+                            key={variant.id}
+                            onClick={() => setSelectedVariant(variant)}
+                            className={cn(
+                                "px-2 py-1 text-[10px] sm:text-xs font-medium rounded-md transition-all border",
+                                selectedVariant.id === variant.id
+                                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                                : "bg-background text-muted-foreground border-input hover:text-foreground hover:bg-secondary"
+                            )}
+                            >
+                            {variantGroups.isGrouped ? getCleanVariantName(variant.nombre, type) : variant.nombre}
+                            </button>
+                        ))}
+                    </div>
+                ))}
             </div>
 
             <Button 

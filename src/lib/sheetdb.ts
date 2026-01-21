@@ -57,10 +57,14 @@ export const fetchProductsFromSheet = async (): Promise<Product[]> => {
         const rowPrice = parseInt(row.PRECIO) || 0;
         const oldPrice = row.PRECIO_ANTES ? parseInt(row.PRECIO_ANTES) : undefined;
         
-        // Extract variant name from SKU (e.g. "ACE-LAV-10ML" -> "10ml")
-        // Fallback to full SKU if split fails
+        // Extract variant name: prefer the explicit VARIANTES column (e.g. "Roll-on 5ml"), 
+        // fallback to SKU split if empty
         const skuParts = row.SKU.split('-');
-        const variantName = skuParts.length > 1 ? skuParts[skuParts.length - 1] : row.SKU;
+        let variantName = row.VARIANTES?.trim();
+        
+        if (!variantName) {
+            variantName = skuParts.length > 1 ? skuParts[skuParts.length - 1] : row.SKU;
+        }
 
         if (!productMap.has(rowName)) {
             // Initialize Parent Product
