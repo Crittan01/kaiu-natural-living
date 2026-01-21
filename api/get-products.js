@@ -8,6 +8,7 @@ export default async function handler(req, res) {
   // CORS Headers are handled by Express middleware but good to be safe if Vercel function
   res.setHeader('Access-Control-Allow-Credentials', true)
   res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   
   const SHEET_URL = process.env.NEXT_PUBLIC_SHEETDB_URL;
   

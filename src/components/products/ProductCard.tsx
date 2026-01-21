@@ -20,6 +20,134 @@ interface ProductCardProps {
   layout?: 'grid' | 'list';
 }
 
+// Internal component for Quick View content to avoid re-creation on render
+interface QuickViewContentProps {
+    product: Product;
+    selectedVariant: Variant;
+    setSelectedVariant: (v: Variant) => void;
+    isOutOfStock: boolean;
+    benefits: string[];
+    variantGroups: any;
+    getCleanVariantName: (name: string, type: string) => string;
+    addToCart: (p: Product, v: Variant) => void;
+    isGrouped: boolean;
+}
+
+const QuickViewContent = ({ 
+  product, 
+  selectedVariant, 
+  setSelectedVariant, 
+  isOutOfStock, 
+  benefits, 
+  variantGroups, 
+  getCleanVariantName, 
+  addToCart 
+}: QuickViewContentProps) => (
+  <div className="grid md:grid-cols-2 h-[80vh] md:h-auto">
+    <div className="relative h-64 md:h-full bg-secondary/20">
+      <img
+        src={selectedVariant.imagen_url || product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
+        alt={`${product.nombre} ${selectedVariant.nombre}`}
+        className={`absolute inset-0 w-full h-full object-cover ${isOutOfStock ? 'grayscale opacity-80' : ''}`}
+        onError={(e) => {
+          e.currentTarget.src = 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop';
+          e.currentTarget.onerror = null;
+        }}
+        referrerPolicy="no-referrer"
+      />
+      {isOutOfStock && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+              <span className="bg-black/70 text-white px-4 py-2 rounded-full font-bold text-sm">AGOTADO</span>
+          </div>
+      )}
+    </div>
+
+    <ScrollArea className="h-full max-h-[calc(80vh-2rem)] md:max-h-[600px]">
+      <div className="p-6 md:p-8 flex flex-col gap-6">
+        <div>
+          <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            {product.categoria}
+          </span>
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl md:text-3xl font-bold mt-2">
+              {product.nombre}
+            </DialogTitle>
+          </DialogHeader>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {benefits.map((benefit) => (
+            <span key={benefit} className="tag-benefit">
+              {benefit.trim()}
+            </span>
+          ))}
+        </div>
+
+        <div className="space-y-4">
+          <h4 className="font-semibold text-foreground">Descripción</h4>
+          <p className="text-muted-foreground leading-relaxed">
+            {product.descripcion}
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <h4 className="font-semibold text-foreground">Selecciona Presentación</h4>
+          
+          {/* Grouped Display */}
+          <div className="space-y-3">
+            {variantGroups.types.map((type: string) => (
+              <div key={type} className="flex flex-col sm:flex-row sm:items-baseline gap-2">
+                 {variantGroups.isGrouped && (
+                     <span className="text-sm font-medium text-muted-foreground w-20 shrink-0">
+                       {type}:
+                     </span>
+                 )}
+                 <div className="flex flex-wrap gap-2">
+                     {variantGroups.groups[type].map((variant: Variant) => (
+                         <button
+                           key={variant.id}
+                           onClick={() => setSelectedVariant(variant)}
+                           className={`px-3 py-1.5 text-sm font-medium rounded-full border transition-all ${
+                             selectedVariant.id === variant.id
+                               ? 'border-primary bg-primary text-primary-foreground shadow-md'
+                               : 'border-border text-foreground hover:border-primary hover:bg-primary/5'
+                           } ${variant.stock?.toUpperCase().includes('AGOTADO') ? 'opacity-50 line-through decoration-destructive' : ''}`}
+                         >
+                           {variantGroups.isGrouped ? getCleanVariantName(variant.nombre, type) : variant.nombre} 
+                           {' '}- ${variant.precio.toLocaleString()}
+                         </button>
+                     ))}
+                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+         <div className="mt-4">
+          <p className="text-2xl font-bold text-primary">
+             ${selectedVariant.precio.toLocaleString()}
+          </p>
+         </div>
+
+        <div className="flex pt-4 border-t border-border mt-auto justify-end gap-2">
+            <Button 
+              className="flex-1"
+              disabled={isOutOfStock}
+              onClick={() => addToCart(product, selectedVariant)}
+            >
+              {isOutOfStock ? 'Agotado' : 'Agregar al Carrito'}
+            </Button>
+           <DialogClose asChild>
+            <Button variant="outline">
+              Cerrar
+            </Button>
+          </DialogClose>
+        </div>
+      </div>
+    </ScrollArea>
+  </div>
+);
+
 export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
   const [selectedVariant, setSelectedVariant] = useState<Variant>(
     product.variantes[0]
@@ -30,6 +158,9 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
   const isSaved = isInWishlist(product.id);
 
   const benefits = product.beneficios.split(',');
+
+  // Check Local Stock status (Manual Control from SheetDB)
+  const isOutOfStock = selectedVariant.stock?.toUpperCase().includes('AGOTADO');
 
   // Keep selectedVariant in sync if props change (though typically static)
   // Not strictly necessary if product doesn't change, but good practice
@@ -107,104 +238,8 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
     }
   };
 
-  const QuickViewContent = () => (
-    <div className="grid md:grid-cols-2 h-[80vh] md:h-auto">
-      <div className="relative h-64 md:h-full bg-secondary/20">
-        <img
-          src={selectedVariant.imagen_url || product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
-          alt={`${product.nombre} ${selectedVariant.nombre}`}
-          className="absolute inset-0 w-full h-full object-cover"
-          onError={(e) => {
-            e.currentTarget.src = 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop';
-            e.currentTarget.onerror = null;
-          }}
-        />
-      </div>
+// Internal component for Quick View content to avoid re-creation on render
 
-      <ScrollArea className="h-full max-h-[calc(80vh-2rem)] md:max-h-[600px]">
-        <div className="p-6 md:p-8 flex flex-col gap-6">
-          <div>
-            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-              {product.categoria}
-            </span>
-            <DialogHeader>
-              <DialogTitle className="font-display text-2xl md:text-3xl font-bold mt-2">
-                {product.nombre}
-              </DialogTitle>
-            </DialogHeader>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {benefits.map((benefit) => (
-              <span key={benefit} className="tag-benefit">
-                {benefit.trim()}
-              </span>
-            ))}
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="font-semibold text-foreground">Descripción</h4>
-            <p className="text-muted-foreground leading-relaxed">
-              {product.descripcion}
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="font-semibold text-foreground">Selecciona Presentación</h4>
-            
-            {/* Grouped Display */}
-            <div className="space-y-3">
-              {variantGroups.types.map((type) => (
-                <div key={type} className="flex flex-col sm:flex-row sm:items-baseline gap-2">
-                   {variantGroups.isGrouped && (
-                       <span className="text-sm font-medium text-muted-foreground w-20 shrink-0">
-                         {type}:
-                       </span>
-                   )}
-                   <div className="flex flex-wrap gap-2">
-                       {variantGroups.groups[type].map(variant => (
-                           <button
-                             key={variant.id}
-                             onClick={() => setSelectedVariant(variant)}
-                             className={`px-3 py-1.5 text-sm font-medium rounded-full border transition-all ${
-                               selectedVariant.id === variant.id
-                                 ? 'border-primary bg-primary text-primary-foreground shadow-md'
-                                 : 'border-border text-foreground hover:border-primary hover:bg-primary/5'
-                             }`}
-                           >
-                             {variantGroups.isGrouped ? getCleanVariantName(variant.nombre, type) : variant.nombre} 
-                             {' '}- ${variant.precio.toLocaleString()}
-                           </button>
-                       ))}
-                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          
-           <div className="mt-4">
-            <p className="text-2xl font-bold text-primary">
-               ${selectedVariant.precio.toLocaleString()}
-            </p>
-           </div>
-
-          <div className="flex pt-4 border-t border-border mt-auto justify-end gap-2">
-              <Button 
-                className="flex-1"
-                onClick={() => addToCart(product, selectedVariant)}
-              >
-                Agregar al Carrito
-              </Button>
-             <DialogClose asChild>
-              <Button variant="outline">
-                Cerrar
-              </Button>
-            </DialogClose>
-          </div>
-        </div>
-      </ScrollArea>
-    </div>
-  );
 
   if (layout === 'list') {
     return (
@@ -219,12 +254,18 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
              <img
               src={selectedVariant.imagen_url || product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
               alt={`${product.nombre} ${selectedVariant.nombre}`}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ${isOutOfStock ? 'grayscale opacity-80' : ''}`}
               onError={(e) => {
                 e.currentTarget.src = 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop';
                 e.currentTarget.onerror = null;
               }}
+              referrerPolicy="no-referrer"
             />
+            {isOutOfStock && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                    <span className="bg-black/70 text-white px-2 py-1 rounded text-[10px] font-bold">AGOTADO</span>
+                </div>
+            )}
              <button
               onClick={handleSave}
               className="absolute top-2 right-2 md:top-4 md:right-4 w-7 h-7 md:w-9 md:h-9 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center transition-colors hover:bg-card shadow-sm"
@@ -283,7 +324,7 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
                                     selectedVariant.id === variant.id
                                     ? 'border-primary bg-primary text-primary-foreground'
                                     : 'border-border text-foreground hover:border-primary'
-                                }`}
+                                } ${variant.stock?.toUpperCase().includes('AGOTADO') ? 'opacity-50 line-through decoration-destructive' : ''}`}
                                 >
                                 {variantGroups.isGrouped ? getCleanVariantName(variant.nombre, type) : variant.nombre}
                                 </button>
@@ -308,11 +349,12 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
                  <div className="flex gap-2 md:gap-3">
                      <Button
                         size="sm"
+                        disabled={isOutOfStock}
                         className="flex-1 sm:flex-none sm:min-w-[140px] h-8 md:h-9 text-xs md:text-sm"
                         onClick={() => addToCart(product, selectedVariant)}
                      >
                         <ShoppingBag className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" />
-                        Agregar
+                        {isOutOfStock ? 'Agotado' : 'Agregar'}
                      </Button>
                      
                      <Dialog>
@@ -323,7 +365,17 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background">
-                            <QuickViewContent />
+                            <QuickViewContent 
+                                product={product}
+                                selectedVariant={selectedVariant}
+                                setSelectedVariant={setSelectedVariant}
+                                isOutOfStock={!!isOutOfStock}
+                                benefits={benefits}
+                                variantGroups={variantGroups}
+                                getCleanVariantName={getCleanVariantName}
+                                addToCart={addToCart}
+                                isGrouped={variantGroups.isGrouped}
+                            />
                         </DialogContent>
                      </Dialog>
                  </div>
@@ -346,12 +398,18 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
         <img
           src={selectedVariant.imagen_url || product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
           alt={`${product.nombre} ${selectedVariant.nombre}`}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+          className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ${isOutOfStock ? 'grayscale opacity-80' : ''}`}
           onError={(e) => {
             e.currentTarget.src = 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop';
             e.currentTarget.onerror = null;
           }}
+          referrerPolicy="no-referrer"
         />
+        {isOutOfStock && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                <span className="bg-black/70 text-white px-3 py-1 rounded-full font-bold text-xs uppercase tracking-wider">AGOTADO</span>
+            </div>
+        )}
         <button
           onClick={handleSave}
           className="absolute top-4 right-4 w-10 h-10 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center transition-colors hover:bg-card"
@@ -373,7 +431,17 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
             </button>
           </DialogTrigger>
           <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background">
-            <QuickViewContent />
+            <QuickViewContent 
+                product={product}
+                selectedVariant={selectedVariant}
+                setSelectedVariant={setSelectedVariant}
+                isOutOfStock={!!isOutOfStock}
+                benefits={benefits}
+                variantGroups={variantGroups}
+                getCleanVariantName={getCleanVariantName}
+                addToCart={addToCart}
+                isGrouped={variantGroups.isGrouped}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -414,7 +482,17 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background">
-                <QuickViewContent />
+                <QuickViewContent 
+                    product={product}
+                    selectedVariant={selectedVariant}
+                    setSelectedVariant={setSelectedVariant}
+                    isOutOfStock={!!isOutOfStock}
+                    benefits={benefits}
+                    variantGroups={variantGroups}
+                    getCleanVariantName={getCleanVariantName}
+                    addToCart={addToCart}
+                    isGrouped={variantGroups.isGrouped}
+                />
               </DialogContent>
             </Dialog>
           )}
@@ -452,7 +530,7 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
                             selectedVariant.id === variant.id
                               ? 'border-primary bg-primary text-primary-foreground'
                               : 'border-border text-foreground hover:border-primary'
-                          }`}
+                          } ${variant.stock?.toUpperCase().includes('AGOTADO') ? 'opacity-50 line-through decoration-destructive' : ''}`}
                         >
                           {variantGroups.isGrouped ? getCleanVariantName(variant.nombre, type) : variant.nombre}
                         </button>
@@ -468,11 +546,12 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
           <Button
             variant="default" 
             size="sm"
+            disabled={isOutOfStock}
             className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => addToCart(product, selectedVariant)}
           >
             <ShoppingBag className="w-4 h-4 mr-2" />
-            Agregar
+            {isOutOfStock ? 'Agotado' : 'Agregar'}
           </Button>
           <Button variant="outline" size="icon" onClick={handleSave} title={isSaved ? "Quitar de lista" : "Guardar para después"}>
              <Heart

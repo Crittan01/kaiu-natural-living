@@ -59,15 +59,23 @@ export function RitualProductRow({ product }: RitualProductRowProps) {
     return name.replace(new RegExp(`${type}\\s*|-?\\s*`, 'i'), '').trim() || name;
   };
 
+  const isOutOfStock = selectedVariant.stock?.toUpperCase().includes('AGOTADO');
+
   return (
     <div className="flex flex-col sm:flex-row gap-4 p-4 rounded-xl bg-secondary/10 border border-border/50 hover:border-primary/20 transition-all">
       {/* Image */}
-      <div className="w-full sm:w-20 h-20 rounded-lg overflow-hidden bg-white shadow-sm shrink-0 mx-auto sm:mx-0">
+      <div className="w-full sm:w-20 h-20 rounded-lg overflow-hidden bg-white shadow-sm shrink-0 mx-auto sm:mx-0 relative">
         <img
           src={selectedVariant.imagen_url || product.imagen_url}
           alt={`${product.nombre} ${selectedVariant.nombre}`}
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale opacity-70' : ''}`}
+          referrerPolicy="no-referrer"
         />
+        {isOutOfStock && (
+             <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                <span className="bg-black/70 text-white px-1 py-0.5 rounded text-[8px] font-bold">AGOTADO</span>
+            </div>
+        )}
       </div>
 
       {/* Info & Controls */}
@@ -112,7 +120,8 @@ export function RitualProductRow({ product }: RitualProductRowProps) {
                                 "px-2 py-1 text-[10px] sm:text-xs font-medium rounded-md transition-all border",
                                 selectedVariant.id === variant.id
                                 ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                                : "bg-background text-muted-foreground border-input hover:text-foreground hover:bg-secondary"
+                                : "bg-background text-muted-foreground border-input hover:text-foreground hover:bg-secondary",
+                                variant.stock?.toUpperCase().includes('AGOTADO') ? "opacity-50 line-through decoration-destructive" : ""
                             )}
                             >
                             {variantGroups.isGrouped ? getCleanVariantName(variant.nombre, type) : variant.nombre}
@@ -123,23 +132,27 @@ export function RitualProductRow({ product }: RitualProductRowProps) {
             </div>
 
             <Button 
-                size="sm" 
-                className={cn(
-                    "ml-auto h-8 text-xs transition-all",
-                    isAdded ? "bg-green-600 hover:bg-green-700 text-white" : ""
-                )}
-                onClick={handleAddToCart}
+              size="sm" 
+              className={cn(
+                "w-full sm:w-auto shrink-0",
+                isAdded ? "bg-green-600 hover:bg-green-700 text-white" : ""
+              )}
+              disabled={isAdded || isOutOfStock}
+              onClick={handleAddToCart}
             >
-                {isAdded ? (
-                    <>
-                        <Check className="w-3 h-3 mr-1" /> Agregado
-                    </>
-                ) : (
-                    <>
-                         <ShoppingBag className="w-3 h-3 mr-2 sm:mr-0 md:mr-2" /> 
-                         <span className="sm:hidden md:inline">Agregar</span>
-                    </>
-                )}
+              {isAdded ? (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Agregado
+                </>
+              ) : isOutOfStock ? (
+                   "Agotado"
+              ) : (
+                <>
+                  <ShoppingBag className="w-4 h-4 mr-2" />
+                  Agregar
+                </>
+              )}
             </Button>
         </div>
       </div>

@@ -27,14 +27,16 @@ const convertGoogleDriveLink = (url: string) => {
     // Check for standard Drive sharing links
     // 1. https://drive.google.com/file/d/ID/view...
     // 2. https://drive.google.com/open?id=ID
+    // 3. https://drive.google.com/uc?id=ID
     
-    // Regex for ID extraction
-    const idRegex = /[-\w]{25,}/;
+    // Robust Regex for ID extraction (alphanumeric + - _)
+    // Matches ID in /d/ID, id=ID, etc.
+    const idRegex = /(?:id=|\/d\/)([-\w]{25,})/;
     const match = url.match(idRegex);
     
     if (match && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
-        const id = match[0];
-        // Use lh3.googleusercontent.com for reliable hotlinking (thumbnail generation)
+        const id = match[1];
+        // Use lh3.googleusercontent.com for reliable hotlinking (thumbnail generation) without API limits
         return `https://lh3.googleusercontent.com/d/${id}=s1000?authuser=0`;
     }
     
@@ -95,7 +97,8 @@ export const fetchProductsFromSheet = async (): Promise<Product[]> => {
             precio: rowPrice,
             precio_antes: oldPrice,
             sku: row.SKU,
-            imagen_url: convertGoogleDriveLink(row.IMAGEN_URL) 
+            imagen_url: convertGoogleDriveLink(row.IMAGEN_URL),
+            stock: row.STOCK
         });
 
         // Update main product price to be the lowest non-zero price found so far (useful for "Desde $20.000")

@@ -5,6 +5,7 @@ export interface Variant {
   precio_antes?: number;
   sku: string;
   imagen_url?: string; // Optional variant-specific image
+  stock?: string; // "DISPONIBLE" or "AGOTADO"
 }
 
 export interface Product {
