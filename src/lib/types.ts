@@ -4,6 +4,7 @@ export interface Variant {
   precio: number;
   precio_antes?: number;
   sku: string;
+  imagen_url?: string; // Optional variant-specific image
 }
 
 export interface Product {

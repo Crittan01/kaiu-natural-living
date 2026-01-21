@@ -111,8 +111,8 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
     <div className="grid md:grid-cols-2 h-[80vh] md:h-auto">
       <div className="relative h-64 md:h-full bg-secondary/20">
         <img
-          src={product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
-          alt={product.nombre}
+          src={selectedVariant.imagen_url || product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
+          alt={`${product.nombre} ${selectedVariant.nombre}`}
           className="absolute inset-0 w-full h-full object-cover"
           onError={(e) => {
             e.currentTarget.src = 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop';
@@ -217,8 +217,8 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
         {/* Image Section */}
         <div className="w-32 sm:w-48 md:w-1/3 min-w-[120px] relative aspect-[3/4] md:aspect-auto overflow-hidden shrink-0 bg-secondary/10">
              <img
-              src={product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
-              alt={product.nombre}
+              src={selectedVariant.imagen_url || product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
+              alt={`${product.nombre} ${selectedVariant.nombre}`}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               onError={(e) => {
                 e.currentTarget.src = 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop';
@@ -344,8 +344,8 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
     >
       <div className="relative aspect-square overflow-hidden bg-secondary/10">
         <img
-          src={product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
-          alt={product.nombre}
+          src={selectedVariant.imagen_url || product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
+          alt={`${product.nombre} ${selectedVariant.nombre}`}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           onError={(e) => {
             e.currentTarget.src = 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop';

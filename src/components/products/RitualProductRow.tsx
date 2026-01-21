@@ -64,8 +64,8 @@ export function RitualProductRow({ product }: RitualProductRowProps) {
       {/* Image */}
       <div className="w-full sm:w-20 h-20 rounded-lg overflow-hidden bg-white shadow-sm shrink-0 mx-auto sm:mx-0">
         <img
-          src={product.imagen_url}
-          alt={product.nombre}
+          src={selectedVariant.imagen_url || product.imagen_url}
+          alt={`${product.nombre} ${selectedVariant.nombre}`}
           className="w-full h-full object-cover"
         />
       </div>

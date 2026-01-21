@@ -27,7 +27,7 @@ export function CartItem({ item }: CartItemProps) {
             {item.nombre}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {item.selectedVariant.nombre} · {item.selectedVariant.sku}
+            <span className="font-bold text-foreground">{item.selectedVariant.nombre}</span> · {item.selectedVariant.sku}
           </p>
         </div>
         

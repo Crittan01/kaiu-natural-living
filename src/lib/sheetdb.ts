@@ -94,7 +94,8 @@ export const fetchProductsFromSheet = async (): Promise<Product[]> => {
             nombre: variantName, // "10ML"
             precio: rowPrice,
             precio_antes: oldPrice,
-            sku: row.SKU
+            sku: row.SKU,
+            imagen_url: convertGoogleDriveLink(row.IMAGEN_URL) 
         });
 
         // Update main product price to be the lowest non-zero price found so far (useful for "Desde $20.000")
