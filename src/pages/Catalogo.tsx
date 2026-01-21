@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Layout } from '@/components/layout/Layout';
 import { ProductCard } from '@/components/products/ProductCard';
-import { mockProducts } from '@/lib/data';
+import { fetchProductsFromSheet } from '@/lib/sheetdb';
+import { Product } from '@/lib/types';
 import { filterProductsByQuery } from '@/lib/searchUtils';
 import { useSearchParams } from 'react-router-dom';
-import { Search, X, LayoutGrid, List } from 'lucide-react';
+import { Search, X, LayoutGrid, List, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 const Catalogo = () => {
@@ -15,6 +16,39 @@ const Catalogo = () => {
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Async Data State
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch Products on Mount
+  useEffect(() => {
+    const loadProducts = async () => {
+        setLoading(true);
+        const data = await fetchProductsFromSheet();
+        if (data.length > 0) {
+            setProducts(data);
+        } else {
+            console.warn("SheetDB returned empty.");
+            setProducts([]);
+        }
+        setLoading(false);
+    };
+    loadProducts();
+  }, []);
+
+  // Sync/Validate Category from URL or initial state against loaded products
+  useEffect(() => {
+    if (!loading && products.length > 0 && selectedCategory && selectedCategory !== 'Todos') {
+        const categoryExists = products.some(p => p.categoria === selectedCategory);
+        if (!categoryExists) {
+            console.warn(`Category '${selectedCategory}' not found in data. Resetting.`);
+            setSelectedCategory('');
+        }
+    }
+  }, [loading, products, selectedCategory]);
+
   // Default to list on mobile (< 768px), grid on desktop
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => 
     typeof window !== 'undefined' && window.innerWidth < 768 ? 'list' : 'grid'
@@ -23,23 +57,23 @@ const Catalogo = () => {
 
   // Get unique categories
   const categories = useMemo(() => {
-    const cats = [...new Set(mockProducts.map((p) => p.categoria))];
+    const cats = [...new Set(products.map((p) => p.categoria))];
     return ['Todos', ...cats];
-  }, []);
+  }, [products]); // Depend on products
 
   // Get unique benefits
   const allBenefits = useMemo(() => {
     const benefits = new Set<string>();
-    mockProducts.forEach((p) => {
+    products.forEach((p) => {
       p.beneficios.split(',').forEach((b) => benefits.add(b.trim()));
     });
     return [...benefits];
-  }, []);
+  }, [products]);
 
   // Filter products
   const filteredProducts = useMemo(() => {
     // First apply traditional filters
-    const baseFiltered = mockProducts.filter((product) => {
+    const baseFiltered = products.filter((product) => {
       const matchesCategory =
         !selectedCategory ||
         selectedCategory === 'Todos' ||
@@ -56,7 +90,7 @@ const Catalogo = () => {
 
     // Then apply fuzzy search
     return filterProductsByQuery(baseFiltered, searchQuery);
-  }, [selectedCategory, selectedBenefits, searchQuery]);
+  }, [products, selectedCategory, selectedBenefits, searchQuery]);
 
   const toggleBenefit = (benefit: string) => {
     setSelectedBenefits((prev) =>
@@ -65,6 +99,16 @@ const Catalogo = () => {
         : [...prev, benefit]
     );
   };
+
+  if (loading) {
+    return (
+        <Layout>
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -111,78 +155,96 @@ const Catalogo = () => {
           </motion.div>
 
           {/* Filters */}
-          {/* Filters and Controls */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mb-10 space-y-6"
-          >
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                {/* Category Filter */}
-                <div className="flex flex-wrap justify-center gap-3">
-                {categories.map((category) => (
-                    <button
-                    key={category}
-                    onClick={() =>
-                        setSelectedCategory(category === 'Todos' ? '' : category)
-                    }
-                    className={`px-5 py-2 rounded-full font-medium transition-all ${
-                        (category === 'Todos' && !selectedCategory) ||
-                        selectedCategory === category
-                        ? 'bg-primary text-primary-foreground shadow-soft'
-                        : 'bg-card text-foreground hover:bg-secondary border border-border'
-                    }`}
-                    >
-                    {category}
-                    </button>
-                ))}
+            {/* Categories & View Toggle (Always Visible) */}
+            <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-6">
+                <div className="flex flex-wrap gap-2">
+                    {categories.map((category) => (
+                        <button
+                        key={category}
+                        onClick={() =>
+                            setSelectedCategory(category === 'Todos' ? '' : category)
+                        }
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                            (category === 'Todos' && !selectedCategory) ||
+                            selectedCategory === category
+                            ? 'bg-primary text-primary-foreground shadow-md'
+                            : 'bg-white/80 backdrop-blur-sm text-foreground hover:bg-white border border-border/50 shadow-sm'
+                        }`}
+                        >
+                        {category}
+                        </button>
+                    ))}
                 </div>
 
-                {/* View Toggle */}
-                <div className="flex items-center bg-card border border-border rounded-full p-1 shadow-sm">
-                    <button
-                        onClick={() => setViewMode('grid')}
-                        className={`p-2 rounded-full transition-all ${
-                            viewMode === 'grid' 
-                            ? 'bg-primary text-primary-foreground shadow-sm' 
-                            : 'text-muted-foreground hover:bg-secondary'
+                <div className="flex items-center gap-3 shrink-0">
+                    {/* Filter Toggle Button */}
+                    <button 
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                            showFilters
+                            ? 'bg-accent/10 text-accent border-accent/20'
+                            : 'bg-white/80 backdrop-blur-sm text-muted-foreground hover:text-foreground border-dashed border-border hover:border-primary/50'
                         }`}
-                        title="Vista Cuadrícula"
                     >
-                        <LayoutGrid className="w-5 h-5" />
+                        <Filter className="w-4 h-4" />
+                        {showFilters ? 'Ocultar Filtros' : 'Filtrar por Beneficios'}
                     </button>
-                    <button
-                         onClick={() => setViewMode('list')}
-                         className={`p-2 rounded-full transition-all ${
-                            viewMode === 'list' 
-                            ? 'bg-primary text-primary-foreground shadow-sm' 
-                            : 'text-muted-foreground hover:bg-secondary'
-                        }`}
-                         title="Vista Lista"
-                    >
-                        <List className="w-5 h-5" />
-                    </button>
+
+                    {/* View Switcher */}
+                    <div className="flex items-center bg-white/50 backdrop-blur-sm border border-border/50 rounded-full p-1 shadow-sm">
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`p-2 rounded-full transition-all ${
+                                viewMode === 'grid' 
+                                ? 'bg-primary text-primary-foreground shadow-sm' 
+                                : 'text-muted-foreground hover:bg-secondary'
+                            }`}
+                        >
+                            <LayoutGrid className="w-4 h-4" />
+                        </button>
+                        <button
+                                onClick={() => setViewMode('list')}
+                                className={`p-2 rounded-full transition-all ${
+                                viewMode === 'list' 
+                                ? 'bg-primary text-primary-foreground shadow-sm' 
+                                : 'text-muted-foreground hover:bg-secondary'
+                            }`}
+                        >
+                            <List className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Benefits Filter */}
-            <div className="flex flex-wrap justify-center gap-2">
-              {allBenefits.map((benefit) => (
-                <button
-                  key={benefit}
-                  onClick={() => toggleBenefit(benefit)}
-                  className={`px-3 py-1 text-sm rounded-full transition-all ${
-                    selectedBenefits.includes(benefit)
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                  }`}
-                >
-                  {benefit}
-                </button>
-              ))}
-            </div>
-          </motion.div>
+            {/* Collapsible Benefits Tags */}
+            <motion.div
+               initial={false}
+               animate={{ height: showFilters ? 'auto' : 0, opacity: showFilters ? 1 : 0 }}
+               className="overflow-hidden"
+            >
+               <div className="pb-8 pt-2">
+                  <div className="p-6 rounded-2xl bg-secondary/30 border border-border/50">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                        Filtrar por Beneficio:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {allBenefits.map((benefit) => (
+                        <button
+                            key={benefit}
+                            onClick={() => toggleBenefit(benefit)}
+                            className={`px-3 py-1 text-sm rounded-full transition-all border ${
+                            selectedBenefits.includes(benefit)
+                                ? 'bg-accent text-accent-foreground border-accent'
+                                : 'bg-background hover:bg-background/80 border-border text-muted-foreground hover:text-foreground'
+                            }`}
+                        >
+                            {benefit}
+                        </button>
+                        ))}
+                    </div>
+                  </div>
+               </div>
+            </motion.div>
 
           {/* Products Grid/List */}
           <div className={`gap-6 ${

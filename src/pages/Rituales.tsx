@@ -1,10 +1,12 @@
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Layout } from '@/components/layout/Layout';
-import { mockRituals, mockProducts } from '@/lib/data';
+import { mockRituals } from '@/lib/data';
+import { fetchProductsFromSheet } from '@/lib/sheetdb';
+import { Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Leaf, ArrowRight, Search, X, Sparkles } from 'lucide-react';
+import { MessageCircle, Leaf, ArrowRight, Search, X, Sparkles, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useState, useMemo } from 'react';
 import { filterRitualsByQuery } from '@/lib/searchUtils';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,8 +19,14 @@ import {
 import { RitualProductRow } from '@/components/products/RitualProductRow';
 
 const Rituales = () => {
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    fetchProductsFromSheet().then(setProducts);
+  }, []);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Get unique tags
   const allTags = useMemo(() => {
@@ -49,7 +57,7 @@ const Rituales = () => {
   };
 
   const getRelatedProduct = (productName: string) => {
-    return mockProducts.find((p) => 
+    return products.find((p) => 
       p.nombre.toLowerCase().includes(productName.toLowerCase()) ||
       productName.toLowerCase().includes(p.nombre.toLowerCase())
     );
@@ -103,21 +111,49 @@ const Rituales = () => {
             </div>
 
             {/* Tags Filter */}
-            <div className="flex flex-wrap justify-center gap-2">
-              {allTags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className={`px-3 py-1 text-sm rounded-full transition-all ${
-                    selectedTags.includes(tag)
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+            {/* Filter Toggle */}
+            <div className="flex justify-end mb-4">
+                 <button 
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                    showFilters
+                    ? 'bg-accent/10 text-accent border-accent/20'
+                    : 'bg-white/80 backdrop-blur-sm text-muted-foreground hover:text-foreground border-dashed border-border hover:border-primary/50'
                   }`}
-                >
-                  {tag}
-                </button>
-              ))}
+                 >
+                  <Filter className="w-4 h-4" />
+                  {showFilters ? 'Ocultar Filtros' : 'Filtrar por Etiquetas'}
+               </button>
             </div>
+
+            <motion.div
+               initial={false}
+               animate={{ height: showFilters ? 'auto' : 0, opacity: showFilters ? 1 : 0 }}
+               className="overflow-hidden"
+            >
+                <div className="pb-8 pt-2">
+                  <div className="p-6 rounded-2xl bg-secondary/30 border border-border/50">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                        Filtrar por Etiqueta:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {allTags.map((tag) => (
+                            <button
+                            key={tag}
+                            onClick={() => toggleTag(tag)}
+                            className={`px-3 py-1 text-sm rounded-full transition-all border ${
+                                selectedTags.includes(tag)
+                                ? 'bg-accent text-accent-foreground border-accent'
+                                : 'bg-background hover:bg-background/80 border-border text-muted-foreground hover:text-foreground'
+                            }`}
+                            >
+                            {tag}
+                            </button>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+            </motion.div>
           </motion.div>
 
           {/* Rituals */}
@@ -175,7 +211,7 @@ const Rituales = () => {
                               Ver productos del ritual
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="sm:max-w-md bg-white/95 backdrop-blur-md border-primary/10">
+                          <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-md border-primary/10 max-h-[85vh] overflow-hidden flex flex-col">
                             <DialogHeader>
                               <DialogTitle className="font-display text-2xl text-center text-primary mb-2">
                                 Esenciales para tu Ritual
@@ -185,7 +221,7 @@ const Rituales = () => {
                               </p>
                             </DialogHeader>
                             
-                            <div className="grid gap-4 py-4 mt-2">
+                            <div className="grid gap-4 py-4 mt-2 overflow-y-auto pr-2">
                               {ritual.productos_relacionados.map((productName) => {
                                  const product = getRelatedProduct(productName);
                                  if (!product) return null;

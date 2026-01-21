@@ -1,21 +1,36 @@
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Layout } from '@/components/layout/Layout';
 import { ProductCard } from '@/components/products/ProductCard';
-import { mockProducts } from '@/lib/data';
+import { fetchProductsFromSheet } from '@/lib/sheetdb';
+import { Product } from '@/lib/types';
 import { filterProductsByQuery } from '@/lib/searchUtils';
-import { Gift, Sparkles, Search, X, LayoutGrid, List } from 'lucide-react';
+import { Gift, Sparkles, Search, X, LayoutGrid, List, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 const Kits = () => {
-  // Base products for Kits
-  const baseKits = mockProducts.filter(p => p.categoria === 'Kits');
+  // State
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+         const data = await fetchProductsFromSheet();
+         setProducts(data);
+         setLoading(false);
+    };
+    loadData();
+  }, []);
+
+  // Base products for Kits (Case insensitive check)
+  const baseKits = useMemo(() => products.filter(p => p.categoria.trim().toLowerCase() === 'kits'), [products]);
 
   // State
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   // Default to list on mobile (< 768px), grid on desktop
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => 
     typeof window !== 'undefined' && window.innerWidth < 768 ? 'list' : 'grid'
@@ -28,7 +43,7 @@ const Kits = () => {
       p.beneficios.split(',').forEach((b) => benefits.add(b.trim()));
     });
     return [...benefits];
-  }, []);
+  }, [baseKits]);
 
   // Filter products logic
   const filteredKits = useMemo(() => {
@@ -42,7 +57,7 @@ const Kits = () => {
     });
 
     return filterProductsByQuery(filtered, searchQuery);
-  }, [selectedBenefits, searchQuery]);
+  }, [baseKits, selectedBenefits, searchQuery]);
 
   const toggleBenefit = (benefit: string) => {
     setSelectedBenefits((prev) =>
@@ -51,6 +66,16 @@ const Kits = () => {
         : [...prev, benefit]
     );
   };
+
+  if (loading) {
+    return (
+        <Layout>
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -100,25 +125,21 @@ const Kits = () => {
               )}
             </div>
 
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                {/* Benefits Filter */}
-                <div className="flex flex-wrap justify-center gap-2">
-                    {allBenefits.map((benefit) => (
-                        <button
-                        key={benefit}
-                        onClick={() => toggleBenefit(benefit)}
-                        className={`px-3 py-1 text-sm rounded-full transition-all ${
-                            selectedBenefits.includes(benefit)
-                            ? 'bg-accent text-accent-foreground'
-                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                        }`}
-                        >
-                        {benefit}
-                        </button>
-                    ))}
-                </div>
+            {/* Filter Toggle & View Switcher */}
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+                 <button 
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                    showFilters
+                    ? 'bg-accent/10 text-accent border-accent/20'
+                    : 'bg-white/80 backdrop-blur-sm text-muted-foreground hover:text-foreground border-dashed border-border hover:border-primary/50'
+                  }`}
+                 >
+                  <Filter className="w-4 h-4" />
+                  {showFilters ? 'Ocultar Filtros' : 'Filtrar por Beneficios'}
+               </button>
 
-                 {/* View Toggle */}
+                 {/* View Toggle (Always visible) */}
                 <div className="flex items-center bg-card border border-border rounded-full p-1 shadow-sm shrink-0">
                     <button
                         onClick={() => setViewMode('grid')}
@@ -144,6 +165,35 @@ const Kits = () => {
                     </button>
                 </div>
             </div>
+
+            <motion.div
+               initial={false}
+               animate={{ height: showFilters ? 'auto' : 0, opacity: showFilters ? 1 : 0 }}
+               className="overflow-hidden"
+            >
+                <div className="pb-8 pt-2">
+                  <div className="p-6 rounded-2xl bg-secondary/30 border border-border/50">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                        Filtrar por Beneficio:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {allBenefits.map((benefit) => (
+                            <button
+                            key={benefit}
+                            onClick={() => toggleBenefit(benefit)}
+                            className={`px-3 py-1 text-sm rounded-full transition-all border ${
+                                selectedBenefits.includes(benefit)
+                                ? 'bg-accent text-accent-foreground border-accent'
+                                : 'bg-background hover:bg-background/80 border-border text-muted-foreground hover:text-foreground'
+                            }`}
+                            >
+                            {benefit}
+                            </button>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+            </motion.div>
           </motion.div>
 
           {/* Kits Grid/List */}

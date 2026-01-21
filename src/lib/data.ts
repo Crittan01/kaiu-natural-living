@@ -6,80 +6,7 @@ import productJojoba from '@/assets/product-jojoba.jpg';
 import ritualMorning from '@/assets/ritual-morning.jpg';
 
 // Mock data - Replace with SheetDB API calls
-export const mockProducts: Product[] = [
-  {
-    id: 1,
-    nombre: "Aceite Esencial de Lavanda",
-    categoria: "Aceites Esenciales",
-    precio: 25000,
-    precio_antes: 28000, 
-    beneficios: "relajación,sueño,calma",
-    variantes: [
-      { id: "10ml", nombre: "10ml", precio: 25000, precio_antes: 28000, sku: "ACE-LAV-10ML" },
-      { id: "30ml", nombre: "30ml", precio: 60000, precio_antes: 75000, sku: "ACE-LAV-30ML" },
-      { id: "100ml", nombre: "100ml", precio: 180000, sku: "ACE-LAV-100ML" }
-    ],
-    imagen_url: productLavanda,
-    enlace_ml: "https://bit.ly/kaiu-lavanda",
-    descripcion: "Aceite 100% puro, ideal para difusores y masajes relajantes. Destilado de lavanda orgánica francesa."
-  },
-  {
-    id: 2,
-    nombre: "Aceite Vegetal de Argán",
-    categoria: "Aceites Vegetales",
-    precio: 55000,
-    beneficios: "hidratación,cabello,piel",
-    variantes: [
-      { id: "30ml", nombre: "30ml", precio: 55000, sku: "ACE-ARG-30ML" },
-      { id: "100ml", nombre: "100ml", precio: 150000, sku: "ACE-ARG-100ML" }
-    ],
-    imagen_url: productArgan,
-    enlace_ml: "https://bit.ly/kaiu-argan",
-    descripcion: "Rico en vitamina E, revitaliza piel y cabello. Prensado en frío de nueces de argán marroquí."
-  },
-  {
-    id: 3,
-    nombre: "Aceite Esencial de Eucalipto",
-    categoria: "Aceites Esenciales",
-    precio: 38000,
-    beneficios: "respiración,frescura,energía",
-    variantes: [
-      { id: "10ml", nombre: "10ml", precio: 38000, sku: "ACE-EUC-10ML" },
-      { id: "30ml", nombre: "30ml", precio: 95000, sku: "ACE-EUC-30ML" }
-    ],
-    imagen_url: productEucalipto,
-    enlace_ml: "https://bit.ly/kaiu-eucalipto",
-    descripcion: "Aceite purificante con aroma refrescante. Perfecto para limpiar el ambiente y despejar las vías respiratorias."
-  },
-  {
-    id: 4,
-    nombre: "Aceite de Jojoba Dorado",
-    categoria: "Aceites Vegetales",
-    precio: 42000,
-    beneficios: "hidratación,antienvejecimiento,piel",
-    variantes: [
-      { id: "30ml", nombre: "30ml", precio: 42000, sku: "ACE-JOJ-30ML" },
-      { id: "100ml", nombre: "100ml", precio: 110000, sku: "ACE-JOJ-100ML" }
-    ],
-    imagen_url: productJojoba,
-    enlace_ml: "https://bit.ly/kaiu-jojoba",
-    descripcion: "Aceite portador ideal para mezclar con esenciales. Nutre profundamente sin dejar sensación grasa."
-  },
-  {
-    id: 5,
-    nombre: "Kit Sueño Profundo",
-    categoria: "Kits",
-    precio: 65000,
-    precio_antes: 75000,
-    beneficios: "regalo,sueño,ahorro",
-    variantes: [
-      { id: "unico", nombre: "Kit Estándar", precio: 65000, precio_antes: 75000, sku: "KIT-SUENO-01" }
-    ],
-    imagen_url: productLavanda, // Placeholder
-    enlace_ml: "https://bit.ly/kaiu-kit-sueno",
-    descripcion: "El regalo perfecto para el descanso. Incluye: 1 Aceite Esencial de Lavanda + 1 Aceite de Eucalipto."
-  }
-];
+export const mockProducts: Product[] = [];
 
 export const mockRituals: Ritual[] = [
   {
@@ -135,35 +62,4 @@ export const mockFAQs: FAQ[] = [
   }
 ];
 
-// API functions for SheetDB integration
-const SHEETDB_BASE_URL = import.meta.env.VITE_SHEETDB_URL || '';
 
-export async function fetchProducts(): Promise<Product[]> {
-  if (!SHEETDB_BASE_URL) {
-    return mockProducts;
-  }
-  
-  try {
-    const response = await fetch(`${SHEETDB_BASE_URL}?sheet=catalogo`);
-    if (!response.ok) throw new Error('Failed to fetch products');
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching products:', error);
-    return mockProducts;
-  }
-}
-
-export async function fetchRituals(): Promise<Ritual[]> {
-  if (!SHEETDB_BASE_URL) {
-    return mockRituals;
-  }
-  
-  try {
-    const response = await fetch(`${SHEETDB_BASE_URL}?sheet=rituales`);
-    if (!response.ok) throw new Error('Failed to fetch rituals');
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching rituals:', error);
-    return mockRituals;
-  }
-}

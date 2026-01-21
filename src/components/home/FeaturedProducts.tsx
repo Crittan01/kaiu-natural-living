@@ -1,12 +1,26 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { mockProducts } from '@/lib/data';
 import { ProductCard } from '@/components/products/ProductCard';
+import { fetchProductsFromSheet } from '@/lib/sheetdb';
+import { Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function FeaturedProducts() {
-  const featuredProducts = mockProducts.slice(0, 4);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+         const data = await fetchProductsFromSheet();
+         setProducts(data.slice(0, 4)); 
+         setLoading(false);
+    };
+    loadData();
+  }, []);
+
+  if (loading || products.length === 0) return null;
 
   return (
     <section className="section-padding bg-secondary/30">
@@ -28,14 +42,14 @@ export function FeaturedProducts() {
 
         {/* Products Grid - Desktop */}
         <div className="hidden md:grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featuredProducts.map((product) => (
+          {products.map((product) => (
             <ProductCard key={`${product.nombre}-desktop`} product={product} />
           ))}
         </div>
 
         {/* Products List - Mobile Compact */}
         <div className="md:hidden flex flex-col gap-4 max-w-2xl mx-auto">
-          {featuredProducts.map((product) => (
+          {products.map((product) => (
             <ProductCard key={`${product.nombre}-mobile`} product={product} layout="list" />
           ))}
         </div>
