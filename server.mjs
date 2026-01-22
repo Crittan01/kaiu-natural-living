@@ -35,6 +35,6 @@ app.get('/api/products', adaptParams(getProductsHandler));
 
 // Start
 app.listen(PORT, () => {
-    console.log(`✅ Servidor API Local corriendo en http://localhost:${PORT}`);
-    console.log(`👉 Configura tu Vite proxy o llama directamente a este puerto.`);
+    console.log(`Servidor API Local corriendo en http://localhost:${PORT}`);
+    console.log(`Configura tu Vite proxy o llama directamente a este puerto.`);
 });

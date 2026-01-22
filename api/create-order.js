@@ -101,7 +101,7 @@ export default async function handler(req, res) {
 
     // 5. Manejo de Errores y Reintento (Estrategia Antiprohibiciones)
     if (!venndeloResponse.ok) {
-        console.log("⚠️ Venndelo Initial Error:", JSON.stringify(data));
+        console.log("Venndelo Initial Error:", JSON.stringify(data));
         
         // Detectar si es error de cobertura (APP_PUBLIC_ERROR)
         // Buscamos "Tarifa" o "transporte" para ser más genericos
@@ -122,12 +122,12 @@ export default async function handler(req, res) {
              };
 
              const departmentCode = orderData.shipping_info.subdivision_code;
-             console.log(`⚠️ Detectado error de cobertura para Dept: ${departmentCode}. Buscando fallback...`);
+             console.log(`Detectado error de cobertura para Dept: ${departmentCode}. Buscando fallback...`);
              
              const fallbackCity = FALLBACK_CITIES[departmentCode];
 
              if (fallbackCity && fallbackCity !== orderData.shipping_info.city_code) {
-                 console.log(`🔄 Reintentando con ciudad fallback: ${fallbackCity}`);
+                 console.log(`Reintentando con ciudad fallback: ${fallbackCity}`);
                  
                  // Clonamos y modificamos para el reintento
                  const retryOrder = JSON.parse(JSON.stringify(orderData));
@@ -150,9 +150,9 @@ export default async function handler(req, res) {
                     body: JSON.stringify(retryOrder)
                 });
                 data = await venndeloResponse.json();
-                console.log("✅ Resultado Reintento:", venndeloResponse.ok ? "EXITO" : "FALLO");
+                console.log("Resultado Reintento:", venndeloResponse.ok ? "EXITO" : "FALLO");
              } else {
-                 console.log("❌ No hay ciudad fallback configurada o es la misma.");
+                 console.log("No hay ciudad fallback configurada o es la misma.");
              }
         }
     }

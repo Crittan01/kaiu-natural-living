@@ -43,9 +43,13 @@ const convertGoogleDriveLink = (url: string) => {
     return url;
 };
 
-export const fetchProductsFromSheet = async (): Promise<Product[]> => {
+export const fetchProductsFromSheet = async (sheetName?: string): Promise<Product[]> => {
   // Use local proxy to avoid CORS/SSL issues
-  const PROXY_URL = '/api/products';
+  let PROXY_URL = '/api/products';
+  
+  if (sheetName) {
+      PROXY_URL += `?sheet=${encodeURIComponent(sheetName)}`;
+  }
   
   try {
     const response = await fetch(PROXY_URL);

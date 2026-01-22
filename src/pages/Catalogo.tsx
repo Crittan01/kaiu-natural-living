@@ -38,16 +38,21 @@ const Catalogo = () => {
     loadProducts();
   }, []);
 
+  // Filter out "Kits" from the Catalog page completely
+  const catalogProducts = useMemo(() => {
+    return products.filter(p => p.categoria.trim().toLowerCase() !== 'kits');
+  }, [products]);
+
   // Sync/Validate Category from URL or initial state against loaded products
   useEffect(() => {
-    if (!loading && products.length > 0 && selectedCategory && selectedCategory !== 'Todos') {
-        const categoryExists = products.some(p => p.categoria === selectedCategory);
+    if (!loading && catalogProducts.length > 0 && selectedCategory && selectedCategory !== 'Todos') {
+        const categoryExists = catalogProducts.some(p => p.categoria === selectedCategory);
         if (!categoryExists) {
             console.warn(`Category '${selectedCategory}' not found in data. Resetting.`);
             setSelectedCategory('');
         }
     }
-  }, [loading, products, selectedCategory]);
+  }, [loading, catalogProducts, selectedCategory]);
 
   // Default to list on mobile (< 768px), grid on desktop
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => 
@@ -55,25 +60,25 @@ const Catalogo = () => {
   );
 
 
-  // Get unique categories
+  // Get unique categories (only from non-Kit products)
   const categories = useMemo(() => {
-    const cats = [...new Set(products.map((p) => p.categoria))];
+    const cats = [...new Set(catalogProducts.map((p) => p.categoria))];
     return ['Todos', ...cats];
-  }, [products]); // Depend on products
+  }, [catalogProducts]); // Depend on filtered catalogProducts
 
   // Get unique benefits
   const allBenefits = useMemo(() => {
     const benefits = new Set<string>();
-    products.forEach((p) => {
+    catalogProducts.forEach((p) => {
       p.beneficios.split(',').forEach((b) => benefits.add(b.trim()));
     });
     return [...benefits];
-  }, [products]);
+  }, [catalogProducts]);
 
   // Filter products
   const filteredProducts = useMemo(() => {
     // First apply traditional filters
-    const baseFiltered = products.filter((product) => {
+    const baseFiltered = catalogProducts.filter((product) => {
       const matchesCategory =
         !selectedCategory ||
         selectedCategory === 'Todos' ||
@@ -90,7 +95,7 @@ const Catalogo = () => {
 
     // Then apply fuzzy search
     return filterProductsByQuery(baseFiltered, searchQuery);
-  }, [products, selectedCategory, selectedBenefits, searchQuery]);
+  }, [catalogProducts, selectedCategory, selectedBenefits, searchQuery]);
 
   const toggleBenefit = (benefit: string) => {
     setSelectedBenefits((prev) =>

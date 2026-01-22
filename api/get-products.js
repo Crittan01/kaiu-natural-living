@@ -17,7 +17,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(SHEET_URL, { agent });
+    // Support picking a specific sheet tab (e.g. ?sheet=Kits)
+    const sheetName = req.query.sheet;
+    let fetchUrl = SHEET_URL;
+
+    if (sheetName) {
+        // Create URL object to safely append params
+        const urlObj = new URL(SHEET_URL);
+        urlObj.searchParams.append('sheet', sheetName);
+        fetchUrl = urlObj.toString();
+        // console.log(`Fetching from sheet: ${sheetName}`);
+    }
+
+    const response = await fetch(fetchUrl, { agent });
     
     if (!response.ok) {
         throw new Error(`SheetDB responded with ${response.status}`);

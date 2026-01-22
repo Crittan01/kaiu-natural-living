@@ -17,15 +17,16 @@ const Kits = () => {
 
   useEffect(() => {
     const loadData = async () => {
-         const data = await fetchProductsFromSheet();
+         // Fetch specifically from the "Kits" sheet
+         const data = await fetchProductsFromSheet('Kits');
          setProducts(data);
          setLoading(false);
     };
     loadData();
   }, []);
 
-  // Base products for Kits (Case insensitive check)
-  const baseKits = useMemo(() => products.filter(p => p.categoria.trim().toLowerCase() === 'kits'), [products]);
+  // Base products for Kits (We assume the sheet "Kits" contains only kits, but kept just in case)
+  const baseKits = useMemo(() => products, [products]);
 
   // State
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
