@@ -88,7 +88,7 @@ export default async function handler(req, res) {
     }
 
     const orderData = result.data;
-    console.log("📡 [API] Recibido Payload Validado:", JSON.stringify(orderData, null, 2));
+    // console.log("📡 [API] Recibido Payload Validado:", JSON.stringify(orderData, null, 2));
 
     // FIX: Bogota D.C. often has Dept 25 in frontend lists but Dept 11 in official DANE/Venndelo
     if (orderData.shipping_info.city_code === '11001000' && orderData.shipping_info.subdivision_code === '25') {
@@ -134,7 +134,7 @@ export default async function handler(req, res) {
     });
 
     // 4. Enviar a Venndelo (Intento 1: Ciudad Real)
-    console.log("DEBUG ENV inside handler:", process.env.VENNDELO_PICKUP_NAME);
+    // console.log("DEBUG ENV inside handler:", process.env.VENNDELO_PICKUP_NAME);
     
     const pickupInfo = {
       contact_name: process.env.VENNDELO_PICKUP_NAME,
@@ -157,7 +157,7 @@ export default async function handler(req, res) {
     orderData.payment_method_code = 'EXTERNAL_PAYMENT'; 
 
     // Log the FINAL payload being sent (crucial for debugging)
-    console.log("🚀 [API] Enviando Payload Sanitizado a Venndelo:", JSON.stringify(orderData, null, 2));
+    // console.log("🚀 [API] Enviando Payload Sanitizado a Venndelo:", JSON.stringify(orderData, null, 2));
 
     let venndeloResponse = await fetch('https://api.venndelo.com/v1/admin/orders', {
       method: 'POST',
