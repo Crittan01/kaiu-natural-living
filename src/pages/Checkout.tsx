@@ -305,7 +305,13 @@ const Checkout = () => {
                     </div>
                 </div>
 
-                <Button type="submit" className="w-full mt-6" size="lg" disabled={isSubmitting || shippingStatus === null || isQuoting}>
+                {cartTotal < 20000 && (
+                     <div className="p-4 rounded-lg bg-red-100 text-red-800 border border-red-200 mt-4 text-sm font-medium">
+                        El pedido mínimo es de $20.000 (sin incluir envío).
+                     </div>
+                )}
+
+                <Button type="submit" className="w-full mt-6" size="lg" disabled={isSubmitting || shippingStatus === null || isQuoting || cartTotal < 20000}>
                     {isSubmitting ? 'Procesando...' : `Confirmar Pedido - $${finalTotal.toLocaleString()}`}
                 </Button>
               </form>

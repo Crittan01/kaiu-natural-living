@@ -67,11 +67,21 @@ export function CartSheet() {
                 Impuestos y envío calculados en el checkout.
               </p>
               <SheetFooter>
+                {cartTotal < 20000 && (
+                    <div className="w-full p-3 mb-2 rounded-md bg-red-100 text-red-800 border border-red-200 text-xs font-medium text-center">
+                        Pedido mínimo: $20.000 <br/>
+                        <span className="text-[10px] opacity-80">(No incluye envío)</span>
+                    </div>
+                )}
                 <SheetClose asChild>
-                  <Button className="w-full" size="lg" asChild>
-                    <Link to="/checkout">
-                      Ir a Pagar
-                    </Link>
+                  <Button className="w-full" size="lg" asChild disabled={cartTotal < 20000}>
+                    {cartTotal >= 20000 ? (
+                        <Link to="/checkout">
+                            Ir a Pagar
+                        </Link>
+                    ) : (
+                        <span>Ir a Pagar</span>
+                    )}
                   </Button>
                 </SheetClose>
               </SheetFooter>
