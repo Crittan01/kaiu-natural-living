@@ -16,23 +16,27 @@ import { useState, useEffect, useMemo } from 'react';
 import { useWishlist } from '@/context/WishlistContext';
 
 interface ProductCardProps {
-  product: Product;
-  layout?: 'grid' | 'list';
+  product: Product; // Objeto de producto completo
+  layout?: 'grid' | 'list'; // Modo de visualización: Cuadrícula o Lista
 }
 
-// Internal component for Quick View content to avoid re-creation on render
+// Props para el contenido de la Vista Rápida (Modal)
 interface QuickViewContentProps {
     product: Product;
-    selectedVariant: Variant;
-    setSelectedVariant: (v: Variant) => void;
-    isOutOfStock: boolean;
-    benefits: string[];
-    variantGroups: any;
-    getCleanVariantName: (name: string, type: string) => string;
+    selectedVariant: Variant; // Variante actualmente seleccionada
+    setSelectedVariant: (v: Variant) => void; // Setter para cambiar variante
+    isOutOfStock: boolean; // Flag de agotado
+    benefits: string[]; // Lista de beneficios parseada
+    variantGroups: any; // Estructura agrupada de variantes (Roll-on, Gotero, etc)
+    getCleanVariantName: (name: string, type: string) => string; // Helper formato nombre
     addToCart: (p: Product, v: Variant) => void;
-    isGrouped: boolean;
+    isGrouped: boolean; // Si tiene múltiples tipos de presentación
 }
 
+/**
+ * Componente interno para el contenido del Modal de Vista Rápida.
+ * Separado para optimizar rendimiento y limpieza del código principal.
+ */
 const QuickViewContent = ({ 
   product, 
   selectedVariant, 
@@ -159,11 +163,10 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
 
   const benefits = product.beneficios.split(',');
 
-  // Check Local Stock status (Manual Control from SheetDB)
+  // Verificar Stock Local Manualmente (desde SheetDB)
   const isOutOfStock = selectedVariant.stock?.toUpperCase().includes('AGOTADO');
 
-  // Keep selectedVariant in sync if props change (though typically static)
-  // Not strictly necessary if product doesn't change, but good practice
+  // Sincronizar variante seleccionada si cambian las props
   useEffect(() => {
     if (product.variantes.length > 0) {
       setSelectedVariant(product.variantes[0]);
@@ -171,12 +174,12 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
   }, [product]);
 
 
-  // Grouping Logic for Variants (Roll-on vs Gotero)
+  // Lógica de Agrupación de Variantes (Detectar Roll-on vs Gotero, etc)
   const variantGroups = useMemo(() => {
     const groups: Record<string, Variant[]> = {};
     const types = new Set<string>();
     
-    // Keywords to detect types
+    // Palabras clave para detectar tipos
     const keywords = [
         { key: 'roll', label: 'Roll-on' },
         { key: 'gotero', label: 'Gotero' },
@@ -202,20 +205,19 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
         types.add(type);
     });
 
-    // Check if we have multiple groups distinct from just "Estándar"
-    // If only "Estándar", we won't show labels
+    // Validar si hay múltiples grupos distintos de "Estándar"
     const isGrouped = types.size > 1 || (types.size === 1 && !types.has('Estándar'));
     
     return {
         isGrouped,
-        // Sort types: Put "Estándar" last if exists, specific order otherwise
+        // Ordenar tipos
         types: Array.from(types).sort(),
         groups
     };
   }, [product.variantes]);
 
-  // Helper to remove redundancy in display name if grouped
-  // e.g. Group "Roll-on", variant "Roll-on 5ml" -> display "5ml"
+  // Helper para limpiar redundancia en nombre visual
+  // Ej: Grupo "Roll-on", variante "Roll-on 5ml" -> muestra "5ml"
   const getCleanVariantName = (name: string, type: string) => {
     if (type === 'Estándar') return name;
     return name.replace(new RegExp(`${type}\\s*|-?\\s*`, 'i'), '').trim() || name;

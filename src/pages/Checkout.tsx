@@ -27,7 +27,7 @@ const Checkout = () => {
     direccion: '',
     barrio: '',
     notas: '',
-    payment_method: 'COD' // Default to Cash on Delivery
+    payment_method: 'COD' // Por defecto: Pago Contra Entrega
   });
 
   const [shippingCost, setShippingCost] = useState<number | null>(null);
@@ -35,13 +35,13 @@ const Checkout = () => {
   const [isQuoting, setIsQuoting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Derived state for cities based on selected department
+  // Estado derivado: Ciudades filtradas por departamento seleccionado
   const selectedDept = locationsData.find(d => d.code === formData.departamento_code);
   const cities = selectedDept ? selectedDept.cities : [];
   
   const finalTotal = cartTotal + (shippingCost || 0);
 
-  // Effect to quote shipping when city changes
+  // Efecto para cotizar envío cuando cambia la ciudad
   useEffect(() => {
     if (formData.ciudad_code && formData.departamento_code && items.length > 0) {
         quoteShipping();
@@ -66,7 +66,7 @@ const Checkout = () => {
                 line_items: items.map(item => ({
                     unit_price: item.selectedVariant.precio,
                     quantity: item.quantity,
-                    weight: item.selectedVariant.peso || 0.2, // Use DB weight or default 0.2
+                    weight: item.selectedVariant.peso || 0.2, // Usar peso BD o default 0.2
                     height: item.selectedVariant.alto || 10,
                     width: item.selectedVariant.ancho || 10, 
                     length: item.selectedVariant.largo || 10
@@ -77,8 +77,8 @@ const Checkout = () => {
         const data = await response.json();
         
         if (!response.ok) {
-            console.warn("Shipping quote failed, defaulting to TBD:", data);
-            // Fallback strategy: Allow purchase with TBD shipping
+            console.warn("Fallo cotización, usando TBD:", data);
+            // Estrategia Fallback: Permitir compra con envío 'A Coordinar'
             setShippingStatus('tbd');
             setShippingCost(0);
             return;
@@ -124,7 +124,7 @@ const Checkout = () => {
       const selectedCity = cities.find(c => c.code === formData.ciudad_code);
       const selectedDeptName = selectedDept?.name || '';
 
-      // 1. Mapear datos al formato de la API
+      // 1. Construir Payload para la API
       const orderPayload = {
         // pickup_info se inyecta en el servidor desde variables de entorno
         billing_info: {
@@ -133,7 +133,7 @@ const Checkout = () => {
             email: formData.email,
             phone: formData.telefono,
             identification_type: "CC", 
-            identification: formData.identificacion || "1020304050" // Fallback seguro solo si vacio (pero es required)
+            identification: formData.identificacion || "1020304050" // Fallback seguro (aunque es requerido por UI)
         },
         shipping_info: {
             first_name: formData.nombre.split(' ')[0],
@@ -149,7 +149,7 @@ const Checkout = () => {
             name: item.nombre,
             unit_price: item.selectedVariant.precio,
             quantity: item.quantity,
-            weight: item.selectedVariant.peso || 0.2, // Use DB weight or default 0.2
+            weight: item.selectedVariant.peso || 0.2, // Peso real BD o default
             weight_unit: "KG",
             dimensions_unit: "CM",
             height: item.selectedVariant.alto || 10,

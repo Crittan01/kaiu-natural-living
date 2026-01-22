@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
+// Esquema para validar los datos que llegan del frontend
 const quoteSchema = z.object({
-  city_code: z.string(),
-  subdivision_code: z.string(),
+  city_code: z.string(), // Código DANE destino
+  subdivision_code: z.string(), // Código DANE departamento destino
   line_items: z.array(z.object({
     weight: z.number().default(0.5),
     weight_unit: z.enum(['KG']).default('KG'),
@@ -17,7 +18,7 @@ const quoteSchema = z.object({
 });
 
 export default async function handler(req, res) {
-  // CORS
+  // Configuración de CORS
   res.setHeader('Access-Control-Allow-Credentials', true)
   res.setHeader('Access-Control-Allow-Origin', '*') 
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST')
@@ -29,20 +30,23 @@ export default async function handler(req, res) {
   }
   
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' })
+    return res.status(405).json({ error: 'Método no permitido' })
   }
 
   try {
     const VENNDELO_API_KEY = process.env.VENNDELO_API_KEY;
-    if (!VENNDELO_API_KEY) throw new Error('VENNDELO_API_KEY missing');
+    if (!VENNDELO_API_KEY) throw new Error('Falta VENNDELO_API_KEY');
 
+    // Validación de entrada
     const result = quoteSchema.safeParse(req.body);
     if (!result.success) {
-      return res.status(400).json({ error: 'Invalid data', details: result.error.format() });
+      return res.status(400).json({ error: 'Datos de cotización inválidos', details: result.error.format() });
     }
 
     const { city_code, subdivision_code, line_items, payment_method_code } = result.data;
 
+    // Construcción del payload para Venndelo
+    // IMPORTANTE: pickup_info debe coincidir con el origen configurado en ENV para que el cálculo sea real (Bogotá -> Destino)
     const payload = {
       pickup_info: {
         city_code: process.env.VENNDELO_PICKUP_CITY_CODE, 
@@ -55,7 +59,7 @@ export default async function handler(req, res) {
         country_code: "CO"
       },
       line_items: line_items.map(item => ({
-        sku: "GENERIC",
+        sku: "GENERIC", // SKU Genérico solo para cotizar
         name: "Producto",
         unit_price: item.unit_price,
         free_shipping: false,
@@ -70,6 +74,7 @@ export default async function handler(req, res) {
       payment_method_code
     };
 
+    // Llamada al endpoint de cotización de Venndelo
     const venndeloRes = await fetch('https://api.venndelo.com/v1/admin/orders/quotation', {
       method: 'POST',
       headers: {
@@ -82,15 +87,15 @@ export default async function handler(req, res) {
     const data = await venndeloRes.json();
 
     if (!venndeloRes.ok) {
-        console.error('Venndelo Quote Error:', JSON.stringify(data, null, 2));
+        // console.error('Error Cotización Venndelo:', JSON.stringify(data, null, 2));
         return res.status(venndeloRes.status).json({ 
-          error: 'Error calculating shipping', 
+          error: 'Error al calcular costos de envío', 
           venndelo_message: data.message || JSON.stringify(data),
           details: data 
         });
     }
 
-    // Retornamos el valor cotizado
+    // Respuesta exitosa con el valor cotizado
     return res.status(200).json({ 
         success: true, 
         shipping_cost: data.quoted_shipping_total || 0,
@@ -98,7 +103,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Server logic error:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    console.error('Error interno server cotización:', error);
+    return res.status(500).json({ error: 'Error Interno del Servidor' });
   }
 }

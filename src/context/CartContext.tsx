@@ -3,8 +3,8 @@ import { Product, Variant } from '@/lib/types';
 import { useToast } from '@/components/ui/use-toast';
 
 export interface CartItem extends Product {
-  quantity: number;
-  selectedVariant: Variant; // Store the full variant object
+  quantity: number; // Cantidad seleccionada
+  selectedVariant: Variant; // Objeto variante completo seleccionado
 }
 
 interface CartContextType {
@@ -23,26 +23,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const { toast } = useToast();
 
-  // Load from localStorage on mount
+  // Cargar carrito desde localStorage al montar
   useEffect(() => {
     const saved = localStorage.getItem('kaiu_cart');
     if (saved) {
       try {
         setItems(JSON.parse(saved));
       } catch (error) {
-        console.error('Failed to parse cart from local storage');
+        console.error('Fallo al leer carrito desde local storage');
       }
     }
   }, []);
 
-  // Save to localStorage whenever items change
+  // Guardar en localStorage cuando cambian los items
   useEffect(() => {
     localStorage.setItem('kaiu_cart', JSON.stringify(items));
   }, [items]);
 
   const addToCart = (product: Product, variant: Variant, quantity = 1) => {
     setItems((prev) => {
-      // Find if item exists with SAME product ID AND same variant ID
+      // Buscar si el item ya existe con el MISMO ID de producto Y variante
       const existing = prev.find((item) => item.id === product.id && item.selectedVariant.id === variant.id);
       
       if (existing) {
@@ -62,7 +62,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         description: `${product.nombre} (${variant.nombre}) se agregó.`,
       });
       
-      // Create new cart item with the selected variant
+      // Crear nuevo item de carrito con la variante seleccionada
       return [...prev, { ...product, selectedVariant: variant, quantity }];
     });
   };
@@ -87,7 +87,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems([]);
   };
 
-  // Calculate total using the VARIANT price, not the base product price
+  // Calcular total usando el precio de la VARIANTE, no del producto base
   const cartTotal = items.reduce(
     (total, item) => total + item.selectedVariant.precio * item.quantity,
     0

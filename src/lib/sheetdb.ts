@@ -1,47 +1,48 @@
 import { Product, Variant } from './types';
 
-// Interface matching the actual Excel columns (Spanish, Uppercase)
+// Interfaz que coincide con las columnas exactas del Excel (En Español y Mayúsculas)
 interface SheetRow {
-  ID: string;
-  SKU: string;           // "ACE-LAV-10ML"
-  NOMBRE: string;        // "Aceite Esencial de Lavanda"
-  CATEGORIA: string;     // "Aceites Esenciales"
-  PRECIO: string;        // "23400" or empty
-  PRECIO_ANTES: string;  // ""
-  BENEFICIOS: string;
-  DESCRIPCION_CORTA: string;
-  DESCRIPCION_LARGA: string;
-  INGREDIENTES: string;
-  MODO_USO: string;
-  TIPS: string;
-  CERTIFICACIONES: string;
-  IMAGEN_URL: string;
-  VARIANTES: string;     // "5ml, 10ml, 30ml, 100ml"
-  STOCK: string;         // "DISPONIBLE"
-  // New Logistics Columns
-  PESO: string;          // "0.2"
-  ALTO: string;          // "10"
-  ANCHO: string;         // "10"
-  LARGO: string;         // "10"
+  ID: string;            // Identificador único (aunque usamos SKU mayormente)
+  SKU: string;           // Código de producto (Ej: "ACE-LAV-10ML")
+  NOMBRE: string;        // Nombre del producto (Ej: "Aceite Esencial de Lavanda")
+  CATEGORIA: string;     // Categoría para filtros (Ej: "Aceites Esenciales", "Kits")
+  PRECIO: string;        // Precio actual (Ej: "23400")
+  PRECIO_ANTES: string;  // Precio tachado oferta (Opcional, Ej: "28000")
+  BENEFICIOS: string;    // Texto de beneficios principales
+  DESCRIPCION_CORTA: string; // Resumen para tarjeta de producto
+  DESCRIPCION_LARGA: string; // Detalle completo para página de producto
+  INGREDIENTES: string;  // Lista de componentes
+  MODO_USO: string;      // Instrucciones de aplicación
+  TIPS: string;          // Consejos adicionales
+  CERTIFICACIONES: string; // Sellos de calidad o info extra
+  IMAGEN_URL: string;    // Enlace a imagen (Google Drive o Directa)
+  VARIANTES: string;     // Variaciones explícitas (Ej: "5ml, 10ml")
+  STOCK: string;         // Estado de inventario ("DISPONIBLE" / "AGOTADO")
+  
+  // Nuevas Columnas de Logística (Requeridas para cálculo de envío preciso)
+  PESO: string;          // Peso en Kilogramos (Ej: "0.2")
+  ALTO: string;          // Altura en CM (Ej: "10")
+  ANCHO: string;         // Ancho en CM (Ej: "10")
+  LARGO: string;         // Largo en CM (Ej: "10")
 }
 
-// Helper to convert Google Drive links to direct viewable links
+// Helper para convertir links de Google Drive a links directos de imagen
+// Esto evita problemas de permisos estrictos y cuotas de API
 const convertGoogleDriveLink = (url: string) => {
     if (!url) return '';
     
-    // Check for standard Drive sharing links
+    // Detectar enlaces de compartir estándar
     // 1. https://drive.google.com/file/d/ID/view...
     // 2. https://drive.google.com/open?id=ID
     // 3. https://drive.google.com/uc?id=ID
     
-    // Robust Regex for ID extraction (alphanumeric + - _)
-    // Matches ID in /d/ID, id=ID, etc.
+    // Regex robusta para extraer el ID del archivo
     const idRegex = /(?:id=|\/d\/)([-\w]{25,})/;
     const match = url.match(idRegex);
     
     if (match && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
         const id = match[1];
-        // Use lh3.googleusercontent.com for reliable hotlinking (thumbnail generation) without API limits
+        // Usamos lh3.googleusercontent.com que es más permisivo con hotlinking y permite redimensionar
         return `https://lh3.googleusercontent.com/d/${id}=s1000?authuser=0`;
     }
     
@@ -49,7 +50,7 @@ const convertGoogleDriveLink = (url: string) => {
 };
 
 export const fetchProductsFromSheet = async (sheetName?: string): Promise<Product[]> => {
-  // Use local proxy to avoid CORS/SSL issues
+  // Usamos el proxy local (/api/products) para evitar errores de CORS con SheetDB directo
   let PROXY_URL = '/api/products';
   
   if (sheetName) {
@@ -60,7 +61,8 @@ export const fetchProductsFromSheet = async (sheetName?: string): Promise<Produc
     const response = await fetch(PROXY_URL);
     const rows: SheetRow[] = await response.json();
 
-    // Group rows by "NOMBRE" to form a Product family
+    // Agrupamos filas por "NOMBRE" para formar familias de Productos
+    // (Ej: "Aceite Lavanda" padre con variantes "10ml", "30ml")
     const productMap = new Map<string, Product>();
 
     rows.forEach(row => {
@@ -68,8 +70,9 @@ export const fetchProductsFromSheet = async (sheetName?: string): Promise<Produc
         const rowPrice = parseInt(row.PRECIO) || 0;
         const oldPrice = row.PRECIO_ANTES ? parseInt(row.PRECIO_ANTES) : undefined;
         
-        // Extract variant name: prefer the explicit VARIANTES column (e.g. "Roll-on 5ml"), 
-        // fallback to SKU split if empty
+        // Extraer nombre de variante:
+        // 1. Columna explícita "VARIANTES" (Ej: "Roll-on 5ml")
+        // 2. Fallback de SKU (Ej: "ACE-LAV-10ML" -> "10ML")
         const skuParts = row.SKU.split('-');
         let variantName = row.VARIANTES?.trim();
         
@@ -78,13 +81,13 @@ export const fetchProductsFromSheet = async (sheetName?: string): Promise<Produc
         }
 
         if (!productMap.has(rowName)) {
-            // Initialize Parent Product
+            // Inicializar Producto Padre si no existe
             productMap.set(rowName, {
                 id: parseInt(row.ID) || Math.random(), 
                 nombre: rowName,
                 categoria: row.CATEGORIA?.trim() || 'Sin Categoría',
                 beneficios: row.BENEFICIOS,
-                precio: rowPrice, // Will be overwritten by lowest price potentially, or first
+                precio: rowPrice, // Precio base (se actualizará con el menor encontrado)
                 precio_antes: oldPrice,
                 descripcion: row.DESCRIPCION_LARGA || row.DESCRIPCION_CORTA,
                 imagen_url: convertGoogleDriveLink(row.IMAGEN_URL),
@@ -95,27 +98,23 @@ export const fetchProductsFromSheet = async (sheetName?: string): Promise<Produc
 
         const product = productMap.get(rowName)!;
         
-        // Only add variant if it has valid info (optional check)
-        // Note: Row with empty price might be the "Master" description row, but in this sheet ID 1 is 5ML with no price.
-        // We will add it anyway but maybe mark as unavailable if price is 0? 
-        // For now, let's include everything.
-
+        // Agregamos la variante específica (SKU) al padre
         product.variantes.push({
             id: row.SKU, 
-            nombre: variantName, // "10ML"
+            nombre: variantName, // Ej: "10ML"
             precio: rowPrice,
             precio_antes: oldPrice,
             sku: row.SKU,
             imagen_url: convertGoogleDriveLink(row.IMAGEN_URL),
             stock: row.STOCK,
-            // Logistics Parsing (Handle string "0,2" or "0.2")
+            // Parsing de Logística (Manejar decimales con coma o punto)
             peso: parseFloat((row.PESO || "0").replace(',', '.')) || 0,
             alto: parseFloat((row.ALTO || "0").replace(',', '.')) || 0,
             ancho: parseFloat((row.ANCHO || "0").replace(',', '.')) || 0,
             largo: parseFloat((row.LARGO || "0").replace(',', '.')) || 0
         });
 
-        // Update main product price to be the lowest non-zero price found so far (useful for "Desde $20.000")
+        // Actualizamos el precio del padre para mostrar "Desde $X" (el menor precio disponible)
         if (rowPrice > 0 && (product.precio === 0 || rowPrice < product.precio)) {
              product.precio = rowPrice;
         }
@@ -124,7 +123,7 @@ export const fetchProductsFromSheet = async (sheetName?: string): Promise<Produc
     return Array.from(productMap.values());
 
   } catch (error) {
-    console.error("❌ Error fetching SheetDB:", error);
+    console.error("Error obteniendo datos de SheetDB:", error);
     return [];
   }
 };

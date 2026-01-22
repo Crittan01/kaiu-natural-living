@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Schema de Validación (Espejo de lo que pide Venndelo)
+// Esquema de Validación (Espejo de lo que pide Venndelo)
 const createOrderSchema = z.object({
   pickup_info: z.object({
     contact_name: z.string(),
@@ -9,7 +9,7 @@ const createOrderSchema = z.object({
     city_code: z.string(),
     subdivision_code: z.string(),
     country_code: z.string(),
-  }).optional(), // Optional because we fill it in backend
+  }).optional(), // Opcional porque se llena en el backend
   billing_info: z.object({
     first_name: z.string(),
     last_name: z.string(),
@@ -26,12 +26,15 @@ const createOrderSchema = z.object({
     subdivision_code: z.string(),
     country_code: z.string(),
     phone: z.string(),
+    // Codigo postal puede venir vacio, lo manejamos luego
+    postal_code: z.string().optional().default(""), 
   }),
   line_items: z.array(z.object({
     sku: z.string(),
     name: z.string(),
     unit_price: z.number(),
     quantity: z.number(),
+    // Logistica (Obligatorios para Venndelo)
     weight: z.number(),
     weight_unit: z.enum(['KG']),
     dimensions_unit: z.enum(['CM']),
@@ -42,6 +45,7 @@ const createOrderSchema = z.object({
     variation_id: z.number().nullable().optional(),
     free_shipping: z.boolean().nullable().optional(),
   })),
+  // Metodo de pago dinamico
   payment_method_code: z.enum(['COD', 'EXTERNAL_PAYMENT']),
   external_order_id: z.string(),
   discounts: z.array(z.object({
@@ -51,7 +55,7 @@ const createOrderSchema = z.object({
 });
 
 export default async function handler(req, res) {
-  // 1. CORS Setup
+  // 1. Configuración de CORS
   res.setHeader('Access-Control-Allow-Credentials', true)
   res.setHeader('Access-Control-Allow-Origin', '*') 
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT')
@@ -66,18 +70,18 @@ export default async function handler(req, res) {
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' })
+    return res.status(405).json({ error: 'Metodo no permitido' })
   }
 
   try {
-    // 2. Validación de Entorno
+    // 2. Validación de Entorno (API Key)
     const VENNDELO_API_KEY = process.env.VENNDELO_API_KEY;
     if (!VENNDELO_API_KEY) {
-      console.error('SERVER ERROR: VENNDELO_API_KEY missing');
-      return res.status(500).json({ error: 'Server configuration error' });
+      console.error('ERROR SERVIDOR: Falta VENNDELO_API_KEY');
+      return res.status(500).json({ error: 'Error de configuración del servidor' });
     }
 
-    // 3. Validación de Datos (Zod)
+    // 3. Validación de Datos de Entrada (Zod)
     const result = createOrderSchema.safeParse(req.body);
     
     if (!result.success) {
@@ -88,54 +92,34 @@ export default async function handler(req, res) {
     }
 
     const orderData = result.data;
-    // console.log("📡 [API] Recibido Payload Validado:", JSON.stringify(orderData, null, 2));
 
-    // FIX: Bogota D.C. often has Dept 25 in frontend lists but Dept 11 in official DANE/Venndelo
+    // CORRECCIÓN ESPECÍFICA: Código de Departamento Bogotá
+    // A veces el frontend envía '25' (Cundinamarca) para Bogotá, pero Venndelo/DANE requiere '11'.
     if (orderData.shipping_info.city_code === '11001000' && orderData.shipping_info.subdivision_code === '25') {
-        console.log("⚠️ Corrigiendo código departamento Bogotá: 25 -> 11");
+        // console.log("⚠️ Corrigiendo código departamento Bogotá: 25 -> 11");
         orderData.shipping_info.subdivision_code = '11';
     }
-    // Ensure postal_code is present (using 000000 as placeholder if empty is rejected)
+    
+    // Asegurar código postal (Venndelo a veces rechaza vacíos estrictos, usamos "000000" si falla, o string vacío si lo permite)
+    // En pruebas recientes, string vacío "" funciona mejor que null.
     if (!orderData.shipping_info.postal_code) {
-        orderData.shipping_info.postal_code = "000000";
+        orderData.shipping_info.postal_code = "";
     }
 
-    // Inject missing strictly required fields for line items
-    orderData.line_items = orderData.line_items.map(item => ({
-        ...item,
-        variation_id: item.variation_id ?? null,
-        free_shipping: item.free_shipping ?? false
-    }));
-
-    // 4. Enviar a Venndelo (Intento 1: Ciudad Real)
-    // Construct pickup info from environment variables or defaults
-    // Construct pickup info from environment variables or defaults
-
-    // Clean up payload fields
-    
-    // Billing Info Cleaning - Basic Trim
-    orderData.billing_info.first_name = orderData.billing_info.first_name.trim();
-    orderData.billing_info.last_name = orderData.billing_info.last_name.trim();
-    // Keep ID cleaning just to be safe (nums only is standard for cedula) but could relax if needed
-    orderData.billing_info.identification = orderData.billing_info.identification.trim(); 
-
-    // Shipping Info Cleaning - Basic Trim
-    orderData.shipping_info.address_1 = orderData.shipping_info.address_1.trim();
-    orderData.shipping_info.postal_code = ""; // Empty string explicitly
-
-    // Line Items Cleaning
+    // Limpieza de Items (Eliminar campos nulos no permitidos)
     orderData.line_items = orderData.line_items.map(item => {
-        // Remove null/undefined keys explicitly by destructuring
         const { variation_id, free_shipping, ...rest } = item;
         return {
             ...rest,
-            type: "STANDARD" // Revert to STANDARD as requested
+            // Aseguramos nulos explicitos o eliminacion
+            variation_id: variation_id ?? null,
+            free_shipping: free_shipping ?? false,
+            type: "STANDARD" // Forzamos STANDARD para productos físicos con dimensiones
         };
     });
 
-    // 4. Enviar a Venndelo (Intento 1: Ciudad Real)
-    // console.log("DEBUG ENV inside handler:", process.env.VENNDELO_PICKUP_NAME);
-    
+    // 4. Configuración de Origen (Bodega)
+    // Se toma de variables de entorno para no quemar direcciones en código
     const pickupInfo = {
       contact_name: process.env.VENNDELO_PICKUP_NAME,
       contact_phone: process.env.VENNDELO_PICKUP_PHONE,
@@ -146,23 +130,20 @@ export default async function handler(req, res) {
       postal_code: "" 
     };
 
-    // Clean up discounts
-    if (!orderData.discounts) {
-        orderData.discounts = [];
-    }
-
-    // Override the orderData pickup_info with our server-side config
+    // Sobreescribimos la info de recogida con la nuestra (seguridad)
     orderData.pickup_info = pickupInfo;
     orderData.confirmation_status = 'PENDING';
     
-    // Dynamic Payment Method (COD or EXTERNAL_PAYMENT)
-    // If not provided in body, fallback to EXTERNAL_PAYMENT for safety similar to previous behavior, 
-    // but the schema validation allows COD now.
+    // Método de Pago (Dinamico: COD o EXTERNAL)
     orderData.payment_method_code = req.body.payment_method_code || 'EXTERNAL_PAYMENT'; 
 
-    // Log the FINAL payload being sent (crucial for debugging)
-    // console.log("🚀 [API] Enviando Payload Sanitizado a Venndelo:", JSON.stringify(orderData, null, 2));
+    // Limpieza básica de textos
+    orderData.billing_info.first_name = orderData.billing_info.first_name.trim();
+    orderData.billing_info.last_name = orderData.billing_info.last_name.trim();
+    orderData.billing_info.identification = orderData.billing_info.identification.trim(); 
+    orderData.shipping_info.address_1 = orderData.shipping_info.address_1.trim();
 
+    // 5. Enviar Solicitud a Venndelo
     let venndeloResponse = await fetch('https://api.venndelo.com/v1/admin/orders', {
       method: 'POST',
       headers: {
@@ -174,22 +155,21 @@ export default async function handler(req, res) {
 
     let data = await venndeloResponse.json();
 
-    // 5. Manejo de Errores y Reintento (Estrategia Antiprohibiciones)
+    // 6. Manejo de Errores y Reintento (Fallback por Cobertura)
     if (!venndeloResponse.ok) {
-        console.log("Venndelo Initial Error:", JSON.stringify(data));
+        console.log("Error Inicial Venndelo:", JSON.stringify(data));
         
-        // Detectar si es error de cobertura (APP_PUBLIC_ERROR)
-        // Buscamos "Tarifa" o "transporte" para ser más genericos
+        // Detectar si es error de cobertura (Ej: Vereda no normalizada)
         const errorString = JSON.stringify(data);
         const isCoverageError = errorString.includes("Tarifa") || errorString.includes("transporte") || errorString.includes("APP_PUBLIC_ERROR");
         
         if (isCoverageError) {
-             
-             // Diccionario de Fallback (Capitales por Departamento)
+             // Diccionario de Fallback: Si falla la ciudad específica, intentamos con la Capital del Departamento
+             // Esto ayuda a "rescatar" órdenes mal geolocalizadas
              const FALLBACK_CITIES = {
                  "05": "05001000", // Antioquia -> Medellin
                  "11": "11001000", // Bogota -> Bogota
-                 "25": "25001000", // Cundinamarca -> Agua de Dios
+                 "25": "25001000", // Cundinamarca -> Agua de Dios (o cabecera cercana)
                  "54": "54001000", // Norte de Santander -> Cúcuta
                  "76": "76001000", // Valle -> Cali
                  "08": "08001000", // Atlantico -> Barranquilla
@@ -197,25 +177,20 @@ export default async function handler(req, res) {
              };
 
              const departmentCode = orderData.shipping_info.subdivision_code;
-             console.log(`Detectado error de cobertura para Dept: ${departmentCode}. Buscando fallback...`);
+             // console.log(`Reintentando con ciudad capital para Dept: ${departmentCode}`);
              
              const fallbackCity = FALLBACK_CITIES[departmentCode];
 
              if (fallbackCity && fallbackCity !== orderData.shipping_info.city_code) {
-                 console.log(`Reintentando con ciudad fallback: ${fallbackCity}`);
-                 
-                 // Clonamos y modificamos para el reintento
+                 // Clonamos y modificamos
                  const retryOrder = JSON.parse(JSON.stringify(orderData));
                  
-                 // Ponemos la nota de la ciudad real en la dirección o notas
+                 // Agregamos el código original a la dirección para que el transportista sepa
                  const originalCityCode = retryOrder.shipping_info.city_code;
-                 retryOrder.shipping_info.address_1 = `DESTINO REAL ${originalCityCode} ${retryOrder.shipping_info.address_1}`;
-                 
-                 // Cambiamos la ciudad logística a la capital
+                 retryOrder.shipping_info.address_1 = `DESTINO REAL COD-${originalCityCode} ${retryOrder.shipping_info.address_1}`;
                  retryOrder.shipping_info.city_code = fallbackCity;
 
-                 // Reintentamos
-                 console.log("📦 Payload Reintento:", JSON.stringify(retryOrder, null, 2));
+                 // Reintento
                  venndeloResponse = await fetch('https://api.venndelo.com/v1/admin/orders', {
                     method: 'POST',
                     headers: {
@@ -225,27 +200,24 @@ export default async function handler(req, res) {
                     body: JSON.stringify(retryOrder)
                 });
                 data = await venndeloResponse.json();
-                console.log("Resultado Reintento:", venndeloResponse.ok ? "EXITO" : "FALLO");
-             } else {
-                 console.log("No hay ciudad fallback configurada o es la misma.");
              }
         }
     }
 
     if (!venndeloResponse.ok) {
-       console.error('VENNDELO ERROR:', JSON.stringify(data, null, 2));
+       console.error('ERROR VENNDELO FINAL:', JSON.stringify(data, null, 2));
        return res.status(venndeloResponse.status).json({ 
-         error: 'Error creating order in Venndelo', 
-         venndelo_message: data?.message || 'Unknown error',
+         error: 'Error creando orden en Venndelo', 
+         venndelo_message: data?.message || 'Error desconocido',
          details: data
        });
     }
 
-    // 6. Éxito
+    // 7. Respuesta Exitosa
     return res.status(201).json({ success: true, order: data });
 
   } catch (error) {
-    console.error('INTERNAL SERVER ERROR:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    console.error('ERROR INTERNO SERVIDOR:', error);
+    return res.status(500).json({ error: 'Error Interno del Servidor' });
   }
 }
