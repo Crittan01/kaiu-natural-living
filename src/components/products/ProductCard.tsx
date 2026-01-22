@@ -359,9 +359,10 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
                      
                      <Dialog>
                         <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="hidden sm:flex">
-                                <Eye className="w-4 h-4 mr-2" />
-                                Vista Rápida
+                            <Button variant="outline" size="sm" className="flex items-center justify-center px-3" title="Vista Rápida">
+                                <Eye className="w-4 h-4 sm:mr-2" />
+                                <span className="hidden sm:inline">Vista Rápida</span>
+                                <span className="sm:hidden">Ver</span>
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background">
