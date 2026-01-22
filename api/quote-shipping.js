@@ -45,9 +45,9 @@ export default async function handler(req, res) {
 
     const payload = {
       pickup_info: {
-        city_code: "05001000", // MEDELLIN (Origen Bodega - Configurar real)
-        subdivision_code: "05", // ANTIOQUIA
-        country_code: "CO"
+        city_code: process.env.VENNDELO_PICKUP_CITY_CODE, 
+        subdivision_code: process.env.VENNDELO_PICKUP_SUBDIVISION_CODE, 
+        country_code: process.env.VENNDELO_PICKUP_COUNTRY || "CO"
       },
       shipping_info: {
         city_code,

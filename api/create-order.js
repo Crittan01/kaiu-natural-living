@@ -154,7 +154,11 @@ export default async function handler(req, res) {
     // Override the orderData pickup_info with our server-side config
     orderData.pickup_info = pickupInfo;
     orderData.confirmation_status = 'PENDING';
-    orderData.payment_method_code = 'EXTERNAL_PAYMENT'; 
+    
+    // Dynamic Payment Method (COD or EXTERNAL_PAYMENT)
+    // If not provided in body, fallback to EXTERNAL_PAYMENT for safety similar to previous behavior, 
+    // but the schema validation allows COD now.
+    orderData.payment_method_code = req.body.payment_method_code || 'EXTERNAL_PAYMENT'; 
 
     // Log the FINAL payload being sent (crucial for debugging)
     // console.log("🚀 [API] Enviando Payload Sanitizado a Venndelo:", JSON.stringify(orderData, null, 2));

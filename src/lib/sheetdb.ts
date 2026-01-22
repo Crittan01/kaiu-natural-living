@@ -18,6 +18,11 @@ interface SheetRow {
   IMAGEN_URL: string;
   VARIANTES: string;     // "5ml, 10ml, 30ml, 100ml"
   STOCK: string;         // "DISPONIBLE"
+  // New Logistics Columns
+  PESO: string;          // "0.2"
+  ALTO: string;          // "10"
+  ANCHO: string;         // "10"
+  LARGO: string;         // "10"
 }
 
 // Helper to convert Google Drive links to direct viewable links
@@ -102,7 +107,12 @@ export const fetchProductsFromSheet = async (sheetName?: string): Promise<Produc
             precio_antes: oldPrice,
             sku: row.SKU,
             imagen_url: convertGoogleDriveLink(row.IMAGEN_URL),
-            stock: row.STOCK
+            stock: row.STOCK,
+            // Logistics Parsing (Handle string "0,2" or "0.2")
+            peso: parseFloat((row.PESO || "0").replace(',', '.')) || 0,
+            alto: parseFloat((row.ALTO || "0").replace(',', '.')) || 0,
+            ancho: parseFloat((row.ANCHO || "0").replace(',', '.')) || 0,
+            largo: parseFloat((row.LARGO || "0").replace(',', '.')) || 0
         });
 
         // Update main product price to be the lowest non-zero price found so far (useful for "Desde $20.000")

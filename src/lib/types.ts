@@ -6,6 +6,11 @@ export interface Variant {
   sku: string;
   imagen_url?: string; // Optional variant-specific image
   stock?: string; // "DISPONIBLE" or "AGOTADO"
+  // Logistics (Optional, defaults will be applied if missing)
+  peso?: number;  // KG
+  alto?: number;  // CM
+  ancho?: number; // CM
+  largo?: number; // CM
 }
 
 export interface Product {

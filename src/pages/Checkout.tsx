@@ -26,7 +26,8 @@ const Checkout = () => {
     ciudad_code: '',
     direccion: '',
     barrio: '',
-    notas: ''
+    notas: '',
+    payment_method: 'COD' // Default to Cash on Delivery
   });
 
   const [shippingCost, setShippingCost] = useState<number | null>(null);
@@ -65,9 +66,10 @@ const Checkout = () => {
                 line_items: items.map(item => ({
                     unit_price: item.selectedVariant.precio,
                     quantity: item.quantity,
-                    // Default dimensions if not present
-                    weight: 0.5, 
-                    height: 10, width: 10, length: 10
+                    weight: item.selectedVariant.peso || 0.2, // Use DB weight or default 0.2
+                    height: item.selectedVariant.alto || 10,
+                    width: item.selectedVariant.ancho || 10, 
+                    length: item.selectedVariant.largo || 10
                 }))
             })
         });
@@ -147,15 +149,15 @@ const Checkout = () => {
             name: item.nombre,
             unit_price: item.selectedVariant.precio,
             quantity: item.quantity,
-            weight: 0.2, // Default small weight for oils
+            weight: item.selectedVariant.peso || 0.2, // Use DB weight or default 0.2
             weight_unit: "KG",
             dimensions_unit: "CM",
-            height: 10,
-            width: 10,
-            length: 10,
+            height: item.selectedVariant.alto || 10,
+            width: item.selectedVariant.ancho || 10,
+            length: item.selectedVariant.largo || 10,
             type: "STANDARD"
         })),
-        payment_method_code: "EXTERNAL_PAYMENT", 
+        payment_method_code: formData.payment_method, 
         external_order_id: `KAIU-${Date.now()}`,
         discounts: []
       };
@@ -302,6 +304,34 @@ const Checkout = () => {
                                     ? `Costo de envío: $${shippingCost.toLocaleString()}`
                                     : "Selecciona tu ciudad para calcular el envío."}
                         </p>
+                    </div>
+                </div>
+
+                <div className="space-y-3 pt-4 border-t">
+                    <Label className="text-base font-medium">Método de Pago</Label>
+                    <div className="grid grid-cols-1 gap-3">
+                         {/* Option 1: COD (Active) */}
+                        <div 
+                            className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${formData.payment_method === 'COD' ? 'border-primary bg-primary/5' : 'border-border hover:bg-secondary/50'}`}
+                            onClick={() => setFormData(prev => ({ ...prev, payment_method: 'COD' }))}
+                        >
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.payment_method === 'COD' ? 'border-primary' : 'border-muted-foreground'}`}>
+                                {formData.payment_method === 'COD' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                            </div>
+                            <div className="flex-1">
+                                <p className="font-medium text-sm">Pago Contra Entrega</p>
+                                <p className="text-xs text-muted-foreground">Pagas en efectivo al recibir tu pedido.</p>
+                            </div>
+                        </div>
+
+                        {/* Option 2: Online (Disabled for now) */}
+                        <div className="flex items-center gap-3 p-4 border rounded-lg opacity-50 cursor-not-allowed bg-muted/20">
+                             <div className="w-4 h-4 rounded-full border border-muted-foreground" />
+                             <div className="flex-1">
+                                <p className="font-medium text-sm text-muted-foreground">Pago en Línea (Próximamente)</p>
+                                <p className="text-xs text-muted-foreground">Wompi / Tarjetas / Nequi</p>
+                             </div>
+                        </div>
                     </div>
                 </div>
 
