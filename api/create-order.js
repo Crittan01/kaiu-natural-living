@@ -9,7 +9,7 @@ const createOrderSchema = z.object({
     city_code: z.string(),
     subdivision_code: z.string(),
     country_code: z.string(),
-  }),
+  }).optional(), // Optional because we fill it in backend
   billing_info: z.object({
     first_name: z.string(),
     last_name: z.string(),
@@ -38,7 +38,9 @@ const createOrderSchema = z.object({
     height: z.number(),
     width: z.number(),
     length: z.number(),
-    type: z.enum(['STANDARD', 'VIRTUAL']).default('VIRTUAL'), // Asumimos productos virtuales por ahora si no están sincronizados
+    type: z.enum(['STANDARD', 'VIRTUAL']).default('STANDARD'),
+    variation_id: z.number().nullable().optional(),
+    free_shipping: z.boolean().nullable().optional(),
   })),
   payment_method_code: z.enum(['COD', 'EXTERNAL_PAYMENT']),
   external_order_id: z.string(),
@@ -86,8 +88,77 @@ export default async function handler(req, res) {
     }
 
     const orderData = result.data;
+    console.log("📡 [API] Recibido Payload Validado:", JSON.stringify(orderData, null, 2));
+
+    // FIX: Bogota D.C. often has Dept 25 in frontend lists but Dept 11 in official DANE/Venndelo
+    if (orderData.shipping_info.city_code === '11001000' && orderData.shipping_info.subdivision_code === '25') {
+        console.log("⚠️ Corrigiendo código departamento Bogotá: 25 -> 11");
+        orderData.shipping_info.subdivision_code = '11';
+    }
+    // Ensure postal_code is present (using 000000 as placeholder if empty is rejected)
+    if (!orderData.shipping_info.postal_code) {
+        orderData.shipping_info.postal_code = "000000";
+    }
+
+    // Inject missing strictly required fields for line items
+    orderData.line_items = orderData.line_items.map(item => ({
+        ...item,
+        variation_id: item.variation_id ?? null,
+        free_shipping: item.free_shipping ?? false
+    }));
 
     // 4. Enviar a Venndelo (Intento 1: Ciudad Real)
+    // Construct pickup info from environment variables or defaults
+    // Construct pickup info from environment variables or defaults
+
+    // Clean up payload fields
+    
+    // Billing Info Cleaning - Basic Trim
+    orderData.billing_info.first_name = orderData.billing_info.first_name.trim();
+    orderData.billing_info.last_name = orderData.billing_info.last_name.trim();
+    // Keep ID cleaning just to be safe (nums only is standard for cedula) but could relax if needed
+    orderData.billing_info.identification = orderData.billing_info.identification.trim(); 
+
+    // Shipping Info Cleaning - Basic Trim
+    orderData.shipping_info.address_1 = orderData.shipping_info.address_1.trim();
+    orderData.shipping_info.postal_code = ""; // Empty string explicitly
+
+    // Line Items Cleaning
+    orderData.line_items = orderData.line_items.map(item => {
+        // Remove null/undefined keys explicitly by destructuring
+        const { variation_id, free_shipping, ...rest } = item;
+        return {
+            ...rest,
+            type: "STANDARD" // Revert to STANDARD as requested
+        };
+    });
+
+    // 4. Enviar a Venndelo (Intento 1: Ciudad Real)
+    console.log("DEBUG ENV inside handler:", process.env.VENNDELO_PICKUP_NAME);
+    
+    const pickupInfo = {
+      contact_name: process.env.VENNDELO_PICKUP_NAME,
+      contact_phone: process.env.VENNDELO_PICKUP_PHONE,
+      address_1: process.env.VENNDELO_PICKUP_ADDRESS,
+      city_code: process.env.VENNDELO_PICKUP_CITY_CODE,
+      subdivision_code: process.env.VENNDELO_PICKUP_SUBDIVISION_CODE,
+      country_code: process.env.VENNDELO_PICKUP_COUNTRY,
+      postal_code: "" 
+    };
+
+    // Clean up discounts
+    if (!orderData.discounts) {
+        orderData.discounts = [];
+    }
+
+    // Override the orderData pickup_info with our server-side config
+    orderData.pickup_info = pickupInfo;
+    orderData.confirmation_status = 'PENDING';
+    orderData.payment_method_code = 'EXTERNAL_PAYMENT'; 
+
+    // Log the FINAL payload being sent (crucial for debugging)
+    console.log("🚀 [API] Enviando Payload Sanitizado a Venndelo:", JSON.stringify(orderData, null, 2));
+
     let venndeloResponse = await fetch('https://api.venndelo.com/v1/admin/orders', {
       method: 'POST',
       headers: {

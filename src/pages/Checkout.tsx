@@ -21,6 +21,7 @@ const Checkout = () => {
     nombre: '',
     email: '',
     telefono: '',
+    identificacion: '',
     departamento_code: '',
     ciudad_code: '',
     direccion: '',
@@ -123,21 +124,14 @@ const Checkout = () => {
 
       // 1. Mapear datos al formato de la API
       const orderPayload = {
-        pickup_info: {
-          contact_name: "Kaiu Natural Living", 
-          contact_phone: "3001234567", 
-          address_1: "Calle 10 # 20-30", 
-          city_code: "11001000", 
-          subdivision_code: "11", 
-          country_code: "CO"
-        },
+        // pickup_info se inyecta en el servidor desde variables de entorno
         billing_info: {
             first_name: formData.nombre.split(' ')[0],
             last_name: formData.nombre.split(' ').slice(1).join(' ') || '.',
             email: formData.email,
             phone: formData.telefono,
             identification_type: "CC", 
-            identification: "123456789"
+            identification: formData.identificacion || "1020304050" // Fallback seguro solo si vacio (pero es required)
         },
         shipping_info: {
             first_name: formData.nombre.split(' ')[0],
@@ -153,13 +147,13 @@ const Checkout = () => {
             name: item.nombre,
             unit_price: item.selectedVariant.precio,
             quantity: item.quantity,
-            weight: 0.5,
+            weight: 0.2, // Default small weight for oils
             weight_unit: "KG",
             dimensions_unit: "CM",
             height: 10,
             width: 10,
             length: 10,
-            type: "VIRTUAL"
+            type: "STANDARD"
         })),
         payment_method_code: "EXTERNAL_PAYMENT", 
         external_order_id: `KAIU-${Date.now()}`,
@@ -176,9 +170,12 @@ const Checkout = () => {
 
       if (!response.ok) throw new Error(data.error || 'Error al procesar la orden');
 
+      // Extract ID correctly: API returns { success: true, order: { items: [ { id: "..." } ] } }
+      const orderId = data.order?.items?.[0]?.id || data.order?.id || 'N/A';
+
       toast({
         title: "¡Orden Creada Exitosamente!",
-        description: `Tu pedido #${data.order?.id || 'N/A'} ha sido recibido.`,
+        description: `Tu pedido #${orderId} ha sido recibido.`,
       });
       
       clearCart();
@@ -230,14 +227,19 @@ const Checkout = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                        <Label htmlFor="identificacion">Cédula / NIT</Label>
+                        <Input id="identificacion" name="identificacion" placeholder="Ej. 1020304050" required onChange={handleInputChange} />
+                    </div>
                     <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
                         <Input id="email" name="email" type="email" required onChange={handleInputChange} />
                     </div>
-                    <div className="space-y-2">
+                </div>
+                
+                <div className="space-y-2">
                         <Label htmlFor="telefono">Teléfono</Label>
                         <Input id="telefono" name="telefono" type="tel" required onChange={handleInputChange} />
-                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

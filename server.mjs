@@ -8,7 +8,17 @@ import quoteShippingHandler from './api/quote-shipping.js';
 import getProductsHandler from './api/get-products.js';
 
 // Config
-dotenv.config({ path: '.env.local' });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envPath = path.resolve(__dirname, '.env.local');
+const result = dotenv.config({ path: envPath });
+
+console.log(`Intentando cargar ENV desde: ${envPath}`);
+if (result.error) {
+    console.warn("⚠️ No se pudo cargar .env.local:", result.error.message);
+} else {
+    // console.log("✅ Variables cargadas:", result.parsed);
+    console.log(`✅ .env.local cargado. Pickup Name: ${process.env.VENNDELO_PICKUP_NAME || 'NO_DEFINIDO'}`);
+}
 const app = express();
 const PORT = 3001; // Corremos en puerto diferente a Vite (5173/3000)
 
