@@ -6,6 +6,8 @@ import dotenv from 'dotenv';
 import createOrderHandler from './api/create-order.js';
 import quoteShippingHandler from './api/quote-shipping.js';
 import getProductsHandler from './api/get-products.js';
+import trackOrderHandler from './api/track-order.js';
+import wompiSignatureHandler from './api/wompi-signature.js';
 
 // Configuración inicial
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -43,6 +45,8 @@ const adaptParams = (handler) => async (req, res) => {
 app.post('/api/create-order', adaptParams(createOrderHandler));
 app.post('/api/quote-shipping', adaptParams(quoteShippingHandler));
 app.get('/api/products', adaptParams(getProductsHandler));
+app.get('/api/track-order', adaptParams(trackOrderHandler));
+app.post('/api/wompi-signature', adaptParams(wompiSignatureHandler));
 
 // Iniciar Servidor
 app.listen(PORT, () => {

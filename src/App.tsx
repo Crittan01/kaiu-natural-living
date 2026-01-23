@@ -13,6 +13,8 @@ import Kits from "./pages/Kits";
 import FAQ from "./pages/FAQ";
 import Wishlist from "./pages/Wishlist";
 import Checkout from "./pages/Checkout";
+import CheckoutSuccess from "./pages/CheckoutSuccess";
+import TrackOrder from "./pages/TrackOrder";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
@@ -35,6 +37,8 @@ const App = () => (
               <Route path="/faq" element={<FAQ />} />
               <Route path="/wishlist" element={<Wishlist />} />
               <Route path="/checkout" element={<Checkout />} />
+              <Route path="/checkout/success" element={<CheckoutSuccess />} />
+              <Route path="/rastreo" element={<TrackOrder />} />
               <Route path="/install" element={<Install />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

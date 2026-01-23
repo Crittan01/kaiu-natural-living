@@ -11,6 +11,7 @@ import { Check, Truck, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import locationsData from '@/lib/locations.json';
+import { WompiWidget } from '@/components/checkout/WompiWidget';
 
 const Checkout = () => {
   const { items, cartTotal, itemCount, clearCart } = useCart();
@@ -327,12 +328,21 @@ const Checkout = () => {
                             </div>
                         </div>
 
-                        {/* Option 2: Online (Disabled for now) */}
-                        <div className="flex items-center gap-3 p-4 border rounded-lg opacity-50 cursor-not-allowed bg-muted/20">
-                             <div className="w-4 h-4 rounded-full border border-muted-foreground" />
+                        {/* Option 2: Online (Wompi) */}
+                        <div 
+                            className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${formData.payment_method === 'EXTERNAL_PAYMENT' ? 'border-primary bg-primary/5' : 'border-border hover:bg-secondary/50'}`}
+                            onClick={() => setFormData(prev => ({ ...prev, payment_method: 'EXTERNAL_PAYMENT' }))}
+                        >
+                             <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.payment_method === 'EXTERNAL_PAYMENT' ? 'border-primary' : 'border-muted-foreground'}`}>
+                                {formData.payment_method === 'EXTERNAL_PAYMENT' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                             </div>
                              <div className="flex-1">
-                                <p className="font-medium text-sm text-muted-foreground">Pago en Línea (Próximamente)</p>
-                                <p className="text-xs text-muted-foreground">Wompi / Tarjetas / Nequi</p>
+                                <p className="font-medium text-sm">Pago en Línea (Wompi)</p>
+                                <p className="text-xs text-muted-foreground">Tarjetas de Crédito, Débito, PSE, Nequi</p>
+                             </div>
+                             {/* Wompi Logo or Badge could go here */}
+                             <div className="h-6 w-auto">
+                                <img src="https://logos-marcas.com/wp-content/uploads/2022/08/Wompi-Logo.png" alt="Wompi" className="h-full object-contain mix-blend-multiply opacity-80" onError={(e) => e.currentTarget.style.display = 'none'} />
                              </div>
                         </div>
                     </div>
@@ -344,9 +354,25 @@ const Checkout = () => {
                      </div>
                 )}
 
-                <Button type="submit" className="w-full mt-6" size="lg" disabled={isSubmitting || shippingStatus === null || isQuoting || cartTotal < 20000}>
-                    {isSubmitting ? 'Procesando...' : `Confirmar Pedido - $${finalTotal.toLocaleString()}`}
-                </Button>
+                {formData.payment_method === 'EXTERNAL_PAYMENT' ? (
+                    <div className="mt-6">
+                        <WompiWidget 
+                            amountInCents={finalTotal * 100}
+                            currency="COP"
+                            reference={`KAIU-${Date.now()}`} // Simple reference, ideally should match order ID if pre-created
+                            email={formData.email}
+                            fullName={formData.nombre}
+                            phoneNumber={formData.telefono}
+                        />
+                        <p className="text-xs text-center text-muted-foreground mt-2">
+                            Serás redirigido a la pasarela segura de Wompi.
+                        </p>
+                    </div>
+                ) : (
+                    <Button type="submit" className="w-full mt-6" size="lg" disabled={isSubmitting || shippingStatus === null || isQuoting || cartTotal < 20000}>
+                        {isSubmitting ? 'Procesando...' : `Confirmar Pedido - $${finalTotal.toLocaleString()}`}
+                    </Button>
+                )}
               </form>
             </div>
 

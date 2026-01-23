@@ -13,6 +13,7 @@ const navLinks = [
   { href: '/rituales', label: 'Rituales' },
   { href: '/kits', label: 'Kits' },
   { href: '/faq', label: 'Preguntas' },
+  { href: '/rastreo', label: 'Rastreo' },
 ];
 
 export function Header() {
