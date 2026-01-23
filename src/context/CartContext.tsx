@@ -1,23 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { useState, useEffect, ReactNode } from 'react';
 import { Product, Variant } from '@/lib/types';
 import { useToast } from '@/components/ui/use-toast';
-
-export interface CartItem extends Product {
-  quantity: number; // Cantidad seleccionada
-  selectedVariant: Variant; // Objeto variante completo seleccionado
-}
-
-interface CartContextType {
-  items: CartItem[];
-  addToCart: (product: Product, variant: Variant, quantity?: number) => void;
-  removeFromCart: (productId: number, variantId: string) => void;
-  updateQuantity: (productId: number, variantId: string, quantity: number) => void;
-  clearCart: () => void;
-  cartTotal: number;
-  itemCount: number;
-}
-
-const CartContext = createContext<CartContextType | undefined>(undefined);
+import { CartContext, CartItem, CartContextType } from './CartContextDef';
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
@@ -112,10 +96,4 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useCart() {
-  const context = useContext(CartContext);
-  if (context === undefined) {
-    throw new Error('useCart must be used within a CartProvider');
-  }
-  return context;
-}
+

@@ -22,7 +22,7 @@ export function levenshteinDistance(a: string, b: string): number {
   
   const matrix = new Array(bn + 1);
   for (let i = 0; i <= bn; ++i) {
-    let row = matrix[i] = new Array(an + 1);
+    const row = matrix[i] = new Array(an + 1);
     row[0] = i;
   }
   const firstRow = matrix[0];

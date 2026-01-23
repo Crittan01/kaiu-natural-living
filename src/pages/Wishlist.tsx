@@ -1,6 +1,6 @@
 import { Layout } from '@/components/layout/Layout';
 import { ProductCard } from '@/components/products/ProductCard';
-import { useWishlist } from '@/context/WishlistContext';
+import { useWishlist } from '@/context/WishlistContextDef';
 import { Heart, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';

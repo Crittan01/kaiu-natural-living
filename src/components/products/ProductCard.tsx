@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Product, Variant } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, ExternalLink, Heart, Eye, ShoppingBag } from 'lucide-react';
-import { useCart } from '@/context/CartContext';
+import { useCart } from '@/context/CartContextDef';
 import {
   Dialog,
   DialogContent,
@@ -13,11 +13,17 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState, useEffect, useMemo } from 'react';
-import { useWishlist } from '@/context/WishlistContext';
+import { useWishlist } from '@/context/WishlistContextDef';
 
 interface ProductCardProps {
   product: Product; // Objeto de producto completo
   layout?: 'grid' | 'list'; // Modo de visualización: Cuadrícula o Lista
+}
+
+interface VariantGroups {
+    isGrouped: boolean;
+    types: string[];
+    groups: Record<string, Variant[]>;
 }
 
 // Props para el contenido de la Vista Rápida (Modal)
@@ -27,7 +33,7 @@ interface QuickViewContentProps {
     setSelectedVariant: (v: Variant) => void; // Setter para cambiar variante
     isOutOfStock: boolean; // Flag de agotado
     benefits: string[]; // Lista de beneficios parseada
-    variantGroups: any; // Estructura agrupada de variantes (Roll-on, Gotero, etc)
+    variantGroups: VariantGroups; // Estructura agrupada de variantes (Roll-on, Gotero, etc)
     getCleanVariantName: (name: string, type: string) => string; // Helper formato nombre
     addToCart: (p: Product, v: Variant) => void;
     isGrouped: boolean; // Si tiene múltiples tipos de presentación

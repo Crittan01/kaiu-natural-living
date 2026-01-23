@@ -1,15 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { useContext, useState, useEffect, ReactNode } from 'react';
 import { Product } from '@/lib/types';
 import { useToast } from '@/components/ui/use-toast';
-
-interface WishlistContextType {
-  items: Product[];
-  addToWishlist: (product: Product) => void;
-  removeFromWishlist: (productId: number) => void;
-  isInWishlist: (productId: number) => boolean;
-}
-
-const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
+import { WishlistContext, WishlistContextType } from './WishlistContextDef';
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<Product[]>([]);
@@ -61,10 +53,4 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useWishlist() {
-  const context = useContext(WishlistContext);
-  if (context === undefined) {
-    throw new Error('useWishlist must be used within a WishlistProvider');
-  }
-  return context;
-}
+

@@ -1,5 +1,5 @@
 import { ShoppingBag, Trash2 } from 'lucide-react';
-import { useCart } from '@/context/CartContext';
+import { useCart } from '@/context/CartContextDef';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Layout } from '@/components/layout/Layout';
-import { useCart } from '@/context/CartContext';
+import { useCart } from '@/context/CartContextDef';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,17 +41,8 @@ const Checkout = () => {
   
   const finalTotal = cartTotal + (shippingCost || 0);
 
-  // Efecto para cotizar envío cuando cambia la ciudad
-  useEffect(() => {
-    if (formData.ciudad_code && formData.departamento_code && items.length > 0) {
-        quoteShipping();
-    } else {
-        setShippingCost(null);
-        setShippingStatus(null);
-    }
-  }, [formData.ciudad_code, formData.departamento_code, items]);
 
-  const quoteShipping = async () => {
+  const quoteShipping = useCallback(async () => {
     setIsQuoting(true);
     setShippingStatus(null);
     setShippingCost(null);
@@ -95,7 +86,19 @@ const Checkout = () => {
     } finally {
         setIsQuoting(false);
     }
-  };
+  }, [formData.ciudad_code, formData.departamento_code, items]);
+
+  // Efecto para cotizar envío cuando cambia la ciudad
+  useEffect(() => {
+    if (formData.ciudad_code && formData.departamento_code && items.length > 0) {
+        quoteShipping();
+    } else {
+        setShippingCost(null);
+        setShippingStatus(null);
+    }
+  }, [formData.ciudad_code, formData.departamento_code, items, quoteShipping]);
+
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Leaf, Heart } from 'lucide-react';
-import { useWishlist } from '@/context/WishlistContext';
+import { useWishlist } from '@/context/WishlistContextDef';
 import { CartSheet } from '@/components/cart/CartSheet';
 import { Button } from '@/components/ui/button';
 import kaiuLogo from '@/assets/kaiu-logo.jpg';

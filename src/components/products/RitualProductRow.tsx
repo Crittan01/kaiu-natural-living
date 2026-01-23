@@ -1,7 +1,7 @@
 
 import { useState, useMemo } from 'react';
 import { Product, Variant } from '@/lib/types';
-import { useCart } from '@/context/CartContext';
+import { useCart } from '@/context/CartContextDef';
 import { Button } from '@/components/ui/button';
 import { ShoppingBag, Check } from 'lucide-react';
 import { cn } from '@/lib/utils'; // Assuming you have a utils file, otherwise remove
