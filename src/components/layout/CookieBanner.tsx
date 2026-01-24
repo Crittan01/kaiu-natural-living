@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -40,7 +41,11 @@ export function CookieBanner() {
             <div className="text-sm text-muted-foreground text-center md:text-left">
               <p>
                 Utilizamos cookies para mejorar tu experiencia en KAIU. 
-                Al navegar, aceptas nuestra política de privacidad y uso de cookies.
+                Al navegar, aceptas nuestra{' '}
+                <Link to="/politica-privacidad" className="underline hover:text-primary">
+                  política de privacidad
+                </Link>
+                {' '}y uso de cookies.
               </p>
             </div>
             <div className="flex gap-2">
