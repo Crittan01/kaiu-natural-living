@@ -8,6 +8,11 @@ import quoteShippingHandler from './api/quote-shipping.js';
 import getProductsHandler from './api/get-products.js';
 import trackOrderHandler from './api/track-order.js';
 import wompiSignatureHandler from './api/wompi-signature.js';
+import adminLoginHandler from './api/admin/login.js';
+import adminOrdersHandler from './api/admin/orders.js';
+import adminGenerateLabelHandler from './api/admin/generate-label.js';
+import adminConfirmOrderHandler from './api/admin/confirm-order.js';
+import adminRequestPickupHandler from './api/admin/request-pickup.js';
 
 // Configuración inicial
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -47,6 +52,13 @@ app.post('/api/quote-shipping', adaptParams(quoteShippingHandler));
 app.get('/api/products', adaptParams(getProductsHandler));
 app.get('/api/track-order', adaptParams(trackOrderHandler));
 app.post('/api/wompi-signature', adaptParams(wompiSignatureHandler));
+
+// Admin Routes (Protected inside handlers)
+app.post('/api/admin/login', adaptParams(adminLoginHandler));
+app.get('/api/admin/orders', adaptParams(adminOrdersHandler));
+app.post('/api/admin/generate-label', adaptParams(adminGenerateLabelHandler));
+app.post('/api/admin/confirm-order', adaptParams(adminConfirmOrderHandler));
+app.post('/api/admin/request-pickup', adaptParams(adminRequestPickupHandler));
 
 // Iniciar Servidor
 app.listen(PORT, () => {
