@@ -9,6 +9,9 @@ import { Separator } from '@/components/ui/separator';
 
 interface TrackResult {
   id: string;
+  pin?: string;
+  carrier?: string;
+  tracking_number?: string;
   status: string;
   fulfillment_status?: string;
   created_at: string;
@@ -59,14 +62,19 @@ export default function TrackOrder() {
       }
   };
 
+
   const translateStatus = (status: string) => {
       const map: Record<string, string> = {
           'PENDING': 'Pendiente',
           'APPROVED': 'Aprobado',
+          'READY': 'Alistado / Listo para Envío',
+          'PREPARING': 'En Preparación',
+          'SHIPPED': 'En Tránsito (Enviado)',
           'SENT': 'Enviado',
           'DELIVERED': 'Entregado',
           'CANCELLED': 'Cancelado',
-          'RETURNED': 'Devuelto'
+          'RETURNED': 'Devuelto',
+          'INCIDENT': 'Novedad en Entrega'
       };
       return map[status?.toUpperCase()] || status;
   };
@@ -76,18 +84,18 @@ export default function TrackOrder() {
       <div className="container mx-auto px-4 py-20 max-w-2xl min-h-[60vh]">
         <div className="text-center mb-10">
           <h1 className="font-display text-4xl font-bold mb-4">Rastrea tu Pedido</h1>
-          <p className="text-muted-foreground">Ingresa el ID de tu orden para ver el estado actual.</p>
+          <p className="text-muted-foreground">Ingresa el PIN (ej: 323...) o Número de Guía para ver el estado.</p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Búsqueda de Envíos</CardTitle>
-            <CardDescription>El ID de orden te fue enviado al correo al confirmar la compra.</CardDescription>
+            <CardDescription>Consulta el estado actual de tu compra en tiempo real.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSearch} className="flex gap-2 mb-6">
               <Input 
-                placeholder="Ej: 12345" 
+                placeholder="Ej: 32336551 o 568139..." 
                 value={orderId} 
                 onChange={(e) => setOrderId(e.target.value)}
                 className="flex-1"
@@ -109,36 +117,55 @@ export default function TrackOrder() {
                 <div className="border rounded-lg p-6 space-y-4 animate-in fade-in slide-in-from-bottom-2">
                     <div className="flex justify-between items-start">
                         <div>
-                            <h3 className="font-bold text-lg">Orden #{result.id}</h3>
+                            <h3 className="font-bold text-lg">Orden #{result.pin || result.id.substring(0,8)}</h3>
                             <p className="text-sm text-muted-foreground">Fecha: {new Date(result.created_at).toLocaleDateString()}</p>
                         </div>
-                        <Badge className={`${getStatusColor(result.fulfillment_status || result.status)} text-white`}>
-                            {translateStatus(result.fulfillment_status || result.status)}
+                        <Badge className={`${getStatusColor(result.status)} text-white`}>
+                            {translateStatus(result.status)}
                         </Badge>
                     </div>
 
                     <Separator />
 
                     <div className="grid gap-4">
+                        {/* Estado Logístico */}
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center text-primary">
                                 <Package className="w-4 h-4" />
                             </div>
                             <div>
-                                <p className="text-sm font-medium">Estado del Pago</p>
+                                <p className="text-sm font-medium">Estado del Pedido</p>
                                 <p className="text-sm text-muted-foreground">{translateStatus(result.status)}</p>
                             </div>
                         </div>
 
+                        {/* Info de Transporte */}
+                        {(result.carrier || result.tracking_number) && (
+                            <div className="p-3 bg-muted/30 rounded-md border flex flex-col gap-2">
+                                {result.carrier && (
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Transportadora:</span>
+                                        <span className="font-medium">{result.carrier}</span>
+                                    </div>
+                                )}
+                                {result.tracking_number && (
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Número de Guía:</span>
+                                        <span className="font-mono font-medium">{result.tracking_number}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {result.tracking_url && (
-                             <div className="flex items-center gap-3">
+                             <div className="flex items-center gap-3 mt-2">
                                 <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center text-primary">
                                     <Truck className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium">Guía de Transporte</p>
+                                    <p className="text-sm font-medium">Seguimiento en Vivo</p>
                                     <a href={result.tracking_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline hover:text-primary/80">
-                                        Ver seguimiento transportadora
+                                        Ver ubicación del paquete &rarr;
                                     </a>
                                 </div>
                             </div>

@@ -25,12 +25,11 @@ export default async function handler(req, res) {
     try {
       const VENNDELO_API_KEY = process.env.VENNDELO_API_KEY;
       
-      // Venndelo doesn't strictly have a public tracking endpoint for end-users by default in documentation
-      // But usually 'GET /orders/:id' works for admin. We proxy this carefully.
-      // NOTE: Exposing full admin order details to public might be sensitive.
-      // ideally we should only return status.
+      // Strategy: Since API doesn't support direct filter by PIN/Guide,
+      // we fetch the last 100 orders and find the match manually.
+      // This is efficient enough for the current scale.
       
-      const response = await fetch(`https://api.venndelo.com/v1/admin/orders/${id}`, {
+      const response = await fetch(`https://api.venndelo.com/v1/admin/orders?page_size=100&status=ANY`, {
           method: 'GET',
           headers: {
             'X-Venndelo-Api-Key': VENNDELO_API_KEY
@@ -38,20 +37,38 @@ export default async function handler(req, res) {
       });
   
       if (!response.ok) {
-          if (response.status === 404) return res.status(404).json({ error: 'Orden no encontrada' });
           return res.status(response.status).json({ error: 'Error consultando Venndelo' });
       }
   
       const data = await response.json();
+      const orders = data.items || data.results || [];
+
+      // Flexible Search: Match ID, PIN, or Tracking Number
+      const searchStr = String(id).trim();
+      
+      const match = orders.find(o => 
+          String(o.id) === searchStr ||
+          String(o.pin) === searchStr ||
+          (o.shipments && o.shipments.some(s => s.tracking_number === searchStr))
+      );
+
+      if (!match) {
+          return res.status(404).json({ error: 'Orden no encontrada. Verifique el PIN o # de Guía.' });
+      }
   
+      const shipment = match.shipments?.[0];
+
       // FILTER SAFE FIELDS ONLY
       const safeData = {
-          id: data.id,
-          status: data.status, // e.g., PENDING, APPROVED, SENT
-          fulfillment_status: data.fulfillment_status,
-          tracking_url: data.tracking_url || null, // Guia de transporte if available
-          created_at: data.created_at,
-          total: data.total
+          id: match.id,
+          pin: match.pin,
+          status: match.status, // e.g., PENDING, APPROVED, SENT
+          fulfillment_status: match.fulfillment_status,
+          tracking_url: match.tracking_url || null, 
+          carrier: shipment?.carrier_name || null,
+          tracking_number: shipment?.tracking_number || null,
+          created_at: match.created_at,
+          total: match.total
       };
   
       return res.status(200).json(safeData);
