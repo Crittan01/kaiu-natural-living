@@ -1,6 +1,5 @@
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function TermsConditions() {
   return (
