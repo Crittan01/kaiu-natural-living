@@ -154,12 +154,20 @@ export default function AdminDashboard() {
     return <Badge className={`${map[status] || 'bg-gray-500'} text-white`}>{labelMap[status] || status}</Badge>;
   };
 
+  const currentUser = sessionStorage.getItem('kaiu_admin_user') || 'kaiu';
+  // Logic: 'kaiu' (or the main configured admin) sees Financials. Others (logistics) do not.
+  const showFinancials = currentUser.toLowerCase() === 'kaiu';
+
   return (
     <div className="min-h-screen bg-background">
         <header className="border-b px-6 py-4 flex justify-between items-center bg-card">
-            <h1 className="text-xl font-bold font-display">KAIU Admin</h1>
+            <div className="flex items-center gap-4">
+                <h1 className="text-xl font-bold font-display">KAIU Admin</h1>
+                <Badge variant="outline" className="font-mono text-xs">{currentUser}</Badge>
+            </div>
             <Button variant="outline" size="sm" onClick={() => {
                 sessionStorage.removeItem('kaiu_admin_token');
+                sessionStorage.removeItem('kaiu_admin_user');
                 navigate('/admin/login');
             }}>Cerrar Sesión</Button>
         </header>
@@ -182,6 +190,7 @@ export default function AdminDashboard() {
                                 <TableHead className="w-[100px]">Fecha</TableHead>
                                 <TableHead className="w-[200px]">Cliente</TableHead>
                                 <TableHead className="w-[250px]">Productos</TableHead>
+                                {showFinancials && <TableHead className="w-[100px]">Total</TableHead>}
                                 <TableHead>Envío</TableHead>
                                 <TableHead>Estado</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
@@ -190,13 +199,13 @@ export default function AdminDashboard() {
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-10">
+                                    <TableCell colSpan={showFinancials ? 8 : 7} className="text-center py-10">
                                         <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
                                     </TableCell>
                                 </TableRow>
                             ) : visibleOrders.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                                    <TableCell colSpan={showFinancials ? 8 : 7} className="text-center py-10 text-muted-foreground">
                                         No hay órdenes pendientes de procesar.
                                     </TableCell>
                                 </TableRow>
@@ -227,6 +236,11 @@ export default function AdminDashboard() {
                                                 {(!order.line_items || order.line_items.length === 0) && <span className="text-muted-foreground">-</span>}
                                             </div>
                                         </TableCell>
+                                        {showFinancials && (
+                                            <TableCell className="font-medium">
+                                                ${Number(order.total).toLocaleString()}
+                                            </TableCell>
+                                        )}
                                         <TableCell>
                                             <div className="flex flex-col text-xs">
                                                 {order.shipments && order.shipments.length > 0 ? (

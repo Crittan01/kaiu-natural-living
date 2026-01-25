@@ -51,5 +51,12 @@ export default async function handler(req, res) {
   // Generar Token con Role y Username (para logs futuros)
   const token = jwt.sign({ role: 'admin', user: userMatch.username }, JWT_SECRET, { expiresIn: '24h' });
 
-  return res.status(200).json({ success: true, token });
+  return res.status(200).json({ 
+      success: true, 
+      token,
+      user: {
+          username: userMatch.username,
+          role: 'admin' // Future proofing
+      }
+  });
 }

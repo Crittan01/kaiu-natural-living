@@ -33,6 +33,7 @@ export default function AdminLogin() {
 
       // Store Token securely (sessionStorage is fine for this use case, cleared on close)
       sessionStorage.setItem('kaiu_admin_token', data.token);
+      sessionStorage.setItem('kaiu_admin_user', data.user.username);
       navigate('/admin/dashboard');
 
     } catch (err) {
