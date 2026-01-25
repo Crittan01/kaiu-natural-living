@@ -7,6 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { FileText, Loader2, RefreshCw, Printer, Truck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+interface Shipment {
+    carrier_name: string;
+    tracking_number: string;
+}
+
 interface Order {
     id: number;
     pin: string;
@@ -17,7 +22,7 @@ interface Order {
     shipping_info: { first_name: string; last_name: string; email: string; phone: string; address_1: string; city: string };
     billing_info: { first_name: string; last_name: string; email: string };
     payment_status: string;
-    shipments: any[];
+    shipments: Shipment[];
     line_items: { name: string; quantity: number; sku: string }[];
 }
 
@@ -101,8 +106,9 @@ export default function AdminDashboard() {
             });
         }
 
-    } catch (error: any) {
-        const msg = error.message || "Error desconocido";
+    } catch (error) {
+        let msg = "Error desconocido";
+        if (error instanceof Error) msg = error.message;
         toast({ title: "Error Generando Guía", description: msg, variant: "destructive" });
     } finally {
         setGeneratingLabel(null);
@@ -123,8 +129,10 @@ export default function AdminDashboard() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error solicitando recogida');
         toast({ title: "Recogida Solicitada", description: "La transportadora ha sido notificada." });
-    } catch (error: any) {
-        toast({ title: "Error", description: error.message || "Fallo en solicitud", variant: "destructive" });
+    } catch (error) {
+        let msg = "Fallo en solicitud";
+        if (error instanceof Error) msg = error.message;
+        toast({ title: "Error", description: msg, variant: "destructive" });
     }
   };
 

@@ -44,6 +44,7 @@ export default async function handler(req, res) {
         // Log but don't fail if already created (it might return error if exists or 200 message)
         // We continue to generating labels anyway.
         if (!createRes.ok) {
+           // Silently ignore creation errors if it already exists (common case)
            // console.warn("Create Shipment Warning:", await createRes.text());
         }
 
@@ -84,7 +85,8 @@ export default async function handler(req, res) {
             
             if (data.status === 'ERROR' || (data.items && data.items[0] && data.items[0].status === 'ERROR')) {
                  // Fail fast
-                 console.error("Venndelo Error:", JSON.stringify(data));
+                 // Fail fast
+                 console.error("Venndelo API Error during Label Gen");
                  const errorMsg = data.items?.[0]?.errors?.[0]?.message || 'Error desconocido generando guía';
                  return res.status(400).json({ error: errorMsg, details: data });
             }
