@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Lock, Loader2 } from 'lucide-react';
 
 export default function AdminLogin() {
+  const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,13 +22,13 @@ export default function AdminLogin() {
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin })
+        body: JSON.stringify({ username, pin })
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'PIN Incorrecto');
+        throw new Error(data.error || 'Credenciales Incorrectas');
       }
 
       // Store Token securely (sessionStorage is fine for this use case, cleared on close)
@@ -53,10 +54,22 @@ export default function AdminLogin() {
             <Lock className="w-6 h-6" />
           </div>
           <CardTitle className="text-2xl">Acceso Administrativo</CardTitle>
-          <CardDescription>Esta área es exclusiva para el comercio.</CardDescription>
+          <CardDescription>Ingresa tus credenciales KAIU.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Usuario / Cédula</Label>
+              <Input 
+                id="username" 
+                placeholder="Ej. admin o 1098..." 
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoFocus
+                autoComplete="off"
+              />
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="pin">PIN de Seguridad</Label>
               <Input 
@@ -65,7 +78,6 @@ export default function AdminLogin() {
                 placeholder="••••" 
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
-                autoFocus
               />
             </div>
 

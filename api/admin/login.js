@@ -16,23 +16,40 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const { pin } = req.body;
-  const ADMIN_PIN = process.env.KAIU_ADMIN_PIN;
-  const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-dev-only'; // En prod debe ser ENV
-
-  if (!ADMIN_PIN) {
-      console.error("Falta KAIU_ADMIN_PIN en variables de entorno");
-      return res.status(500).json({ error: 'Error de configuración del servidor' });
+  const { username, pin } = req.body;
+  
+  const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-dev-only'; 
+  
+  let validUsers = [];
+  try {
+      validUsers = JSON.parse(process.env.KAIU_ADMIN_USERS || '[]');
+  } catch (e) {
+      console.error("Error parsing KAIU_ADMIN_USERS", e);
   }
 
-  if (pin !== ADMIN_PIN) {
+  // Fallback if env is missing (Safety)
+  if (validUsers.length === 0) {
+      // Legacy or Default
+      validUsers.push({ 
+          username: process.env.KAIU_ADMIN_USER || 'kaiu', 
+          pin: process.env.KAIU_ADMIN_PIN || '5411' 
+      });
+  }
+
+  // Find user
+  const userMatch = validUsers.find(u => 
+      u.username.toLowerCase() === username?.toLowerCase().trim() && 
+      u.pin === pin
+  );
+
+  if (!userMatch) {
       // Delay artificial para mitigar fuerza bruta
       await new Promise(resolve => setTimeout(resolve, 1000));
-      return res.status(401).json({ error: 'PIN Incorrecto' });
+      return res.status(401).json({ error: 'Usuario o PIN Incorrecto' });
   }
 
-  // Generar Token (Expira en 24 horas)
-  const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
+  // Generar Token con Role y Username (para logs futuros)
+  const token = jwt.sign({ role: 'admin', user: userMatch.username }, JWT_SECRET, { expiresIn: '24h' });
 
   return res.status(200).json({ success: true, token });
 }

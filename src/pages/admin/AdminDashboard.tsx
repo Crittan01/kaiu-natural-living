@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout'; // Using Layout for structure, maybe simplify later
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { FileText, Loader2, RefreshCw, Printer, Truck } from 'lucide-react';
@@ -19,6 +18,7 @@ interface Order {
     billing_info: { first_name: string; last_name: string; email: string };
     payment_status: string;
     shipments: any[];
+    line_items: { name: string; quantity: number; sku: string }[];
 }
 
 export default function AdminDashboard() {
@@ -42,7 +42,7 @@ export default function AdminDashboard() {
         }
         if (!res.ok) throw new Error('Error cargando órdenes');
         const data = await res.json();
-        const ordersList = data.items || data.results || []; // Fallback to be safe
+        const ordersList = data.items || data.results || [];
         setOrders(ordersList);
     } catch (error) {
         console.error(error);
@@ -82,22 +82,17 @@ export default function AdminDashboard() {
              toast({ 
                  title: "Creando Guía...", 
                  description: data.message || "La transportadora está procesando. Reintenta en unos segundos.",
-                 variant: "default" // Blue/Info
+                 variant: "default" 
              });
              return;
         }
 
-        // Check format. Documentation says it returns URL or Base64.
-        const url = data.data; // ApiGenerateLabelsOut -> data
+        const url = data.data; 
         if (url && typeof url === 'string' && url.length > 10) {
             window.open(url, '_blank');
             toast({ title: "Guía Generada", description: "Se ha abierto en una nueva pestaña" });
-            fetchOrders(); // Unlock Pickup button by refreshing data
+            fetchOrders(); 
         } else {
-            // It might be a persistent failure that returned 200/201 but with error data? 
-            // Or our backend might have returned 400.
-            // If backend returned 400, it throws Error above. 
-            // If we are here, backend returned 200 but data is not URL.
             console.log("Respuesta desconocida:", data);
             toast({ 
                 title: "Error de Formato", 
@@ -107,36 +102,11 @@ export default function AdminDashboard() {
         }
 
     } catch (error: any) {
-        // Handle 400 errors from backend
-        // If it throws Error(message), we show it.
-        // If fetch failed, we show it.
         const msg = error.message || "Error desconocido";
         toast({ title: "Error Generando Guía", description: msg, variant: "destructive" });
     } finally {
         setGeneratingLabel(null);
     }
-  };
-
-  const handleConfirmation = async (orderId: string, action: 'CONFIRMED' | 'REJECTED') => {
-      try {
-        const res = await fetch('/api/admin/confirm-order', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ orderId, action })
-        });
-
-        if (!res.ok) throw new Error('Error actualizando estado');
-        
-        toast({ title: "Éxito", description: `Orden ${action === 'CONFIRMED' ? 'Aprobada' : 'Rechazada'} correctamente` });
-        fetchOrders(); // Refresh
-
-      } catch (error) {
-        console.error(error);
-        toast({ title: "Error", description: "No se pudo actualizar el estado", variant: "destructive" });
-      }
   };
 
   const handleRequestPickup = async (orderId: string) => {
@@ -164,12 +134,13 @@ export default function AdminDashboard() {
     const map: Record<string, string> = {
         'PENDING': 'bg-yellow-500', 
         'APPROVED': 'bg-green-500',
-        'READY': 'bg-blue-600', // Ready for pickup / Alistado
+        'READY': 'bg-blue-600', 
         'SHIPPED': 'bg-indigo-500',
         'DELIVERED': 'bg-green-700',
         'CANCELLED': 'bg-red-500',
         'CONFIRMED': 'bg-green-500',
-        'REJECTED': 'bg-red-500'
+        'REJECTED': 'bg-red-500',
+        'PREPARING': 'bg-yellow-600'
     };
     
     // Translate standard statuses for display
@@ -177,6 +148,7 @@ export default function AdminDashboard() {
         'PENDING': 'NUEVO',
         'READY': 'ALISTADO',
         'SHIPPED': 'ENVIADO',
+        'PREPARING': 'PREPARACIÓN'
     };
 
     return <Badge className={`${map[status] || 'bg-gray-500'} text-white`}>{labelMap[status] || status}</Badge>;
@@ -206,24 +178,25 @@ export default function AdminDashboard() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>ID</TableHead>
-                                <TableHead>Fecha</TableHead>
-                                <TableHead>Cliente</TableHead>
+                                <TableHead className="w-[80px]">PIN</TableHead>
+                                <TableHead className="w-[100px]">Fecha</TableHead>
+                                <TableHead className="w-[200px]">Cliente</TableHead>
+                                <TableHead className="w-[250px]">Productos</TableHead>
+                                <TableHead>Envío</TableHead>
                                 <TableHead>Estado</TableHead>
-                                <TableHead>Total</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-10">
+                                    <TableCell colSpan={7} className="text-center py-10">
                                         <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
                                     </TableCell>
                                 </TableRow>
                             ) : visibleOrders.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
                                         No hay órdenes pendientes de procesar.
                                     </TableCell>
                                 </TableRow>
@@ -236,17 +209,37 @@ export default function AdminDashboard() {
                                             <div className="flex flex-col max-w-[200px]">
                                                 <span className="font-medium truncate" title={`${order.shipping_info?.first_name} ${order.shipping_info?.last_name}`}>
                                                     {order.shipping_info?.first_name} {order.shipping_info?.last_name}
+                                                    {!order.shipping_info && order.billing_info && 
+                                                        `${order.billing_info.first_name} ${order.billing_info.last_name}`}
                                                 </span>
                                                 <span className="text-xs text-muted-foreground truncate" title={order.shipping_info?.address_1}>
                                                     {order.shipping_info?.address_1 || order.shipping_info?.city || 'Dirección no disponible'}
                                                 </span>
                                             </div>
                                         </TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col gap-1 text-xs">
+                                                {order.line_items?.map((item, idx) => (
+                                                    <span key={idx} className="truncate max-w-[250px]" title={item.name}>
+                                                        {item.quantity}x {item.name}
+                                                    </span>
+                                                ))}
+                                                {(!order.line_items || order.line_items.length === 0) && <span className="text-muted-foreground">-</span>}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col text-xs">
+                                                {order.shipments && order.shipments.length > 0 ? (
+                                                    <>
+                                                        <span className="font-bold">{order.shipments[0].carrier_name}</span>
+                                                        <span className="font-mono">{order.shipments[0].tracking_number}</span>
+                                                    </>
+                                                ) : <span className="text-muted-foreground text-xs">Sin guía</span>}
+                                            </div>
+                                        </TableCell>
                                         <TableCell>{getStatusBadge(order.status)}</TableCell>
-                                        <TableCell>${Number(order.total).toLocaleString()}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                {/* Pickup only allowed for PENDING (Nuevo) orders with Shipment Loop created */}
                                                 <Button 
                                                     variant="outline" 
                                                     size="sm" 
