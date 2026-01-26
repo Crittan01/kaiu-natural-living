@@ -19,6 +19,9 @@ import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
+import TermsConditions from "./pages/TermsConditions";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import ReturnsWarranty from "./pages/ReturnsWarranty";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +48,9 @@ const App = () => (
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/install" element={<Install />} />
+              <Route path="/terminos-condiciones" element={<TermsConditions />} />
+              <Route path="/politica-privacidad" element={<PrivacyPolicy />} />
+              <Route path="/devoluciones-garantia" element={<ReturnsWarranty />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

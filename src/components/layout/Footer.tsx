@@ -41,45 +41,61 @@ export function Footer() {
               </div>
             </div>
 
-            {/* Contact */}
+            {/* Legal Links */}
             <div className="flex flex-col gap-4">
-              <h4 className="font-display text-lg font-semibold">Contacto</h4>
-              <div className="flex flex-col gap-3 text-sm md:text-base">
-                <a 
-                  href="https://wa.me/521234567890" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 hover:text-accent transition-colors"
-                >
-                  <MessageCircleHeart className="w-4 h-4 shrink-0" />
-                  WhatsApp
-                </a>
-                <a 
-                  href="mailto:kaiu.oficialco@gmail.com" 
-                  className="flex items-center gap-2 hover:text-accent transition-colors"
-                >
-                  <Mail className="w-4 h-4 shrink-0" />
-                  Email
-                </a>
-                <a 
-                  href="https://instagram.com/kaiu.oficial" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 hover:text-accent transition-colors"
-                >
-                  <Instagram className="w-4 h-4 shrink-0" />
-                  Instagram
-                </a>
-                 <a 
-                  href="https://facebook.com/kaiu.oficial" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 hover:text-accent transition-colors"
-                >
-                  <Facebook className="w-4 h-4 shrink-0" />
-                  Facebook
-                </a>
+              <h4 className="font-display text-lg font-semibold">Legal</h4>
+              <div className="flex flex-col gap-2 text-sm md:text-base">
+                <Link to="/terminos-condiciones" className="hover:text-accent transition-colors">
+                  Términos y Condiciones
+                </Link>
+                <Link to="/politica-privacidad" className="hover:text-accent transition-colors">
+                  Política de Privacidad
+                </Link>
+                <Link to="/devoluciones-garantia" className="hover:text-accent transition-colors">
+                  Devoluciones y Garantía
+                </Link>
               </div>
+            </div>
+          </div>
+
+          {/* Contact - Full Width Below */}
+          <div className="col-span-1 md:col-span-3 flex flex-col gap-4">
+            <h4 className="font-display text-lg font-semibold">Contacto</h4>
+            <div className="flex flex-wrap gap-4 text-sm md:text-base">
+              <a 
+                href="https://wa.me/521234567890" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-accent transition-colors"
+              >
+                <MessageCircleHeart className="w-4 h-4 shrink-0" />
+                WhatsApp
+              </a>
+              <a 
+                href="mailto:kaiu.oficialco@gmail.com" 
+                className="flex items-center gap-2 hover:text-accent transition-colors"
+              >
+                <Mail className="w-4 h-4 shrink-0" />
+                Email
+              </a>
+              <a 
+                href="https://instagram.com/kaiu.oficial" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-accent transition-colors"
+              >
+                <Instagram className="w-4 h-4 shrink-0" />
+                Instagram
+              </a>
+               <a 
+                href="https://facebook.com/kaiu.oficial" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-accent transition-colors"
+              >
+                <Facebook className="w-4 h-4 shrink-0" />
+                Facebook
+              </a>
             </div>
           </div>
         </div>

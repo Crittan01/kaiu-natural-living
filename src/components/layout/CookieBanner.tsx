@@ -40,7 +40,7 @@ export function CookieBanner() {
             <div className="text-sm text-muted-foreground text-center md:text-left">
               <p>
                 Utilizamos cookies para mejorar tu experiencia en KAIU. 
-                Al navegar, aceptas nuestra política de privacidad y uso de cookies.
+                Al navegar, aceptas nuestra <a href="/politica-privacidad" className="underline hover:text-primary">política de privacidad</a> y uso de cookies.
               </p>
             </div>
             <div className="flex gap-2">
