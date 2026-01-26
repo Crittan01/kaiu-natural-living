@@ -23,8 +23,8 @@ export function Footer() {
             </p>
           </div>
 
-          {/* Links & Contact - Mobile 2 Columns */}
-          <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-8">
+          {/* Links & Contact - Mobile 2 Columns, Desktop 3 */}
+          <div className="col-span-1 md:col-span-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
             {/* Links */}
             <div className="flex flex-col gap-4">
               <h4 className="font-display text-lg font-semibold">Explora</h4>
@@ -79,6 +79,22 @@ export function Footer() {
                   <Facebook className="w-4 h-4 shrink-0" />
                   Facebook
                 </a>
+              </div>
+            </div>
+            
+            {/* Legal */}
+             <div className="flex flex-col gap-4">
+              <h4 className="font-display text-lg font-semibold">Legales</h4>
+              <div className="flex flex-col gap-2 text-sm md:text-base">
+                <Link to="/terminos" className="hover:text-accent transition-colors">
+                  Términos y Condiciones
+                </Link>
+                <Link to="/privacidad" className="hover:text-accent transition-colors">
+                  Política de Privacidad
+                </Link>
+                <Link to="/retracto" className="hover:text-accent transition-colors">
+                  Derecho de Retracto
+                </Link>
               </div>
             </div>
           </div>
