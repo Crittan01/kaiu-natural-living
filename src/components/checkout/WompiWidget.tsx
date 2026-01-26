@@ -57,6 +57,7 @@ export function WompiWidget({ amountInCents, currency, reference, email, fullNam
     // Standard HTML Integration (Direct Form)
     // Docs: https://docs.wompi.co/en/docs/web-checkout/integrate/
     // Verificamos si usar la URL de checkout redirect
+    // Verificamos si usar la URL de checkout redirect
     const CHECKOUT_URL = "https://checkout.wompi.co/p/";
 
     return (
@@ -71,11 +72,11 @@ export function WompiWidget({ amountInCents, currency, reference, email, fullNam
             {/* Optional User Data (Auto-fill) */}
             <input type="hidden" name="customer-data:email" value={email} />
             <input type="hidden" name="customer-data:full-name" value={fullName} />
-            {/* <input type="hidden" name="customer-data:phone-number" value={phoneNumber} /> */}
             <input type="hidden" name="customer-data:phone-number" value={phoneNumber} />
+            <input type="hidden" name="customer-data:phone-number-prefix" value="+57" />
             
             {/* Redirect URL - Returns user to this URL after payment */}
-            <input type="hidden" name="redirect-url" value={typeof window !== 'undefined' ? `${window.location.origin}/checkout/success` : ''} />
+            {/* <input type="hidden" name="redirect-url" value={typeof window !== 'undefined' ? `${window.location.origin}/checkout/success` : ''} /> */}
 
             <Button type="submit" className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 text-lg shadow-md transition-all">
                 <CreditCard className="mr-2 w-5 h-5"/>
