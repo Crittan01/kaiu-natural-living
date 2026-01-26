@@ -129,7 +129,8 @@ const Checkout = () => {
                     height: item.selectedVariant.alto || 10,
                     width: item.selectedVariant.ancho || 10, 
                     length: item.selectedVariant.largo || 10
-                }))
+                })),
+                payment_method_code: formData.payment_method // Important: Venndelo changes rate based on COD (Recaudo) vs External
             })
         });
         
@@ -152,7 +153,7 @@ const Checkout = () => {
     } finally {
         setIsQuoting(false);
     }
-  }, [formData.ciudad_code, formData.departamento_code, items]);
+  }, [formData.ciudad_code, formData.departamento_code, formData.payment_method, items]);
 
   useEffect(() => {
     if (formData.ciudad_code && formData.departamento_code && items.length > 0) {
@@ -161,7 +162,7 @@ const Checkout = () => {
         setShippingCost(null);
         setShippingStatus(null);
     }
-  }, [formData.ciudad_code, formData.departamento_code, items, quoteShipping]);
+  }, [formData.ciudad_code, formData.departamento_code, formData.payment_method, items, quoteShipping]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     let { name, value } = e.target;
