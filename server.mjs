@@ -7,7 +7,8 @@ import createOrderHandler from './api/create-order.js';
 import quoteShippingHandler from './api/quote-shipping.js';
 import getProductsHandler from './api/get-products.js';
 import trackOrderHandler from './api/track-order.js';
-import wompiSignatureHandler from './api/wompi-signature.js';
+import wompiSignatureHandler from './api/wompi/sign.js';
+import wompiWebhookHandler from './api/wompi/webhook.js';
 import adminLoginHandler from './api/admin/login.js';
 import adminOrdersHandler from './api/admin/orders.js';
 import adminGenerateLabelHandler from './api/admin/generate-label.js';
@@ -21,10 +22,10 @@ const result = dotenv.config({ path: envPath });
 
 console.log(`Intentando cargar ENV desde: ${envPath}`);
 if (result.error) {
-    console.warn("⚠️ No se pudo cargar .env.local:", result.error.message);
+    console.warn("No se pudo cargar .env.local:", result.error.message);
 } else {
     // Verificación de carga exitosa
-    console.log(`✅ .env.local cargado. Tienda Origen: ${process.env.VENNDELO_PICKUP_NAME || 'NO_DEFINIDO'}`);
+    console.log(`.env.local cargado. Tienda Origen: ${process.env.VENNDELO_PICKUP_NAME || 'NO_DEFINIDO'}`);
 }
 const app = express();
 const PORT = 3001; // Puerto dedicado para API (distinto a Vite 5173)
@@ -51,7 +52,8 @@ app.post('/api/create-order', adaptParams(createOrderHandler));
 app.post('/api/quote-shipping', adaptParams(quoteShippingHandler));
 app.get('/api/products', adaptParams(getProductsHandler));
 app.get('/api/track-order', adaptParams(trackOrderHandler));
-app.post('/api/wompi-signature', adaptParams(wompiSignatureHandler));
+app.post('/api/wompi/sign', adaptParams(wompiSignatureHandler));
+app.post('/api/wompi/webhook', adaptParams(wompiWebhookHandler));
 
 // Admin Routes (Protected inside handlers)
 app.post('/api/admin/login', adaptParams(adminLoginHandler));
@@ -62,6 +64,6 @@ app.post('/api/admin/request-pickup', adaptParams(adminRequestPickupHandler));
 
 // Iniciar Servidor
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor API Local corriendo en http://localhost:${PORT}`);
-    console.log(`ℹ️  El frontend debe apuntar a este puerto para /api/`);
+    console.log(`Servidor API Local corriendo en http://localhost:${PORT}`);
+    console.log(`El frontend debe apuntar a este puerto para /api/`);
 });

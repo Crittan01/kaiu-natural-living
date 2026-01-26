@@ -1,0 +1,37 @@
+{
+  "billing_info": {
+    "first_name": "Rosmery",
+    "last_name": "Tamayo",
+    "email": "creaciones.ross@hotmail.com",
+    "phone": "3003919461",
+    "identification_type": "CC",
+    "identification": "51637282"
+  },
+  "shipping_info": {
+    "first_name": "Rosmery",
+    "last_name": "Tamayo",
+    "address_1": "Carrera 68c # 22-10 Sur, Bq: 15 Ap 202, Villa Adriana",
+    "city_code": "11001000",
+    "subdivision_code": "25",
+    "country_code": "CO",
+    "phone": "3003919461"
+  },
+  "line_items": [
+    {
+      "sku": "ACE-LAV-ROL-5ML",
+      "name": "Aceite Esencial de Lavanda",
+      "unit_price": 20000,
+      "quantity": 1,
+      "weight": 0.2,
+      "weight_unit": "KG",
+      "dimensions_unit": "CM",
+      "height": 10,
+      "width": 10,
+      "length": 10,
+      "type": "STANDARD"
+    }
+  ],
+  "payment_method_code": "EXTERNAL_PAYMENT",
+  "external_order_id": "KAIU-1769445560888",
+  "discounts": []
+}

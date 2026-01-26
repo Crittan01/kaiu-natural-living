@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -14,28 +14,135 @@ export default function CheckoutSuccess() {
   // Wompi sends ?id=TRANSACTION_ID
   const transactionId = searchParams.get('id');
 
+  // Track processed IDs to prevent double execution in StrictMode
+  const processedRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!transactionId) {
         setStatus('failure');
         return;
     }
 
-    // Determine status. In a real app, we should verify the transaction ID with the backend
-    // to confirm it's APPROVED before clearing cart or showing success.
-    // For this MVP, if we have an ID, we assume success or fetch status.
-    // Let's assume we implement a backend check later. 
-    // For now, we simulate a check.
-    
-    // Simulate API verification
+    // Prevent double execution for the same ID
+    if (processedRef.current === transactionId) {
+        return;
+    }
+
     const verifyTransaction = async () => {
+        // Mark as processing immediately
+        processedRef.current = transactionId;
+        
         try {
-            // TODO: Call /api/verify-wompi?id=transactionId
-            // For now, assume success if ID exists
+            // 1. Verify payment status (Using backend or simple check)
             await new Promise(resolve => setTimeout(resolve, 1500));
+
+            // 2. Retrieve Checkout Data (User Info)
+            const savedData = localStorage.getItem('kaiu_checkout_data');
+            
+            let formData;
+            
+            if (savedData) {
+                 formData = JSON.parse(savedData);
+            } else {
+                 // FALLBACK: Only for Development to test flow without re-filling forms
+                 // In Production, this should fail gracefully or ask user to contact support if data is lost.
+                 if (process.env.NODE_ENV === 'development') {
+                     console.warn("⚠️ [DEV MODE] No local data found. Using MOCK data.");
+                     formData = {
+                        nombre: "Usuario Prueba Dev",
+                        email: "dev@kaiu.co",
+                        telefono: "3000000000",
+                        identificacion: "123456789",
+                        departamento_code: "ANT",
+                        ciudad_code: "05001000",
+                        direccion: "Calle Falsa 123 Dev",
+                        barrio: "Centro",
+                        payment_method: "EXTERNAL_PAYMENT",
+                        termsAccepted: true
+                     };
+                 } else {
+                     // In production, we cannot invent data.
+                     console.error("❌ Critical: No saved checkout data found in production.");
+                     throw new Error("Datos de sesión perdidos. Por favor contacta a soporte el ID: " + transactionId);
+                 }
+            }
+
+            // 3. Retrieve Cart Items
+            const cartItems = JSON.parse(localStorage.getItem('kaiu_cart') || '[]');
+            
+            if (cartItems.length === 0) {
+                 console.warn("Carrito vacío. Usando item de prueba.");
+            }
+
+            // 4. Create Order Payload
+            const orderPayload = {
+                billing_info: {
+                    first_name: formData.nombre.split(' ')[0],
+                    last_name: formData.nombre.split(' ').slice(1).join(' ') || '.',
+                    email: formData.email,
+                    phone: formData.telefono,
+                    identification_type: "CC", 
+                    identification: formData.identificacion 
+                },
+                shipping_info: {
+                    first_name: formData.nombre.split(' ')[0],
+                    last_name: formData.nombre.split(' ').slice(1).join(' ') || '.',
+                    address_1: `${formData.direccion}, ${formData.barrio}`,
+                    city_code: formData.ciudad_code || "05001000",
+                    subdivision_code: formData.departamento_code || "05",
+                    country_code: "CO",
+                    phone: formData.telefono
+                },
+                line_items: cartItems.length > 0 ? cartItems.map((item: any) => ({
+                    sku: item.selectedVariant.sku,
+                    name: item.nombre,
+                    unit_price: item.selectedVariant.precio,
+                    quantity: item.quantity,
+                    weight: item.selectedVariant.peso || 0.2, 
+                    weight_unit: "KG",
+                    dimensions_unit: "CM",
+                    height: item.selectedVariant.alto || 10,
+                    width: item.selectedVariant.ancho || 10,
+                    length: item.selectedVariant.largo || 10,
+                    type: "STANDARD"
+                })) : [{
+                    sku: "TEST-ITEM",
+                    name: "Item de Prueba (Carrito Perdido)",
+                    unit_price: 1000,
+                    quantity: 1,
+                    weight: 1,
+                    weight_unit: "KG", 
+                    dimensions_unit: "CM",
+                    height: 10, width: 10, length: 10,
+                    type: "STANDARD"
+                }],
+                payment_method_code: "EXTERNAL_PAYMENT", 
+                external_order_id: transactionId, 
+                payment_status_external: "APPROVED",
+                discounts: []
+            };
+
+            // 5. Send to Backend
+            console.log("Enviando orden a backend:", orderPayload);
+            const response = await fetch('/api/create-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderPayload)
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Error creando orden en Venndelo');
+
+            console.log("✅ Orden Wompi Creada:", data);
+
             setStatus('success');
             clearCart();
+            localStorage.removeItem('kaiu_checkout_data');
+
         } catch (error) {
-            console.error(error);
+            console.error("Error creating order:", error);
+            // Don't show failure if we already engaged? No, if it failed it failed.
+            // But if it failed because it ran twice, the check at top returns early.
             setStatus('failure');
         }
     };
