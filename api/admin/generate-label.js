@@ -30,8 +30,10 @@ export default async function handler(req, res) {
     }
 
     try {
+        console.log("---- DEBUG GENERATE LABEL ----");
+        console.log("Order IDs:", orderIds);
+
         // STEP 1: Ensure Shipment is Created
-        // This is async in Venndelo, but we must trigger it.
         const createRes = await fetch(`https://api.venndelo.com/v1/admin/shipping/create-shipments`, {
             method: 'POST',
             headers: {
@@ -41,11 +43,24 @@ export default async function handler(req, res) {
             body: JSON.stringify({ order_ids: orderIds })
         });
         
-        // Log but don't fail if already created (it might return error if exists or 200 message)
-        // We continue to generating labels anyway.
+        const createText = await createRes.text();
+        console.log("Create Shipment Response:", createRes.status, createText);
+
         if (!createRes.ok) {
-           // Silently ignore creation errors if it already exists (common case)
-           // console.warn("Create Shipment Warning:", await createRes.text());
+           // If it fails, report it.
+           // Common error for prepaid: "Insufficient balance"
+           if (!createText.includes("ya existe") && !createText.includes("already exists")) {
+                let errMsg = "Error creando envío en Venndelo";
+                try {
+                    const errJson = JSON.parse(createText);
+                    // Venndelo specific error structure sometimes is { error: { message: "..." } } or just { message: "..." }
+                    errMsg = errJson.message || errJson.error?.message || errMsg;
+                    errMsg = errMsg.trim();
+                } catch(e) {}
+                
+                // Return the cleaned up message directly
+                return res.status(400).json({ error: errMsg });
+           }
         }
 
         // STEP 2: Poll for Label

@@ -63,7 +63,20 @@ app.post('/api/admin/confirm-order', adaptParams(adminConfirmOrderHandler));
 app.post('/api/admin/request-pickup', adaptParams(adminRequestPickupHandler));
 
 // Iniciar Servidor
-app.listen(PORT, () => {
+// Iniciar Servidor
+const server = app.listen(PORT, () => {
     console.log(`Servidor API Local corriendo en http://localhost:${PORT}`);
     console.log(`El frontend debe apuntar a este puerto para /api/`);
 });
+
+// Graceful Shutdown para evitar EADDRINUSE en reinicios de nodemon
+const shutdown = () => {
+    console.log('Cerrando servidor API...');
+    server.close(() => {
+        console.log('Servidor API cerrado.');
+        process.exit(0);
+    });
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
