@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Check, Truck, Loader2, AlertCircle } from 'lucide-react';
+import { Check, Truck, Loader2, AlertCircle, CreditCard } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox";
@@ -188,6 +188,111 @@ const Checkout = () => {
     }));
   };
 
+  const handleWompiPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isFormValid) {
+         toast({ variant: "destructive", title: "Datos incompletos", description: "Por favor revisa el formulario." });
+         return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+        // 1. Create Order in Venndelo (Pending Payment)
+        // We reuse the payload logic, maybe refactor payload creation?
+        // Copy-paste payload construction for safety now.
+        const orderPayload = {
+            billing_info: {
+                first_name: formData.nombre.split(' ')[0],
+                last_name: formData.nombre.split(' ').slice(1).join(' ') || '.',
+                email: formData.email,
+                phone: formData.telefono,
+                identification_type: "CC", 
+                identification: formData.identificacion 
+            },
+            shipping_info: {
+                first_name: formData.nombre.split(' ')[0],
+                last_name: formData.nombre.split(' ').slice(1).join(' ') || '.',
+                address_1: `${formData.direccion}, ${formData.barrio}`,
+                city_code: formData.ciudad_code,
+                subdivision_code: formData.departamento_code,
+                country_code: "CO",
+                phone: formData.telefono
+            },
+            line_items: items.map(item => ({
+                sku: item.selectedVariant.sku,
+                name: item.nombre,
+                unit_price: item.selectedVariant.precio,
+                quantity: item.quantity,
+                weight: item.selectedVariant.peso || 0.2, 
+                weight_unit: "KG",
+                dimensions_unit: "CM",
+                height: item.selectedVariant.alto || 10,
+                width: item.selectedVariant.ancho || 10, 
+                length: item.selectedVariant.largo || 10,
+                type: "STANDARD"
+            })),
+            payment_method_code: 'EXTERNAL_PAYMENT', 
+            external_order_id: `KAIU-TMP-${Date.now()}`, // Temporary, will be updated by Venndelo ID
+            discounts: []
+        };
+
+        const orderRes = await fetch('/api/create-order', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify(orderPayload)
+        });
+        
+        const orderData = await orderRes.json();
+        if (!orderRes.ok) throw new Error(orderData.error || "Fallo creando orden preliminar");
+        
+        // 2. Get Real Venndelo ID
+        const venndeloId = orderData.order?.items?.[0]?.id || orderData.order?.id;
+        if (!venndeloId) throw new Error("No se recibió ID de orden de Venndelo");
+        
+        const finalReference = `KAIU-${venndeloId}`; // E.g. KAIU-975000
+        const amountInCents = Math.round(finalTotal * 100);
+
+        // 3. Get Wompi Signature
+        const signRes = await fetch('/api/wompi/sign', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ 
+                 reference: finalReference, 
+                 amount: amountInCents, 
+                 currency: "COP" 
+             })
+        });
+        
+        const signData = await signRes.json();
+        if (!signRes.ok) throw new Error(signData.error || "Fallo firmando transacción");
+        
+        // 4. Submit Hidden Form
+        const form = document.getElementById('wompi-redirect-form') as HTMLFormElement;
+        if (!form) throw new Error("Formulario Wompi no encontrado");
+        
+        (document.getElementById('wompi-amount') as HTMLInputElement).value = amountInCents.toString();
+        (document.getElementById('wompi-reference') as HTMLInputElement).value = finalReference;
+        (document.getElementById('wompi-signature') as HTMLInputElement).value = signData.signature;
+        (document.getElementById('wompi-email') as HTMLInputElement).value = formData.email;
+        (document.getElementById('wompi-fullname') as HTMLInputElement).value = formData.nombre;
+        (document.getElementById('wompi-phone') as HTMLInputElement).value = formData.telefono.replace(/\D/g, '');
+        
+        // Clear Cart (Assuming they will go to Wompi)??? 
+        // Better NOT clear cart yet. Only on success webhook or return.
+        // But if they return, we can recover? 
+        // Standard practice: Do not clear cart until confirmation. 
+        // User is redirected away. 
+        
+        form.submit(); // Bye Bye User (Redirect)
+
+    } catch (error: any) {
+        console.error("Wompi Flow Error:", error);
+        toast({ variant: "destructive", title: "Error iniciando pago", description: error.message });
+        setIsSubmitting(false);
+    }
+  };
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -323,7 +428,7 @@ const Checkout = () => {
                 <p className="text-muted-foreground mt-2">Completa tus datos para el envío.</p>
               </div>
 
-              <form onSubmit={handleFormSubmit} className="space-y-4">
+              <form id="checkout-form" onSubmit={handleFormSubmit} className="space-y-4">
                 <div className="space-y-2">
                     <Label htmlFor="nombre">Nombre Completo</Label>
                     <Input 
@@ -513,38 +618,65 @@ const Checkout = () => {
                         El pedido mínimo es de $20.000 (sin incluir envío).
                      </div>
                 )}
-
-                {/* ACTIONS */}
-                {formData.payment_method === 'EXTERNAL_PAYMENT' ? (
-                    <div className="mt-6">
-                        {isFormValid ? (
-                            <>
-                                <WompiWidget 
-                                    amountInCents={finalTotal * 100}
-                                    currency="COP"
-                                    reference={orderReference} 
-                                    email={formData.email}
-                                    fullName={formData.nombre}
-                                    phoneNumber={formData.telefono}
-                                />
-                                <p className="text-xs text-center text-muted-foreground mt-2">
-                                    Serás redirigido a la pasarela segura de Wompi Bancolombia.
-                                </p>
-                            </>
-                        ) : (
-                            <div className="border rounded bg-secondary/50 p-4 text-center">
-                                <p className="text-sm text-muted-foreground mb-2"><AlertCircle className="w-4 h-4 inline mr-1"/> Completa correctamente todos los datos y acepta términos para habilitar el pago.</p>
-                                <Button disabled className="w-full">Pagar con Wompi</Button>
-                            </div>
-                        )}
-                        
-                    </div>
-                ) : (
-                    <Button type="submit" className="w-full mt-6" size="lg" disabled={isSubmitting || shippingStatus === null || isQuoting || cartTotal < 20000 || !isFormValid}>
-                        {isSubmitting ? 'Procesando...' : `Confirmar Pedido - $${finalTotal.toLocaleString()}`}
-                    </Button>
-                )}
               </form>
+
+              {/* ACTIONS OUTSIDE FORM TO PREVENT NESTING */}
+              {formData.payment_method === 'EXTERNAL_PAYMENT' ? (
+                  <div className="mt-6">
+                      {isFormValid ? (
+                          <>
+                              <Button 
+                                onClick={handleWompiPayment} 
+                                className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 text-lg shadow-md transition-all"
+                                disabled={isSubmitting}
+                              >
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Procesando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CreditCard className="mr-2 w-5 h-5"/>
+                                        Pagar ${finalTotal.toLocaleString()} con Wompi
+                                    </>
+                                )}
+                              </Button>
+                              <p className="text-xs text-center text-muted-foreground mt-2">
+                                  Serás redirigido a la pasarela segura de Wompi Bancolombia.
+                              </p>
+                              
+                              {/* Hidden Form for Wompi Redirection - Populated by handleWompiPayment */}
+                              <form id="wompi-redirect-form" action="https://checkout.wompi.co/p/" method="GET" className="hidden">
+                                    <input type="hidden" name="public-key" value={import.meta.env.VITE_WOMPI_PUB_KEY} />
+                                    <input type="hidden" name="currency" value="COP" />
+                                    <input type="hidden" name="amount-in-cents" id="wompi-amount" />
+                                    <input type="hidden" name="reference" id="wompi-reference" />
+                                    <input type="hidden" name="signature:integrity" id="wompi-signature" />
+                                    {/* WAF PROTECTION: Do not send redirect-url if on localhost, it triggers 403 Forbidden */
+                                     !['localhost', '127.0.0.1'].includes(window.location.hostname) && (
+                                        <input type="hidden" name="redirect-url" value={`${window.location.origin}/checkout/success`} />
+                                     )}
+                                    
+                                    <input type="hidden" name="customer-data:email" id="wompi-email" />
+                                    <input type="hidden" name="customer-data:full-name" id="wompi-fullname" />
+                                    {/* Sanitize phone: digits only */}
+                                    <input type="hidden" name="customer-data:phone-number" id="wompi-phone" />
+                                    <input type="hidden" name="customer-data:phone-number-prefix" value="57" />
+                              </form>
+                          </>
+                      ) : (
+                          <div className="border rounded bg-secondary/50 p-4 text-center">
+                              <p className="text-sm text-muted-foreground mb-2"><AlertCircle className="w-4 h-4 inline mr-1"/> Completa correctamente todos los datos y acepta términos para habilitar el pago.</p>
+                              <Button disabled className="w-full">Pagar con Wompi</Button>
+                          </div>
+                      )}
+                  </div>
+              ) : (
+                  <Button type="submit" form="checkout-form" className="w-full mt-6" size="lg" disabled={isSubmitting || shippingStatus === null || isQuoting || cartTotal < 20000 || !isFormValid}>
+                      {isSubmitting ? 'Procesando...' : `Confirmar Pedido - $${finalTotal.toLocaleString()}`}
+                  </Button>
+              )}
             </div>
 
             {/* Order Summary */}

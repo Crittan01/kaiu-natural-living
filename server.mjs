@@ -14,6 +14,7 @@ import adminOrdersHandler from './api/admin/orders.js';
 import adminGenerateLabelHandler from './api/admin/generate-label.js';
 import adminConfirmOrderHandler from './api/admin/confirm-order.js';
 import adminRequestPickupHandler from './api/admin/request-pickup.js';
+import checkTransactionHandler from './api/wompi/check-transaction.js';
 
 // Configuración inicial
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -54,6 +55,7 @@ app.get('/api/products', adaptParams(getProductsHandler));
 app.get('/api/track-order', adaptParams(trackOrderHandler));
 app.post('/api/wompi/sign', adaptParams(wompiSignatureHandler));
 app.post('/api/wompi/webhook', adaptParams(wompiWebhookHandler));
+app.get('/api/wompi/check-transaction/:id', adaptParams(checkTransactionHandler));
 
 // Admin Routes (Protected inside handlers)
 app.post('/api/admin/login', adaptParams(adminLoginHandler));

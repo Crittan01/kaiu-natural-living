@@ -9,7 +9,7 @@ export default function CheckoutSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { clearCart } = useCart();
-  const [status, setStatus] = useState<'loading' | 'success' | 'failure'>('loading');
+  const [status, setStatus] = useState<'loading' | 'success' | 'failure' | 'pending_validation'>('loading');
   
   // Wompi sends ?id=TRANSACTION_ID
   const transactionId = searchParams.get('id');
@@ -32,119 +32,42 @@ export default function CheckoutSuccess() {
         // Mark as processing immediately
         processedRef.current = transactionId;
         
-        try {
-            // 1. Verify payment status (Using backend or simple check)
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            // 2. Retrieve Checkout Data (User Info)
-            const savedData = localStorage.getItem('kaiu_checkout_data');
-            
-            let formData;
-            
-            if (savedData) {
-                 formData = JSON.parse(savedData);
-            } else {
-                 // FALLBACK: Only for Development to test flow without re-filling forms
-                 // In Production, this should fail gracefully or ask user to contact support if data is lost.
-                 if (process.env.NODE_ENV === 'development') {
-                     console.warn("⚠️ [DEV MODE] No local data found. Using MOCK data.");
-                     formData = {
-                        nombre: "Usuario Prueba Dev",
-                        email: "dev@kaiu.co",
-                        telefono: "3000000000",
-                        identificacion: "123456789",
-                        departamento_code: "ANT",
-                        ciudad_code: "05001000",
-                        direccion: "Calle Falsa 123 Dev",
-                        barrio: "Centro",
-                        payment_method: "EXTERNAL_PAYMENT",
-                        termsAccepted: true
-                     };
-                 } else {
-                     // In production, we cannot invent data.
-                     console.error("❌ Critical: No saved checkout data found in production.");
-                     throw new Error("Datos de sesión perdidos. Por favor contacta a soporte el ID: " + transactionId);
-                 }
+        let attempts = 0;
+        const maxAttempts = 5; // 10 seconds timeout
+        
+        const check = async () => {
+            try {
+                const res = await fetch(`/api/wompi/check-transaction/${transactionId}`);
+                if (!res.ok) throw new Error('Error checking status');
+                
+                const data = await res.json();
+                console.log("Transaction Status:", data.status);
+                
+                if (data.status === 'APPROVED') {
+                    setStatus('success');
+                    clearCart();
+                    localStorage.removeItem('kaiu_checkout_data');
+                } else if (data.status === 'DECLINED' || data.status === 'ERROR' || data.status === 'VOIDED') {
+                    setStatus('failure');
+                } else if (data.status === 'PENDING') {
+                     if (attempts < maxAttempts) {
+                         attempts++;
+                         setTimeout(check, 2000);
+                     } else {
+                         // Still pending after timeout
+                         console.warn("Transaction still pending after timeout.");
+                         setStatus('pending_validation'); // Handle this new state
+                     }
+                } else {
+                    setStatus('failure');
+                }
+            } catch (error) {
+                console.error("Error verifying transaction:", error);
+                setStatus('failure');
             }
-
-            // 3. Retrieve Cart Items
-            const cartItems = JSON.parse(localStorage.getItem('kaiu_cart') || '[]');
-            
-            if (cartItems.length === 0) {
-                 console.warn("Carrito vacío. Usando item de prueba.");
-            }
-
-            // 4. Create Order Payload
-            const orderPayload = {
-                billing_info: {
-                    first_name: formData.nombre.split(' ')[0],
-                    last_name: formData.nombre.split(' ').slice(1).join(' ') || '.',
-                    email: formData.email,
-                    phone: formData.telefono,
-                    identification_type: "CC", 
-                    identification: formData.identificacion 
-                },
-                shipping_info: {
-                    first_name: formData.nombre.split(' ')[0],
-                    last_name: formData.nombre.split(' ').slice(1).join(' ') || '.',
-                    address_1: `${formData.direccion}, ${formData.barrio}`,
-                    city_code: formData.ciudad_code || "05001000",
-                    subdivision_code: formData.departamento_code || "05",
-                    country_code: "CO",
-                    phone: formData.telefono
-                },
-                line_items: cartItems.length > 0 ? cartItems.map((item: any) => ({
-                    sku: item.selectedVariant.sku,
-                    name: item.nombre,
-                    unit_price: item.selectedVariant.precio,
-                    quantity: item.quantity,
-                    weight: item.selectedVariant.peso || 0.2, 
-                    weight_unit: "KG",
-                    dimensions_unit: "CM",
-                    height: item.selectedVariant.alto || 10,
-                    width: item.selectedVariant.ancho || 10,
-                    length: item.selectedVariant.largo || 10,
-                    type: "STANDARD"
-                })) : [{
-                    sku: "TEST-ITEM",
-                    name: "Item de Prueba (Carrito Perdido)",
-                    unit_price: 1000,
-                    quantity: 1,
-                    weight: 1,
-                    weight_unit: "KG", 
-                    dimensions_unit: "CM",
-                    height: 10, width: 10, length: 10,
-                    type: "STANDARD"
-                }],
-                payment_method_code: "EXTERNAL_PAYMENT", 
-                external_order_id: transactionId, 
-                payment_status_external: "APPROVED",
-                discounts: []
-            };
-
-            // 5. Send to Backend
-            console.log("Enviando orden a backend:", orderPayload);
-            const response = await fetch('/api/create-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(orderPayload)
-            });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Error creando orden en Venndelo');
-
-            console.log("✅ Orden Wompi Creada:", data);
-
-            setStatus('success');
-            clearCart();
-            localStorage.removeItem('kaiu_checkout_data');
-
-        } catch (error) {
-            console.error("Error creating order:", error);
-            // Don't show failure if we already engaged? No, if it failed it failed.
-            // But if it failed because it ran twice, the check at top returns early.
-            setStatus('failure');
-        }
+        };
+        
+        check();
     };
 
     verifyTransaction();
@@ -184,10 +107,25 @@ export default function CheckoutSuccess() {
                 <div>
                      <h1 className="font-display text-3xl font-bold text-foreground">Algo salió mal</h1>
                      <p className="text-muted-foreground mt-2">
-                        No pudimos verificar tu pago. Por favor intenta nuevamente o contacta a soporte.
+                        La transacción no fue aprobada o ocurrió un error.
                      </p>
                 </div>
                 <Button variant="outline" onClick={() => navigate('/checkout')}>Volver al Checkout</Button>
+            </div>
+        )}
+
+        {status === 'pending_validation' && (
+            <div className="flex flex-col items-center gap-6">
+                 <div className="w-20 h-20 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center">
+                    <Loader2 className="w-10 h-10 animate-spin" />
+                </div>
+                <div>
+                     <h1 className="font-display text-3xl font-bold text-foreground">Validando Pago...</h1>
+                     <p className="text-muted-foreground mt-2">
+                        Tu pago está en proceso de validación. Por favor revisa tu correo electrónico para la confirmación.
+                     </p>
+                </div>
+                <Button variant="outline" onClick={() => navigate('/')}>Ir al Inicio</Button>
             </div>
         )}
       </div>
