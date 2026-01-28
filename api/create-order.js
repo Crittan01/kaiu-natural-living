@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sendOrderConfirmation } from './services/email.js';
 
 // Esquema de Validación (Espejo de lo que pide Venndelo)
 const createOrderSchema = z.object({
@@ -214,6 +215,46 @@ export default async function handler(req, res) {
     }
 
     // 7. Respuesta Exitosa
+    // SEND EMAIL CONFIRMATION (ONLY FOR COD)
+    // For External Payment (Wompi), we wait for the transaction check to send the email (if approved)
+    if (orderData.payment_method_code === 'COD') {
+        console.log("DEBUG VENNDELO RESPONSE:", JSON.stringify(data, null, 2));
+
+        let finalOrder = data.data || data; 
+        
+        // Handle Venndelo "items" array structure
+        if (finalOrder.items && Array.isArray(finalOrder.items) && finalOrder.items.length > 0) {
+            finalOrder = finalOrder.items[0];
+        }
+
+        // Ensure line_items exists for the email. 
+        if (!finalOrder.line_items && orderData.line_items) {
+            finalOrder.line_items = orderData.line_items;
+        }
+        if (!finalOrder.billing_info && orderData.billing_info) {
+            finalOrder.billing_info = orderData.billing_info;
+        }
+        if (!finalOrder.shipping_info && orderData.shipping_info) {
+            finalOrder.shipping_info = orderData.shipping_info;
+        }
+        if (!finalOrder.total) { 
+             finalOrder.total = orderData.line_items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+        } 
+        
+        // Construct simplified transaction object for email template
+        const mockTransaction = {
+            id: `COD-${finalOrder.pin || finalOrder.id}`, 
+            status: 'PENDING_PAYMENT_ON_DELIVERY',
+            payment_method: { type: 'PAGO_CONTRA_ENTREGA' }
+        };
+
+        console.log(`📧 Triggering COD email for Order #${finalOrder.id}...`);
+        sendOrderConfirmation(finalOrder, mockTransaction)
+            .catch(err => console.error("❌ COD Email Failed:", err));
+    } else {
+        console.log(`ℹ️ Skipping immediate email for ${orderData.payment_method_code}. Waiting for Payment Gateway...`);
+    }
+
     return res.status(201).json({ success: true, order: data });
 
   } catch (error) {

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,37 +21,47 @@ interface TrackResult {
 }
 
 export default function TrackOrder() {
+  const [searchParams] = useSearchParams();
   const [orderId, setOrderId] = useState('');
   const [result, setResult] = useState<TrackResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orderId) return;
-
+  // Extract search logic
+  const performSearch = async (queryId: string) => {
+    if (!queryId) return;
     setLoading(true);
     setError('');
     setResult(null);
 
     try {
-      const res = await fetch(`/api/track-order?id=${orderId}`);
+      const res = await fetch(`/api/track-order?id=${queryId}`);
       const data = await res.json();
 
       if (!res.ok) {
         throw new Error(data.error || 'No pudimos encontrar tu orden.');
       }
-
       setResult(data);
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Error desconocido");
-      }
+        if (err instanceof Error) setError(err.message);
+        else setError("Error desconocido");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Auto-search if ?guide=XXX is present
+  useEffect(() => {
+    const guideParam = searchParams.get('guide');
+    if (guideParam) {
+        setOrderId(guideParam);
+        performSearch(guideParam);
+    }
+  }, [searchParams]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    performSearch(orderId);
   };
 
   const getStatusColor = (status: string) => {

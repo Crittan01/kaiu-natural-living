@@ -1,0 +1,56 @@
+{
+  "id": "9711603",
+  "pin": "32344998",
+  "currency": "COP",
+  "created_at": "2026-01-28T01:52:25.000Z",
+  "status": "PENDING",
+  "payment_method_code": "EXTERNAL_PAYMENT",
+  "external_order_id": "",
+  "source": "API",
+  "source_order_id": "",
+  "billing_info": {
+    "first_name": "Rosmery",
+    "last_name": "Tamayo",
+    "email": "kaiu.oficialco@gmail.com",
+    "phone": "3003919461",
+    "address_1": "Carrera 68c # 22-10 Sur, Bq: 15 Ap 202, Villa",
+    "postal_code": "",
+    "identification_type": "CC",
+    "identification": "51637282"
+  },
+  "shipping_info": {
+    "first_name": "Rosmery Tamayo",
+    "last_name": "Rosmery Tamayo",
+    "email": "kaiu.oficialco@gmail.com",
+    "phone": "3003919461",
+    "address_1": "Carrera 68c # 22-10 Sur, Bq: 15 Ap 202, Villa",
+    "postal_code": "",
+    "identification_type": "CC",
+    "identification": "51637282"
+  },
+  "line_items": [
+    {
+      "id": "796cc2b4-1688-48dd-9345-b95400ec6873",
+      "sku": "AV-ARG-GOT-30ML",
+      "name": "Aceite Vegetal de Argán",
+      "unit_price": 58000,
+      "free_shipping": false,
+      "width": 10,
+      "height": 10,
+      "length": 10,
+      "dimensions_unit": "CM",
+      "weight": 0.2,
+      "weight_unit": "KG",
+      "quantity": 1
+    }
+  ],
+  "shipments": [],
+  "subtotal": 58000,
+  "shipping_total": 10100,
+  "assumed_shipping_total": 0,
+  "quoted_shipping_total": 10100,
+  "total": 68100,
+  "payment_url": "",
+  "discounts": [],
+  "total_discount": 0
+}

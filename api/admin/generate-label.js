@@ -1,4 +1,5 @@
 import { verifyAdminToken } from './auth-helper.js';
+import { sendShippingConfirmation } from '../services/email.js';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -95,6 +96,38 @@ export default async function handler(req, res) {
 
             // check status
             if (data.status === 'SUCCESS' && data.data) {
+                // --- EMAIL TRIGGER ---
+                const pdfUrl = data.data;
+                // Fetch latest order details to get the Tracking Number (Guía)
+                // Venndelo updates the order with 'shipments' array immediately after label gen.
+                try {
+                     const orderId = orderIds[0]; // Assuming single order for now as per frontend
+                     const orderRes = await fetch(`https://api.venndelo.com/v1/admin/orders/${orderId}`, {
+                        headers: { 'X-Venndelo-Api-Key': VENNDELO_API_KEY }
+                     });
+                     
+                     if (orderRes.ok) {
+                         const orderData = await orderRes.json();
+                         const order = orderData.data || orderData; // Handle structure variations
+                         
+                         // Look for shipments
+                         if (order.shipments && order.shipments.length > 0) {
+                             const trackingNumber = order.shipments[0].tracking_number;
+                             console.log(`🚚 Found Tracking #: ${trackingNumber}. Sending Email...`);
+                             
+                             // Send Async (don't block response)
+                             sendShippingConfirmation(order, trackingNumber, pdfUrl)
+                                .then(() => console.log("Email task finished"))
+                                .catch(err => console.error("Email task failed", err));
+                         } else {
+                             console.warn("⚠️ Label generated but no shipment info found in order yet.");
+                         }
+                     }
+                } catch (emailErr) {
+                    console.error("Error triggering shipping email:", emailErr);
+                }
+                // ---------------------
+
                 return res.status(200).json(data);
             }
             

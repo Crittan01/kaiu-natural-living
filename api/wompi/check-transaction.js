@@ -1,5 +1,6 @@
 
 import fetch from 'node-fetch';
+import { sendOrderConfirmation, sendPaymentRejectedEmail } from '../services/email.js';
 
 /**
  * Endpoint para consultar el estado real de una transacción en Wompi
@@ -50,12 +51,14 @@ export default async function checkTransactionHandler(req, res) {
                     
                     let url = '';
                     let body = {};
+                    let shouldSendEmail = false;
 
                     if (transaction.status === 'APPROVED') {
                         // Confirm Order
                         console.log(`Syncing Venndelo Status for ${venndeloId} to CONFIRMED...`);
                         url = `https://api.venndelo.com/v1/admin/orders/${venndeloId}/modify-order-confirmation-status`;
                         body = { confirmation_status: 'CONFIRMED' };
+                        shouldSendEmail = true;
                     } else {
                         // Cancel Order
                         console.log(`Syncing Venndelo Status for ${venndeloId} to CANCELLED (via /cancel)...`);
@@ -80,12 +83,42 @@ export default async function checkTransactionHandler(req, res) {
                     }
 
                     // Handle Idempotency (422: Order already processed)
+                    let syncSuccess = false;
                     if (vRes.status === 422 && JSON.stringify(vData).includes("ya fue procesado")) {
                          console.log(`Venndelo Sync: Order ${venndeloId} was already up-to-date (Idempotent).`);
+                         syncSuccess = true;
                     } else if (!vRes.ok) {
                          console.warn(`Venndelo Sync Warning (${vRes.status}):`, vData);
                     } else {
                          console.log(`Venndelo Sync Success (${vRes.status}):`, vData);
+                         syncSuccess = true;
+                    }
+
+                    // --- SEND EMAIL IF SYNC SUCCESSFUL (OR IDEMPOTENT) ---
+                    if (syncSuccess) {
+                        try {
+                             // Fetch Order Details
+                             const orderRes = await fetch(`https://api.venndelo.com/v1/admin/orders/${venndeloId}`, {
+                                headers: { 'X-Venndelo-Api-Key': VENNDELO_API_KEY }
+                             });
+                             
+                             if (orderRes.ok) {
+                                 const orderData = await orderRes.json();
+                                 const order = orderData.data || orderData; 
+                                 
+                                 if (shouldSendEmail) {
+                                     // APPROVED -> Order Confirmation
+                                     await sendOrderConfirmation(order, transaction);
+                                 } else if (transaction.status === 'DECLINED' || transaction.status === 'ERROR') {
+                                     // DECLINED/ERROR -> Payment Rejected Email
+                                     await sendPaymentRejectedEmail(order, transaction);
+                                 }
+                             } else {
+                                 console.error("Could not fetch order details for email sending.");
+                             }
+                        } catch (emailErr) {
+                            console.error("Error in email flow:", emailErr);
+                        }
                     }
                 }
             } catch (syncErr) {
