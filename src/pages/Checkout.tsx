@@ -165,7 +165,8 @@ const Checkout = () => {
   }, [formData.ciudad_code, formData.departamento_code, formData.payment_method, items, quoteShipping]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    let { name, value } = e.target;
+    const { name } = e.target;
+    let { value } = e.target;
     
     // Auto-Capitalize Title Case (Nombre, Direccion, Barrio)
     // Force lowercase first to handle "JUAN PEREZ" -> "Juan Perez"
@@ -286,10 +287,10 @@ const Checkout = () => {
         
         form.submit(); // Bye Bye User (Redirect)
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Wompi Flow Error:", error);
-        toast({ variant: "destructive", title: "Error iniciando pago", description: error.message });
-        setIsSubmitting(false);
+        toast({ variant: "destructive", title: "Error en pago", description: error instanceof Error ? error.message : "Error desconocido" });
+    } finally {  setIsSubmitting(false);
     }
   };
 

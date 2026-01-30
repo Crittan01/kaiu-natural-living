@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { sendOrderConfirmation } from './services/email.js';
+import { prisma } from './db.js';
 
 // Esquema de Validación (Espejo de lo que pide Venndelo)
 const createOrderSchema = z.object({
@@ -97,7 +98,6 @@ export default async function handler(req, res) {
     // CORRECCIÓN ESPECÍFICA: Código de Departamento Bogotá
     // A veces el frontend envía '25' (Cundinamarca) para Bogotá, pero Venndelo/DANE requiere '11'.
     if (orderData.shipping_info.city_code === '11001000' && orderData.shipping_info.subdivision_code === '25') {
-        // console.log("⚠️ Corrigiendo código departamento Bogotá: 25 -> 11");
         orderData.shipping_info.subdivision_code = '11';
     }
     
@@ -147,6 +147,79 @@ export default async function handler(req, res) {
     orderData.shipping_info.last_name = orderData.shipping_info.last_name.trim();
     orderData.shipping_info.address_1 = orderData.shipping_info.address_1.trim();
 
+    // -----------------------------------------------------
+    // 4.5. NUEVA ARQUITECTURA: Persistencia en PostgreSQL
+    // -----------------------------------------------------
+    let dbOrder = null;
+    try {
+        console.log("💾 Guardando orden en PostgreSQL (Supabase)...");
+        
+        // 1. Buscar usuario o crear (Guest/Customer)
+        const email = orderData.billing_info.email;
+        const fullName = `${orderData.billing_info.first_name} ${orderData.billing_info.last_name}`.trim();
+        
+        const user = await prisma.user.upsert({
+            where: { email },
+            update: { 
+                name: fullName,
+                // Podríamos actualizar direcciones aquí si quisiéramos
+            },
+            create: {
+                email,
+                name: fullName,
+                role: 'CUSTOMER',
+                password: 'placeholder_hash', // TODO: Manejo real de auth
+            }
+        });
+
+        // 2. Resolver Productos (IDs internos)
+        const skus = orderData.line_items.map(i => i.sku);
+        const dbProducts = await prisma.product.findMany({
+            where: { sku: { in: skus } }
+        });
+        
+        const dbProductMap = {};
+        dbProducts.forEach(p => dbProductMap[p.sku] = p);
+
+        // 3. Crear Orden PENDING
+        dbOrder = await prisma.order.create({
+            data: {
+                status: 'PENDING',
+                paymentMethod: orderData.payment_method_code === 'COD' ? 'COD' : 'WOMPI',
+                subtotal: orderData.line_items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0),
+                shippingCost: 0, // Se actualiza con respuesta Venndelo
+                total: 0,        // Se actualiza con respuesta Venndelo
+                userId: user.id,
+                customerName: fullName,
+                customerEmail: email,
+                customerPhone: orderData.billing_info.phone,
+                shippingAddress: orderData.shipping_info,
+                billingAddress: orderData.billing_info,
+                items: {
+                    create: orderData.line_items.map(item => {
+                        const dbProd = dbProductMap[item.sku];
+                        if (!dbProd) {
+                            console.warn(`⚠️ Producto no encontrado en DB: ${item.sku}`);
+                            return null; // O manejar error
+                        }
+                        return {
+                            product: { connect: { id: dbProd.id } },
+                            sku: item.sku,
+                            name: item.name,
+                            price: item.unit_price,
+                            quantity: item.quantity
+                        };
+                    }).filter(Boolean) // Filtrar nulos si faltan productos
+                }
+            }
+        });
+        console.log(`✅ Orden guardada en DB con ID: ${dbOrder.id}`);
+
+    } catch (dbError) {
+        console.error("❌ ERROR CRITICO DB (Continuando a Venndelo):", dbError);
+        // No bloqueamos el flujo hacia Venndelo por ahora
+    }
+
     // 5. Enviar Solicitud a Venndelo
     let venndeloResponse = await fetch('https://api.venndelo.com/v1/admin/orders', {
       method: 'POST',
@@ -181,7 +254,6 @@ export default async function handler(req, res) {
              };
 
              const departmentCode = orderData.shipping_info.subdivision_code;
-             // console.log(`Reintentando con ciudad capital para Dept: ${departmentCode}`);
              
              const fallbackCity = FALLBACK_CITIES[departmentCode];
 
@@ -256,6 +328,35 @@ export default async function handler(req, res) {
             .catch(err => console.error("❌ COD Email Failed:", err));
     } else {
         console.log(`ℹ️ Skipping immediate email for ${orderData.payment_method_code}. Waiting for Payment Gateway...`);
+    }
+
+    // 7.5 ACTUALIZAR DB CON RESPUESTA
+    if (dbOrder && venndeloResponse.ok) {
+        try {
+            let finalOrder = data.data || data;
+            // Handle array wrap
+            if (finalOrder.items && Array.isArray(finalOrder.items) && finalOrder.items.length > 0) {
+                finalOrder = finalOrder.items[0];
+            }
+            
+            await prisma.order.update({
+                where: { id: dbOrder.id },
+                data: {
+                    externalId: String(finalOrder.id),
+                    total: finalOrder.total || 0,
+                    shippingCost: finalOrder.shipping_total || 0,
+                    carrier: finalOrder.shipments?.[0]?.carrier_name || 'Venndelo',
+                    trackingNumber: finalOrder.shipments?.[0]?.tracking_number || null,
+                    // Si es COD, sigue PENDING. Si es WOMPI, sigue PENDING hasta webhook.
+                    // Pero si Venndelo ya dio guía, podríamos mover a READY_TO_SHIP?
+                    // Por seguridad, dejemos que los webhooks/admin gestionen el status.
+                    status: 'PENDING' 
+                }
+            });
+            console.log("✅ DB Sincronizada con Venndelo ID:", finalOrder.id);
+        } catch (updateError) {
+            console.error("❌ Error actualizando DB tras Venndelo:", updateError);
+        }
     }
 
     return res.status(201).json({ success: true, order: data });

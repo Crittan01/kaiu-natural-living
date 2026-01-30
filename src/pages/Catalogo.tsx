@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Layout } from '@/components/layout/Layout';
 import { ProductCard } from '@/components/products/ProductCard';
-import { fetchProductsFromSheet } from '@/lib/sheetdb';
+import { fetchProducts } from '@/lib/products';
 import { Product } from '@/lib/types';
 import { filterProductsByQuery } from '@/lib/searchUtils';
 import { useSearchParams } from 'react-router-dom';
@@ -26,7 +26,7 @@ const Catalogo = () => {
   useEffect(() => {
     const loadProducts = async () => {
         setLoading(true);
-        const data = await fetchProductsFromSheet();
+        const data = await fetchProducts();
         if (data.length > 0) {
             setProducts(data);
         } else {

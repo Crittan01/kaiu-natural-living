@@ -31,8 +31,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        console.log("---- DEBUG GENERATE LABEL ----");
-        console.log("Order IDs:", orderIds);
+        console.log(`Processing Label Generation for Orders: ${orderIds.join(', ')}`);
 
         // STEP 1: Ensure Shipment is Created
         const createRes = await fetch(`https://api.venndelo.com/v1/admin/shipping/create-shipments`, {

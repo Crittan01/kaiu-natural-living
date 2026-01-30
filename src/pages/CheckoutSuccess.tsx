@@ -41,7 +41,7 @@ export default function CheckoutSuccess() {
                 if (!res.ok) throw new Error('Error checking status');
                 
                 const data = await res.json();
-                console.log("Transaction Status:", data.status);
+
                 
                 if (data.status === 'APPROVED') {
                     setStatus('success');

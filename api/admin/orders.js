@@ -35,7 +35,7 @@ export default async function handler(req, res) {
         const data = await response.json();
         
         // Debug
-        // console.log("Venndelo Orders Structure:", Object.keys(data));
+
         
         return res.status(200).json(data);
 

@@ -1,44 +1,53 @@
-import fetch from 'node-fetch';
-import https from 'https';
-
-// SSL Agent Fix for local dev environments
-const agent = new https.Agent({ rejectUnauthorized: false });
+import { prisma } from './db.js';
 
 export default async function handler(req, res) {
-  // CORS Headers are handled by Express middleware but good to be safe if Vercel function
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', true)
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  
-  const SHEET_URL = process.env.NEXT_PUBLIC_SHEETDB_URL;
-  
-  if (!SHEET_URL) {
-      return res.status(500).json({ error: 'SHEETDB_URL missing' });
-  }
 
   try {
-    // Support picking a specific sheet tab (e.g. ?sheet=Kits)
     const sheetName = req.query.sheet;
-    let fetchUrl = SHEET_URL;
-
-    if (sheetName) {
-        // Create URL object to safely append params
-        const urlObj = new URL(SHEET_URL);
-        urlObj.searchParams.append('sheet', sheetName);
-        fetchUrl = urlObj.toString();
-        // console.log(`Fetching from sheet: ${sheetName}`);
-    }
-
-    const response = await fetch(fetchUrl, { agent });
     
-    if (!response.ok) {
-        throw new Error(`SheetDB responded with ${response.status}`);
+    // Build query filter based on Sheet name (if applicable, mapping sheets to categories or just ignoring)
+    // For now, we return all active products. SheetDB relied on "Sheets" which we might map to Categories later.
+    
+    const products = await prisma.product.findMany({
+      where: {
+        isActive: true,
+      }
+    });
+
+    // Map Prisma Model to Legacy SheetDB Format (Backward Compatibility)
+    const legacyFormat = products.map(p => ({
+      SKU: p.sku,
+      NOMBRE: p.name,
+      DESCRIPCION_LARGA: p.description,
+      // Fallback description if needed
+      DESCRIPCION_CORTA: p.description ? p.description.substring(0, 100) + '...' : '', 
+      PRECIO: p.price.toString(), // Frontend expects string often from Sheets
+      STOCK: p.stock > 0 ? 'DISPONIBLE' : 'AGOTADO',
+      IMAGEN_URL: p.images.length > 0 ? p.images[0] : '', // Take first image
+      CATEGORIA: p.category || 'General',
+      BENEFICIOS: p.benefits || '',
+      PESO: p.weight?.toString() || '0.2'
+    }));
+
+    // Filter by 'sheet' param if it mimicked categories. 
+    // If sheet=Kits, filtering by category 'Kits' roughly.
+    // SheetDB logic was distinct sheets. Here we can simulate if needed, or just return all for now.
+    
+    let result = legacyFormat;
+    
+    // Simple mock filter if specific sheet requested (optional refinement)
+    if (sheetName && sheetName !== 'Productos') {
+         result = legacyFormat.filter(p => p.CATEGORIA?.includes(sheetName) || p.NOMBRE?.includes(sheetName));
     }
 
-    const data = await response.json();
-    res.status(200).json(data);
+    res.status(200).json(result);
+
   } catch (error) {
-    console.error("PROXY ERROR:", error);
-    res.status(500).json({ error: 'Failed to fetch products', details: error.message });
+    console.error("DB ERROR:", error);
+    res.status(500).json({ error: 'Failed to fetch products from DB', details: error.message });
   }
 }

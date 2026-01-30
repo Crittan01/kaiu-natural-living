@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------
+// MODELOS DE USUARIO Y SEGURIDAD
+// ---------------------------------------------------------
+
+enum Role {
+  CUSTOMER  // Cliente final
+  ADMIN     // Dueño del negocio (Acceso total)
+  WAREHOUSE // Bodeguero (Solo ver pedidos y generar guías)
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // Hash (Bcrypt)
+  name      String?
+  role      Role     @default(CUSTOMER)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders    Order[]
+  addresses Address[]
+  
+  @@map("users")
+}
+
+// ---------------------------------------------------------
+// MODELOS DE PRODUCTO E INVENTARIO
+// ---------------------------------------------------------
+
+model Product {
+  id          String   @id @default(uuid())
+  sku         String   @unique // Identificador único (Ej: ACE-LAV-10ML)
+  name        String
+  slug        String   @unique // URL amigable (Ej: aceite-lavanda)
+  description String?  @db.Text
+  benefits    String?  @db.Text // Lista separada por comas
+  price       Int      // Precio en centavos o unidad mínima (COP)
+  
+  // Stock Control
+  stock       Int      @default(0) 
+  isActive    Boolean  @default(true)
+
+  // Multimedia
+  images      String[] // Array de URLs de imágenes
+
+  // Logística (Dimensiones obligatorias para cotizar envío)
+  weight      Float    @default(0.2) // Kg
+  width       Float    @default(10)  // Cm
+  height      Float    @default(10)  // Cm
+  length      Float    @default(10)  // Cm
+  
+  category    String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderItems  OrderItem[]
+
+  @@map("products")
+}
+
+// ---------------------------------------------------------
+// MODELOS DE ORDENES Y LOGÍSTICA
+// ---------------------------------------------------------
+
+enum OrderStatus {
+  PENDING             // Creada, esperando pago o confirmación
+  CONFIRMED           // Pago recibido (Wompi) o Confirmada manual (COD)
+  PROCESSING          // En preparación (Bodega)
+  READY_TO_SHIP       // Guía generada
+  SHIPPED             // Entregada a transportadora
+  DELIVERED           // Entregada al cliente
+  CANCELLED           // Anulada
+  RETURNED            // Devolución
+}
+
+enum PaymentMethod {
+  COD               // Contra Entrega
+  WOMPI             // Pasarela de Pagos
+  TRANSFER          // Transferencia Bancaria Directa
+}
+
+model Order {
+  id              String        @id @default(uuid()) // ID Interno (UUID)
+  readableId      Int           @default(autoincrement()) // ID Corto para cliente (Ej: #1024)
+  
+  // Relaciones Externas
+  externalId      String?       @unique // ID en Venndelo o Wompi Reference
+  
+  status          OrderStatus   @default(PENDING)
+  paymentMethod   PaymentMethod @default(COD)
+  
+  // Totales (Guardados como snapshot al momento de compra)
+  subtotal        Int
+  shippingCost    Int
+  total           Int
+  
+  // Cliente (Puede ser Guest o User Registrado)
+  userId          String?
+  user            User?         @relation(fields: [userId], references: [id])
+  customerName    String        // Snapshot por si se borra el user
+  customerEmail   String
+  customerPhone   String
+
+  // Direcciones (Snapshots JSON para inmutabilidad historica)
+  shippingAddress Json          // { address, city, dept, notes... }
+  billingAddress  Json?
+
+  // Logística
+  carrier         String?       // "Coordinadora", "Envia", "Venndelo"
+  trackingNumber  String?       // Número de Guía
+  trackingUrl     String?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items           OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  
+  // Snapshots (Por si cambia el producto después)
+  sku       String
+  name      String
+  price     Int     // Precio unitario al momento de compra
+  quantity  Int
+  
+  @@map("order_items")
+}
+
+// ---------------------------------------------------------
+// MODELOS AUXILIARES
+// ---------------------------------------------------------
+
+model Address {
+  id        String @id @default(uuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+  
+  address   String
+  city      String
+  depto     String
+  phone     String
+  isDefault Boolean @default(false)
+  
+  @@map("addresses")
+}

@@ -1,0 +1,101 @@
+/// <reference types="node" />
+import { PrismaClient, Prisma } from '@prisma/client';
+import 'dotenv/config';
+
+// ------------------------------------------------------------------
+// CONFIGURACION HTTPS AGENT (Solo si es necesario para certificados self-signed o raros)
+// Para SheetDB y Supabase, native fetch suele bastar.
+// Solución para entorno de desarrollo con proxy/SSL estricto:
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; 
+// ------------------------------------------------------------------
+
+const prisma = new PrismaClient();
+
+const SHEETDB_URL = "https://sheetdb.io/api/v1/glilzl705s35r";
+
+function slugify(text: string) {
+  return text
+    .toString()
+    .toLowerCase()
+    .replace(/\s+/g, '-')           
+    .replace(/[^\w-]+/g, '')       
+    .replace(/--+/g, '-')         
+    .replace(/^-+/, '')             
+    .replace(/-+$/, '');            
+}
+
+// Basic interface for SheetDB response
+interface SheetRow {
+  SKU: string;
+  NOMBRE: string;
+  PRECIO: string;
+  DESCRIPCION_LARGA: string;
+  DESCRIPCION_CORTA: string;
+  BENEFICIOS: string;
+  STOCK: string;
+  CATEGORIA: string;
+  IMAGEN_URL: string;
+}
+
+async function main() {
+  console.log('🌱 Starting seed...');
+  console.log(`📡 Fetching data from SheetDB: ${SHEETDB_URL}`);
+
+  try {
+    // Native Node 18+ fetch (no extra import needed)
+    const response = await fetch(SHEETDB_URL);
+    if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`);
+    
+    // Type saftey for JSON response
+    const data = (await response.json()) as SheetRow[]; 
+    console.log(`📦 Found ${data.length} products to migrate.`);
+
+    for (const item of data) {
+      const price = parseInt(item.PRECIO) || 0;
+      const slug = slugify(item.NOMBRE || '') + '-' + slugify(item.SKU || '');
+
+      // Check if exists by SKU to avoid duplicates
+      
+      // Upsert: Create if new, Update if exists (to refresh benefits/prices)
+      await prisma.product.upsert({
+        where: { sku: item.SKU },
+        update: {
+            name: item.NOMBRE,
+            description: item.DESCRIPCION_LARGA || item.DESCRIPCION_CORTA,
+            benefits: item.BENEFICIOS,
+            price: price,
+            stock: item.STOCK === 'DISPONIBLE' ? 100 : 0,
+            category: item.CATEGORIA,
+             // Update images only if provided, else keep existing
+            ...(item.IMAGEN_URL ? { images: [item.IMAGEN_URL] } : {})
+        } as Prisma.ProductUpdateInput,
+        create: {
+            sku: item.SKU,
+            name: item.NOMBRE,
+            slug: slug,
+            description: item.DESCRIPCION_LARGA || item.DESCRIPCION_CORTA,
+            benefits: item.BENEFICIOS, 
+            price: price,
+            stock: item.STOCK === 'DISPONIBLE' ? 100 : 0,
+            category: item.CATEGORIA,
+            weight: 0.2,
+            width: 10,
+            height: 10,
+            length: 10,
+            images: item.IMAGEN_URL ? [item.IMAGEN_URL] : []
+        } as Prisma.ProductCreateInput
+      });
+      console.log(`✅ Synced: ${item.NOMBRE}`);
+    }
+    
+    console.log('🏁 Seeding finished.');
+
+  } catch (error) {
+    console.error('❌ Error seeding:', error);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+main();

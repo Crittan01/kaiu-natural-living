@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Layout } from '@/components/layout/Layout';
 import { mockRituals } from '@/lib/data';
-import { fetchProductsFromSheet } from '@/lib/sheetdb';
+import { fetchProducts } from '@/lib/products';
 import { Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, Leaf, ArrowRight, Search, X, Sparkles, Filter } from 'lucide-react';
@@ -23,7 +23,7 @@ const Rituales = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    fetchProductsFromSheet().then(setProducts);
+    fetchProducts().then(setProducts);
   }, []);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);

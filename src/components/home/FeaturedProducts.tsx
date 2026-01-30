@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ProductCard } from '@/components/products/ProductCard';
-import { fetchProductsFromSheet } from '@/lib/sheetdb';
+import { fetchProducts } from '@/lib/products';
 import { Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
@@ -13,7 +13,7 @@ export function FeaturedProducts() {
 
   useEffect(() => {
     const loadData = async () => {
-         const data = await fetchProductsFromSheet();
+         const data = await fetchProducts();
          setProducts(data.slice(0, 4)); 
          setLoading(false);
     };

@@ -127,7 +127,7 @@ export default function AdminDashboard() {
             toast({ title: "Guía Generada", description: "Se ha abierto en una nueva pestaña" });
             fetchData(); 
         } else {
-            console.log("Respuesta desconocida:", data);
+
             toast({ 
                 title: "Error de Formato", 
                 description: `Respuesta inesperada: ${JSON.stringify(data).substring(0, 100)}`, 
@@ -195,8 +195,8 @@ export default function AdminDashboard() {
   const sortedOrders = [...orders.filter(getFilterPredicate(activeFilter))].sort((a, b) => {
     if (!sortConfig) return 0;
     
-    let aValue: any = a[sortConfig.key as keyof Order];
-    let bValue: any = b[sortConfig.key as keyof Order];
+    let aValue = a[sortConfig.key as keyof Order];
+    let bValue = b[sortConfig.key as keyof Order];
 
     // Special handlers for nested properties
     if (sortConfig.key === 'client') {

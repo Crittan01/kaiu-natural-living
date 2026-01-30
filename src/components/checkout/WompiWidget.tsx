@@ -35,9 +35,10 @@ export function WompiWidget({ amountInCents, currency, reference, email, fullNam
                  if (!res.ok) throw new Error(data.error || `Error ${res.status}: ${res.statusText}`);
                  
                  setSignature(data.signature);
-             } catch (err: any) {
+             } catch (err: unknown) {
                  console.error("Wompi Sign Error:", err);
-                 setError(err.message || "Error al conectar con el servidor de pagos.");
+                 const errorMessage = err instanceof Error ? err.message : "Error al conectar con el servidor de pagos.";
+                 setError(errorMessage);
              } finally {
                  setLoading(false);
              }

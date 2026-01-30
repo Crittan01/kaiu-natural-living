@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Layout } from '@/components/layout/Layout';
 import { ProductCard } from '@/components/products/ProductCard';
-import { fetchProductsFromSheet } from '@/lib/sheetdb';
+import { fetchProducts } from '@/lib/products';
 import { Product } from '@/lib/types';
 import { filterProductsByQuery } from '@/lib/searchUtils';
 import { Gift, Sparkles, Search, X, LayoutGrid, List, Filter } from 'lucide-react';
@@ -18,7 +18,7 @@ const Kits = () => {
   useEffect(() => {
     const loadData = async () => {
          // Fetch specifically from the "Kits" sheet
-         const data = await fetchProductsFromSheet('Kits');
+         const data = await fetchProducts('Kits');
          setProducts(data);
          setLoading(false);
     };
