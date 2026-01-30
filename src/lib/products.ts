@@ -23,7 +23,8 @@ interface ProductRow {
   PESO: string;          
   ALTO: string;          
   ANCHO: string;         
-  LARGO: string;         
+  LARGO: string;
+  VARIANT_NAME?: string;         
 }
 
 // Convert Google Drive links to direct image links
@@ -69,12 +70,29 @@ export const fetchProducts = async (categoryFilter?: string): Promise<Product[]>
         const rowPrice = parseInt(row.PRECIO) || 0;
         const oldPrice = row.PRECIO_ANTES ? parseInt(row.PRECIO_ANTES) : undefined;
         
-        // Extract Variant Name from SKU or explicitly
+        // Extract Variant Name:
+        // 1. Prefer explicit DB value (VARIANT_NAME) if available (from seed logic)
+        // 2. Fallback to heuristic calculation
         const skuParts = row.SKU.split('-');
-        let variantName = row.VARIANTES?.trim();
-        
+        let variantName = row.VARIANT_NAME;
+
         if (!variantName) {
-            variantName = skuParts.length > 1 ? skuParts[skuParts.length - 1] : row.SKU;
+            const userVariantName = row.VARIANTES?.trim();
+            if (userVariantName) {
+                variantName = userVariantName;
+            } else {
+                 // Smart Logic Fallback (for old data or if DB field empty)
+                const lastPart = skuParts.length > 1 ? skuParts[skuParts.length - 1] : row.SKU;
+                let containerType = "";
+                
+                if (row.SKU.includes('ROL') || row.NOMBRE.toLowerCase().includes('roll-on')) {
+                    containerType = "Roll-on";
+                } else if (row.SKU.includes('GOT') || row.SKU.includes('ACE') || row.NOMBRE.toLowerCase().includes('gotero')) {
+                    containerType = "Gotero";
+                }
+    
+                variantName = containerType ? `${containerType} ${lastPart}` : lastPart;
+            }
         }
 
         if (!productMap.has(rowName)) {

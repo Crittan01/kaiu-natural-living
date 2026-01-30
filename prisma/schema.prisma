@@ -44,6 +44,7 @@ model Product {
   name        String
   slug        String   @unique // URL amigable (Ej: aceite-lavanda)
   description String?  @db.Text
+  variantName String?  // Nombre de la variante (Ej: "Gotero 10ml")
   benefits    String?  @db.Text // Lista separada por comas
   price       Int      // Precio en centavos o unidad mínima (COP)
   

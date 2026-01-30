@@ -35,6 +35,7 @@ interface SheetRow {
   STOCK: string;
   CATEGORIA: string;
   IMAGEN_URL: string;
+  VARIANTES: string;
   
   // Logística
   PESO: string;
@@ -58,17 +59,36 @@ async function main() {
 
     for (const item of data) {
       const price = parseInt(item.PRECIO) || 0;
+      
+      // Smart Logic: Detect Container Type (Roll-on / Gotero)
+      let containerType = "";
+      if (item.SKU.includes('ROL') || (item.NOMBRE || '').toLowerCase().includes('roll-on')) {
+          containerType = "Roll-on";
+      } else if (item.SKU.includes('GOT') || item.SKU.includes('ACE') || (item.NOMBRE || '').toLowerCase().includes('gotero')) {
+          containerType = "Gotero";
+      }
+
+      // Logic to determine the final variant name to store
+      const skuParts = item.SKU.split('-');
+      const lastPart = skuParts.length > 1 ? skuParts[skuParts.length - 1] : item.SKU;
+      
+      let variantName = item.VARIANTES?.trim();
+      
+      if (!variantName) {
+         variantName = containerType ? `${containerType} ${lastPart}` : lastPart;
+      }
+      
       const slug = slugify(item.NOMBRE || '') + '-' + slugify(item.SKU || '');
 
-      // Check if exists by SKU to avoid duplicates
-      
-      // Upsert: Create if new, Update if exists (to refresh benefits/prices)
+      // Upsert: Create if new, Update if exists
+      // Note: variantName is now stored explicitly
       await prisma.product.upsert({
         where: { sku: item.SKU },
         update: {
             name: item.NOMBRE,
+            variantName: variantName, // STORED IN DB
             description: item.DESCRIPCION_LARGA || item.DESCRIPCION_CORTA,
-            benefits: item.BENEFICIOS,
+            benefits: item.BENEFICIOS, 
             price: price,
             stock: item.STOCK === 'DISPONIBLE' ? 100 : 0,
             category: item.CATEGORIA,
@@ -84,6 +104,7 @@ async function main() {
         create: {
             sku: item.SKU,
             name: item.NOMBRE,
+            variantName: variantName, // STORED IN DB
             slug: slug,
             description: item.DESCRIPCION_LARGA || item.DESCRIPCION_CORTA,
             benefits: item.BENEFICIOS, 

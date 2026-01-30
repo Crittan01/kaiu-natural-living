@@ -33,7 +33,8 @@ export default async function handler(req, res) {
       PESO: p.weight?.toString() || '0.2',
       ALTO: p.height?.toString() || '10',
       ANCHO: p.width?.toString() || '10',
-      LARGO: p.length?.toString() || '10'
+      LARGO: p.length?.toString() || '10',
+      VARIANT_NAME: p.variantName || '' // New field for explicit variant naming
     }));
 
     // Filter by 'sheet' param if it mimicked categories. 
