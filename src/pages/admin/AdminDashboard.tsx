@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,6 +8,145 @@ import { FileText, Loader2, RefreshCw, Printer, Truck, TrendingUp, Users, Packag
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+
+// --- INVENTORY COMPONENT ---
+interface ProductInventory {
+    sku: string;
+    name: string;
+    variantName: string | null;
+    price: number;
+    stock: number;
+    isActive: boolean;
+    images: string[];
+}
+
+function InventoryManager({ token }: { token: string | null }) {
+    const [products, setProducts] = useState<ProductInventory[]>([]);
+    const [loading, setLoading] = useState(false);
+    const { toast } = useToast();
+
+    // Fetch Inventory
+    const fetchInventory = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('/api/admin/inventory', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Error cargando inventario');
+            const data = await res.json();
+            setProducts(data);
+        } catch (error) {
+            console.error(error);
+            toast({ title: "Error", description: "No se pudo cargar el inventario", variant: "destructive" });
+        } finally {
+            setLoading(false);
+        }
+    }, [token, toast]);
+
+    useEffect(() => {
+        if (token) fetchInventory();
+    }, [token, fetchInventory]);
+
+    const handleUpdate = async (sku: string, updates: Partial<ProductInventory>) => {
+        try {
+            // Optimistic Update
+            setProducts(prev => prev.map(p => p.sku === sku ? { ...p, ...updates } : p));
+
+            const res = await fetch('/api/admin/inventory', {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ sku, updates })
+            });
+
+            if (!res.ok) throw new Error('Fallo al guardar');
+            
+            toast({ title: "Guardado", description: "Producto actualizado correctamente", duration: 2000 });
+
+        } catch (error) {
+            toast({ title: "Error", description: "No se pudo guardar el cambio", variant: "destructive" });
+            fetchInventory(); // Revert on failure
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Gestión de Inventario</CardTitle>
+                <CardDescription>Modifica precios y stock en tiempo real. Los cambios se guardan automáticamente.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[100px]">Imagen</TableHead>
+                                <TableHead>Producto / Variante</TableHead>
+                                <TableHead className="w-[150px]">Precio (COP)</TableHead>
+                                <TableHead className="w-[100px]">Stock</TableHead>
+                                <TableHead className="w-[100px]">Estado</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="text-center py-10">
+                                        <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                products.map((product) => (
+                                    <TableRow key={product.sku}>
+                                        <TableCell>
+                                            <div className="h-12 w-12 rounded bg-muted overflow-hidden">
+                                                {product.images && product.images[0] && (
+                                                    <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover" />
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="font-medium">{product.name}</div>
+                                            <div className="text-xs text-muted-foreground">{product.variantName || product.sku}</div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input 
+                                                type="number" 
+                                                value={product.price} 
+                                                onChange={(e) => handleUpdate(product.sku, { price: Number(e.target.value) })}
+                                                className="w-32"
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input 
+                                                type="number" 
+                                                value={product.stock} 
+                                                onChange={(e) => handleUpdate(product.sku, { stock: Number(e.target.value) })}
+                                                className="w-24"
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center space-x-2">
+                                                <Switch 
+                                                    checked={product.isActive} 
+                                                    onCheckedChange={(checked) => handleUpdate(product.sku, { isActive: checked })}
+                                                />
+                                                <span className="text-xs text-muted-foreground">{product.isActive ? 'Activo' : 'Inactivo'}</span>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
 
 interface Shipment {
     carrier_name: string;
@@ -80,7 +219,11 @@ export default function AdminDashboard() {
 
     } catch (error) {
         console.error(error);
-        toast({ title: "Error", description: "No se pudieron cargar los datos del dashboard", variant: "destructive" });
+        if (error instanceof Error) {
+            toast({ title: "Error Crítico", description: error.message, variant: "destructive" });
+        } else {
+             toast({ title: "Error", description: "Fallo desconocido cargando dashboard", variant: "destructive" });
+        }
     } finally {
         setLoading(false);
     }
@@ -266,6 +409,7 @@ export default function AdminDashboard() {
             <Tabs defaultValue="overview" className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="overview">Resumen Ejecutivo</TabsTrigger>
+                    <TabsTrigger value="inventory">Inventario</TabsTrigger>
                     <TabsTrigger value="shipments">Gestión de Envíos</TabsTrigger>
                 </TabsList>
 
@@ -382,10 +526,24 @@ export default function AdminDashboard() {
                         </>
                     ) : (
                         <div className="p-10 text-center text-muted-foreground border border-dashed rounded-lg">
-                             <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin" />
-                             <p>Cargando Estadísticas...</p>
+                             {!loading && !stats ? (
+                                <div className="text-destructive">
+                                    <p className="font-bold">Error cargando datos</p>
+                                    <p className="text-sm">Verifica la conexión API o intenta recargar.</p>
+                                </div>
+                             ) : (
+                                <>
+                                    <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin" />
+                                    <p>Cargando Estadísticas...</p>
+                                </>
+                             )}
                         </div>
                     )}
+                </TabsContent>
+                
+                {/* --- TAB: INVENTORY (NEW) --- */}
+                <TabsContent value="inventory" className="space-y-4">
+                   <InventoryManager token={token} />
                 </TabsContent>
 
                 {/* --- TAB: SHIPMENTS (TABLE) --- */}

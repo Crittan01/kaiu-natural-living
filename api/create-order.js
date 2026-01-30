@@ -193,6 +193,8 @@ export default async function handler(req, res) {
                 customerName: fullName,
                 customerEmail: email,
                 customerPhone: orderData.billing_info.phone,
+                customerId: orderData.billing_info.identification, // Cédula
+                notes: orderData.shipping_info.notes || null,      // Notas
                 shippingAddress: orderData.shipping_info,
                 billingAddress: orderData.billing_info,
                 items: {

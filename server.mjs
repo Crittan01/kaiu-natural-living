@@ -16,6 +16,7 @@ import adminConfirmOrderHandler from './api/admin/confirm-order.js';
 import adminRequestPickupHandler from './api/admin/request-pickup.js';
 import checkTransactionHandler from './api/wompi/check-transaction.js';
 import dashboardStatsHandler from './api/admin/dashboard-stats.js';
+import adminInventoryHandler from './api/admin/inventory.js';
 
 // Configuración inicial
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -61,10 +62,10 @@ app.get('/api/wompi/check-transaction/:id', adaptParams(checkTransactionHandler)
 // Admin Routes (Protected inside handlers)
 app.post('/api/admin/login', adaptParams(adminLoginHandler));
 app.get('/api/admin/orders', adaptParams(adminOrdersHandler));
-app.post('/api/admin/generate-label', adaptParams(adminGenerateLabelHandler));
-app.post('/api/admin/confirm-order', adaptParams(adminConfirmOrderHandler));
-app.post('/api/admin/request-pickup', adaptParams(adminRequestPickupHandler));
-app.get('/api/admin/dashboard-stats', adaptParams(dashboardStatsHandler));
+// New Inventory Route (Handles GET and POST)
+app.use('/api/admin/inventory', adaptParams(adminInventoryHandler));
+// Dashboard Stats Route
+app.use('/api/admin/dashboard-stats', adaptParams(dashboardStatsHandler));
 
 // Iniciar Servidor
 // Iniciar Servidor

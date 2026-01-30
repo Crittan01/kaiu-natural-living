@@ -110,9 +110,11 @@ model Order {
   // Cliente (Puede ser Guest o User Registrado)
   userId          String?
   user            User?         @relation(fields: [userId], references: [id])
-  customerName    String        // Snapshot por si se borra el user
+  customerName    String
   customerEmail   String
   customerPhone   String
+  customerId      String?       // Cédula/DNI (Importante para logística)
+  notes           String?       // Notas de entrega (Timbre, portería, etc)
 
   // Direcciones (Snapshots JSON para inmutabilidad historica)
   shippingAddress Json          // { address, city, dept, notes... }
