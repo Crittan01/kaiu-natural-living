@@ -1,12 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, LayoutGrid, List as ListIcon, Save } from 'lucide-react';
+import { Loader2, Search, LayoutGrid, List as ListIcon, Save, Filter, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ProductInventory {
     sku: string;
@@ -16,6 +17,7 @@ interface ProductInventory {
     stock: number;
     isActive: boolean;
     images: string[];
+    category?: string;
 }
 
 // Helper to convert Google Drive view links to direct image links
@@ -46,6 +48,43 @@ export function InventoryManager({ token }: { token: string | null }) {
     const { toast } = useToast();
 
     const [sortConfig, setSortConfig] = useState<{ key: keyof ProductInventory; direction: 'asc' | 'desc' } | null>(null);
+    
+    // Filters
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [selectedType, setSelectedType] = useState<string>('all');
+    const [selectedVolume, setSelectedVolume] = useState<string>('all');
+
+    // Derived Lists for Selects
+    const { categories, types, volumes } = useMemo(() => {
+        const cats = new Set<string>();
+        const typs = new Set<string>();
+        const vols = new Set<string>();
+
+        products.forEach(p => {
+            if (p.category) cats.add(p.category);
+            
+            const fullName = (p.name + ' ' + (p.variantName || '')).toLowerCase();
+            const sku = p.sku.toLowerCase();
+
+            // Type Parsing
+            if (sku.includes('got') || fullName.includes('gotero')) typs.add('Gotero');
+            else if (sku.includes('rol') || fullName.includes('roll-on') || fullName.includes('roll on')) typs.add('Roll-on');
+            else if (fullName.includes('spray')) typs.add('Spray');
+            else if (fullName.includes('difusor')) typs.add('Difusor');
+            else if (fullName.includes('kit')) typs.add('Kit');
+
+            // Volume Parsing
+            const volMatch = fullName.match(/(\d+)\s?(ml|g|gr)/);
+            if (volMatch) vols.add(volMatch[0].replace(/\s/g, ''));
+        });
+
+        return {
+            categories: Array.from(cats).sort(),
+            types: Array.from(typs).sort(),
+            volumes: Array.from(vols).sort((a, b) => parseInt(a) - parseInt(b)) // Numeric sort roughly
+        };
+    }, [products]);
+
 
     // Fetch Inventory
     const fetchInventory = useCallback(async () => {
@@ -102,10 +141,39 @@ export function InventoryManager({ token }: { token: string | null }) {
     };
 
     const filteredAndSortedProducts = [...products]
-        .filter(p => 
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-        )
+        .filter(p => {
+             // Text Search
+             const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                   p.sku.toLowerCase().includes(searchTerm.toLowerCase());
+             if (!matchesSearch) return false;
+
+             // Category Filter
+             if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
+
+             const fullName = (p.name + ' ' + (p.variantName || '')).toLowerCase();
+             const sku = p.sku.toLowerCase();
+
+             // Type Filter
+             if (selectedType !== 'all') {
+                const type = selectedType.toLowerCase();
+                if (type === 'gotero' && !sku.includes('got') && !fullName.includes('gotero')) return false;
+                if (type === 'roll-on' && !sku.includes('rol') && !fullName.includes('roll-on') && !fullName.includes('roll on')) return false;
+                if (type === 'spray' && !fullName.includes('spray')) return false;
+                if (type === 'kit' && !fullName.includes('kit')) return false;
+                if (type === 'difusor' && !fullName.includes('difusor')) return false;
+                // For 'Other' implies not matching any known
+             }
+
+             // Volume Filter
+             if (selectedVolume !== 'all') {
+                const volClean = selectedVolume.toLowerCase(); // "10ml"
+                const productVolMatch = fullName.match(/(\d+)\s?(ml|g|gr)/);
+                if (!productVolMatch) return false;
+                if (productVolMatch[0].replace(/\s/g, '').toLowerCase() !== volClean) return false;
+             }
+
+             return true;
+        })
         .sort((a, b) => {
             if (!sortConfig) return 0;
             const aValue = a[sortConfig.key];
@@ -122,28 +190,20 @@ export function InventoryManager({ token }: { token: string | null }) {
 
 
     return (
-        <Card>
-            <CardHeader>
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <CardTitle>Gestión de Inventario</CardTitle>
-                        <CardDescription>Administra tus productos, precios y stock.</CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2 w-full md:w-auto">
-                        <div className="relative w-full md:w-64">
-                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                                placeholder="Buscar por Nombre o SKU..." 
-                                className="pl-8"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+        <Card className="flex flex-col h-full">
+            <CardHeader className="pb-3">
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                        <div>
+                            <CardTitle>Gestión de Inventario</CardTitle>
+                            <CardDescription>Administra tus productos, precios y stock.</CardDescription>
                         </div>
-                        <div className="flex border rounded-md">
+                        <div className="flex items-center gap-2">
                             <Button 
                                 variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
                                 size="icon" 
                                 onClick={() => setViewMode('list')}
+                                title="Vista Lista"
                             >
                                 <ListIcon className="h-4 w-4" />
                             </Button>
@@ -151,9 +211,76 @@ export function InventoryManager({ token }: { token: string | null }) {
                                 variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
                                 size="icon" 
                                 onClick={() => setViewMode('grid')}
+                                title="Vista Cuadrícula"
                             >
                                 <LayoutGrid className="h-4 w-4" />
                             </Button>
+                        </div>
+                    </div>
+                    
+                    {/* Filter Bar */}
+                    <div className="flex flex-col md:flex-row gap-2 w-full">
+                         <div className="relative flex-1">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input 
+                                placeholder="Buscar Nombre o SKU..." 
+                                className="pl-8"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        
+                        {/* Filters */}
+                        <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
+                             {/* Category Filter */}
+                             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                <SelectTrigger className="w-[140px]">
+                                    <SelectValue placeholder="Categoría" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todas</SelectItem>
+                                    {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                </SelectContent>
+                             </Select>
+
+                             {/* Type Filter */}
+                             <Select value={selectedType} onValueChange={setSelectedType}>
+                                <SelectTrigger className="w-[130px]">
+                                    <SelectValue placeholder="Tipo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Tipos</SelectItem>
+                                    {types.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                </SelectContent>
+                             </Select>
+
+                             {/* Volume Filter */}
+                             <Select value={selectedVolume} onValueChange={setSelectedVolume}>
+                                <SelectTrigger className="w-[110px]">
+                                    <SelectValue placeholder="Volumen" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Tam.</SelectItem>
+                                    {volumes.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                </SelectContent>
+                             </Select>
+                             
+                             {(selectedCategory !== 'all' || selectedType !== 'all' || selectedVolume !== 'all' || searchTerm) && (
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="text-muted-foreground hover:text-foreground"
+                                    onClick={() => {
+                                        setSearchTerm('');
+                                        setSelectedCategory('all');
+                                        setSelectedType('all');
+                                        setSelectedVolume('all');
+                                    }}
+                                    title="Limpiar Filtros"
+                                >
+                                    <X className="w-4 h-4" />
+                                </Button>
+                             )}
                         </div>
                     </div>
                 </div>
