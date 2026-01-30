@@ -25,7 +25,20 @@ export default function AdminLogin() {
         body: JSON.stringify({ username, pin })
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        const text = await res.text(); // Get raw text first
+        if (!text) throw new Error('Respuesta vacía del servidor');
+        
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error("Error parsing JSON:", text.substring(0, 200));
+            throw new Error(`Error de Servidor (No JSON): ${res.status} ${res.statusText}`);
+        }
+      } catch (e) {
+         throw e;
+      }
 
       if (!res.ok) {
         throw new Error(data.error || 'Credenciales Incorrectas');

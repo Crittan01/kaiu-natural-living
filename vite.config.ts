@@ -80,7 +80,7 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
     proxy: {
-      '/api': 'http://localhost:3001'
+      '/api': 'http://127.0.0.1:3001'
     }
   },
 }));

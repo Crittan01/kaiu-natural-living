@@ -27,6 +27,8 @@ export default async function handler(req, res) {
       console.error("Error parsing KAIU_ADMIN_USERS", e);
   }
 
+  console.log(`🔑 Login Attempt: User=${username}`);
+
   // Fallback if env is missing (Safety)
   if (validUsers.length === 0) {
       // Legacy or Default
@@ -43,10 +45,13 @@ export default async function handler(req, res) {
   );
 
   if (!userMatch) {
+      console.warn(`❌ Login Failed for user: ${username} (Pin mismatch or user not found)`);
       // Delay artificial para mitigar fuerza bruta
       await new Promise(resolve => setTimeout(resolve, 1000));
       return res.status(401).json({ error: 'Usuario o PIN Incorrecto' });
   }
+
+  console.log(`✅ Login Success: ${username}`);
 
   // Generar Token con Role y Username (para logs futuros)
   const token = jwt.sign({ role: 'admin', user: userMatch.username }, JWT_SECRET, { expiresIn: '24h' });

@@ -142,6 +142,9 @@ export default async function handler(req, res) {
     orderData.billing_info.first_name = orderData.billing_info.first_name.trim();
     orderData.billing_info.last_name = orderData.billing_info.last_name.trim();
     orderData.billing_info.identification = orderData.billing_info.identification.trim(); 
+    
+    orderData.shipping_info.first_name = orderData.shipping_info.first_name.trim();
+    orderData.shipping_info.last_name = orderData.shipping_info.last_name.trim();
     orderData.shipping_info.address_1 = orderData.shipping_info.address_1.trim();
 
     // 5. Enviar Solicitud a Venndelo
