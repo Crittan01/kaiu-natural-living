@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { sendOrderConfirmation } from './services/email.js';
 import { prisma } from './db.js';
+import InventoryService from './services/inventory/InventoryService.js';
+import LogisticsManager from './services/logistics/LogisticsManager.js';
 
 // Esquema de Validación (Espejo de lo que pide Venndelo)
 const createOrderSchema = z.object({
@@ -11,7 +13,7 @@ const createOrderSchema = z.object({
     city_code: z.string(),
     subdivision_code: z.string(),
     country_code: z.string(),
-  }).optional(), // Opcional porque se llena en el backend
+  }).optional(), 
   billing_info: z.object({
     first_name: z.string(),
     last_name: z.string(),
@@ -28,7 +30,6 @@ const createOrderSchema = z.object({
     subdivision_code: z.string(),
     country_code: z.string(),
     phone: z.string(),
-    // Codigo postal puede venir vacio, lo manejamos luego
     postal_code: z.string().optional().default(""), 
   }),
   line_items: z.array(z.object({
@@ -36,7 +37,6 @@ const createOrderSchema = z.object({
     name: z.string(),
     unit_price: z.number(),
     quantity: z.number(),
-    // Logistica (Obligatorios para Venndelo)
     weight: z.number(),
     weight_unit: z.enum(['KG']),
     dimensions_unit: z.enum(['CM']),
@@ -47,7 +47,6 @@ const createOrderSchema = z.object({
     variation_id: z.number().nullable().optional(),
     free_shipping: z.boolean().nullable().optional(),
   })),
-  // Metodo de pago dinamico
   payment_method_code: z.enum(['COD', 'EXTERNAL_PAYMENT']),
   external_order_id: z.string(),
   discounts: z.array(z.object({
@@ -61,10 +60,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true)
   res.setHeader('Access-Control-Allow-Origin', '*') 
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT')
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  )
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version')
 
   if (req.method === 'OPTIONS') {
     res.status(200).end()
@@ -76,134 +72,74 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 2. Validación de Entorno (API Key)
-    const VENNDELO_API_KEY = process.env.VENNDELO_API_KEY;
-    if (!VENNDELO_API_KEY) {
-      console.error('ERROR SERVIDOR: Falta VENNDELO_API_KEY');
-      return res.status(500).json({ error: 'Error de configuración del servidor' });
-    }
-
-    // 3. Validación de Datos de Entrada (Zod)
+    // 2. Validación de Datos (Zod)
     const result = createOrderSchema.safeParse(req.body);
-    
     if (!result.success) {
-      return res.status(400).json({ 
-        error: 'Datos inválidos', 
-        details: result.error.format() 
-      });
+      return res.status(400).json({ error: 'Datos inválidos', details: result.error.format() });
     }
-
     const orderData = result.data;
 
-    // CORRECCIÓN ESPECÍFICA: Código de Departamento Bogotá
-    // A veces el frontend envía '25' (Cundinamarca) para Bogotá, pero Venndelo/DANE requiere '11'.
-    if (orderData.shipping_info.city_code === '11001000' && orderData.shipping_info.subdivision_code === '25') {
-        orderData.shipping_info.subdivision_code = '11';
-    }
+    // Normalizaciones que el servicio no hace
+    orderData.shipping_info.postal_code = orderData.shipping_info.postal_code || "";
     
-    // Asegurar código postal (Venndelo a veces rechaza vacíos estrictos, usamos "000000" si falla, o string vacío si lo permite)
-    // En pruebas recientes, string vacío "" funciona mejor que null.
-    if (!orderData.shipping_info.postal_code) {
-        orderData.shipping_info.postal_code = "";
-    }
-
-    // Limpieza de Items (Eliminar campos nulos no permitidos)
+    // Limpieza de Items
     orderData.line_items = orderData.line_items.map(item => {
         const { variation_id, free_shipping, ...rest } = item;
         return {
             ...rest,
-            // Aseguramos nulos explicitos o eliminacion
             variation_id: variation_id ?? null,
             free_shipping: free_shipping ?? false,
-            type: "STANDARD" // Forzamos STANDARD para productos físicos con dimensiones
+            type: "STANDARD"
         };
     });
 
-    // 4. Configuración de Origen (Bodega)
-    // Se toma de variables de entorno para no quemar direcciones en código
-    const pickupInfo = {
-      contact_name: process.env.VENNDELO_PICKUP_NAME,
-      contact_phone: process.env.VENNDELO_PICKUP_PHONE,
-      address_1: process.env.VENNDELO_PICKUP_ADDRESS,
-      city_code: process.env.VENNDELO_PICKUP_CITY_CODE,
-      subdivision_code: process.env.VENNDELO_PICKUP_SUBDIVISION_CODE,
-      country_code: process.env.VENNDELO_PICKUP_COUNTRY,
-      postal_code: "" 
-    };
+    // 3. RESERVA DE STOCK
+    // Si falla, lanzamos error y abortamos antes de crear nada
+    try {
+        await InventoryService.reserveStock(orderData.line_items);
+    } catch (stockError) {
+        return res.status(409).json({ error: stockError.message });
+    }
 
-    // Sobreescribimos la info de recogida con la nuestra (seguridad)
-    orderData.pickup_info = pickupInfo;
-    orderData.confirmation_status = 'PENDING';
-    
-    // Método de Pago (Dinamico: COD o EXTERNAL)
-    orderData.payment_method_code = req.body.payment_method_code || 'EXTERNAL_PAYMENT'; 
-
-    // Limpieza básica de textos
-    orderData.billing_info.first_name = orderData.billing_info.first_name.trim();
-    orderData.billing_info.last_name = orderData.billing_info.last_name.trim();
-    orderData.billing_info.identification = orderData.billing_info.identification.trim(); 
-    
-    orderData.shipping_info.first_name = orderData.shipping_info.first_name.trim();
-    orderData.shipping_info.last_name = orderData.shipping_info.last_name.trim();
-    orderData.shipping_info.address_1 = orderData.shipping_info.address_1.trim();
-
-    // -----------------------------------------------------
-    // 4.5. NUEVA ARQUITECTURA: Persistencia en PostgreSQL
-    // -----------------------------------------------------
+    // 4. Persistencia Inicial en DB (PENDING)
+    // Guardamos antes de llamar a la logística para tener trazabilidad
     let dbOrder = null;
     try {
-        console.log("💾 Guardando orden en PostgreSQL (Supabase)...");
-        
-        // 1. Buscar usuario o crear (Guest/Customer)
         const email = orderData.billing_info.email;
         const fullName = `${orderData.billing_info.first_name} ${orderData.billing_info.last_name}`.trim();
         
+        // Upsert User
         const user = await prisma.user.upsert({
             where: { email },
-            update: { 
-                name: fullName,
-                // Podríamos actualizar direcciones aquí si quisiéramos
-            },
-            create: {
-                email,
-                name: fullName,
-                role: 'CUSTOMER',
-                password: 'placeholder_hash', // TODO: Manejo real de auth
-            }
+            update: { name: fullName },
+            create: { email, name: fullName, role: 'CUSTOMER', password: 'placeholder' }
         });
 
-        // 2. Resolver Productos (IDs internos)
+        // Resolve Product IDs
         const skus = orderData.line_items.map(i => i.sku);
-        const dbProducts = await prisma.product.findMany({
-            where: { sku: { in: skus } }
-        });
-        
-        const dbProductMap = {};
-        dbProducts.forEach(p => dbProductMap[p.sku] = p);
+        const dbProducts = await prisma.product.findMany({ where: { sku: { in: skus } } });
+        const dbProductMap = new Map(dbProducts.map(p => [p.sku, p]));
 
-        // 3. Crear Orden PENDING
+        // Create Order
         dbOrder = await prisma.order.create({
             data: {
                 status: 'PENDING',
                 paymentMethod: orderData.payment_method_code === 'COD' ? 'COD' : 'WOMPI',
                 subtotal: orderData.line_items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0),
-                shippingCost: 0, // Se actualiza con respuesta Venndelo
-                total: 0,        // Se actualiza con respuesta Venndelo
+                shippingCost: 0, 
+                total: 0,
                 userId: user.id,
                 customerName: fullName,
                 customerEmail: email,
                 customerPhone: orderData.billing_info.phone,
-                customerId: orderData.billing_info.identification, // Cédula
-                notes: orderData.shipping_info.notes || null,      // Notas
+                customerId: orderData.billing_info.identification,
+                notes: orderData.shipping_info.notes || null,
                 shippingAddress: orderData.shipping_info,
                 billingAddress: orderData.billing_info,
                 items: {
                     create: orderData.line_items.map(item => {
-                        const dbProd = dbProductMap[item.sku];
-                        if (!dbProd) {
-                            console.warn(`⚠️ Producto no encontrado en DB: ${item.sku}`);
-                            return null; // O manejar error
-                        }
+                        const dbProd = dbProductMap.get(item.sku);
+                        if (!dbProd) return null;
                         return {
                             product: { connect: { id: dbProd.id } },
                             sku: item.sku,
@@ -211,157 +147,83 @@ export default async function handler(req, res) {
                             price: item.unit_price,
                             quantity: item.quantity
                         };
-                    }).filter(Boolean) // Filtrar nulos si faltan productos
+                    }).filter(Boolean)
                 }
             }
         });
-        console.log(`✅ Orden guardada en DB con ID: ${dbOrder.id}`);
+        console.log(`✅ [DB] Orden creada PENDING: ${dbOrder.id}`);
 
     } catch (dbError) {
-        console.error("❌ ERROR CRITICO DB (Continuando a Venndelo):", dbError);
-        // No bloqueamos el flujo hacia Venndelo por ahora
+        console.error("❌ Linkeo DB fallido, liberando stock...", dbError);
+        await InventoryService.releaseReserve(orderData.line_items);
+        return res.status(500).json({ error: 'Error guardando orden en base de datos' });
     }
 
-    // 5. Enviar Solicitud a Venndelo
-    let venndeloResponse = await fetch('https://api.venndelo.com/v1/admin/orders', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Venndelo-Api-Key': VENNDELO_API_KEY
-      },
-      body: JSON.stringify(orderData)
-    });
-
-    let data = await venndeloResponse.json();
-
-    // 6. Manejo de Errores y Reintento (Fallback por Cobertura)
-    if (!venndeloResponse.ok) {
-        console.log("Error Inicial Venndelo:", JSON.stringify(data));
+    // 5. Creación de Envío (Logística)
+    let shipmentData = null;
+    try {
+        console.log("🚚 Solicitando creación de envío a LogisticsManager...");
+        shipmentData = await LogisticsManager.createShipment(orderData);
+    } catch (logisticsError) {
+        console.error("❌ Fallo Logística:", logisticsError);
         
-        // Detectar si es error de cobertura (Ej: Vereda no normalizada)
-        const errorString = JSON.stringify(data);
-        const isCoverageError = errorString.includes("Tarifa") || errorString.includes("transporte") || errorString.includes("APP_PUBLIC_ERROR");
+        // Rollback: Cancelar Orden DB y Liberar Stock
+        await prisma.order.update({ where: { id: dbOrder.id }, data: { status: 'CANCELLED' } });
+        await InventoryService.releaseReserve(orderData.line_items);
         
-        if (isCoverageError) {
-             // Diccionario de Fallback: Si falla la ciudad específica, intentamos con la Capital del Departamento
-             // Esto ayuda a "rescatar" órdenes mal geolocalizadas
-             const FALLBACK_CITIES = {
-                 "05": "05001000", // Antioquia -> Medellin
-                 "11": "11001000", // Bogota -> Bogota
-                 "25": "25001000", // Cundinamarca -> Agua de Dios (o cabecera cercana)
-                 "54": "54001000", // Norte de Santander -> Cúcuta
-                 "76": "76001000", // Valle -> Cali
-                 "08": "08001000", // Atlantico -> Barranquilla
-                 "13": "13001000", // Bolivar -> Cartagena
-             };
-
-             const departmentCode = orderData.shipping_info.subdivision_code;
-             
-             const fallbackCity = FALLBACK_CITIES[departmentCode];
-
-             if (fallbackCity && fallbackCity !== orderData.shipping_info.city_code) {
-                 // Clonamos y modificamos
-                 const retryOrder = JSON.parse(JSON.stringify(orderData));
-                 
-                 // Agregamos el código original a la dirección para que el transportista sepa
-                 const originalCityCode = retryOrder.shipping_info.city_code;
-                 retryOrder.shipping_info.address_1 = `DESTINO REAL COD-${originalCityCode} ${retryOrder.shipping_info.address_1}`;
-                 retryOrder.shipping_info.city_code = fallbackCity;
-
-                 // Reintento
-                 venndeloResponse = await fetch('https://api.venndelo.com/v1/admin/orders', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Venndelo-Api-Key': VENNDELO_API_KEY
-                    },
-                    body: JSON.stringify(retryOrder)
-                });
-                data = await venndeloResponse.json();
-             }
-        }
+        return res.status(502).json({ 
+            error: 'Error creando envío con transportadora', 
+            details: logisticsError.message 
+        });
     }
 
-    if (!venndeloResponse.ok) {
-       console.error('ERROR VENNDELO FINAL:', JSON.stringify(data, null, 2));
-       return res.status(venndeloResponse.status).json({ 
-         error: 'Error creando orden en Venndelo', 
-         venndelo_message: data?.message || 'Error desconocido',
-         details: data
-       });
-    }
-
-    // 7. Respuesta Exitosa
-    // SEND EMAIL CONFIRMATION (ONLY FOR COD)
-    // For External Payment (Wompi), we wait for the transaction check to send the email (if approved)
-    if (orderData.payment_method_code === 'COD') {
-        console.log("DEBUG VENNDELO RESPONSE:", JSON.stringify(data, null, 2));
-
-        let finalOrder = data.data || data; 
-        
-        // Handle Venndelo "items" array structure
-        if (finalOrder.items && Array.isArray(finalOrder.items) && finalOrder.items.length > 0) {
-            finalOrder = finalOrder.items[0];
-        }
-
-        // Ensure line_items exists for the email. 
-        if (!finalOrder.line_items && orderData.line_items) {
-            finalOrder.line_items = orderData.line_items;
-        }
-        if (!finalOrder.billing_info && orderData.billing_info) {
-            finalOrder.billing_info = orderData.billing_info;
-        }
-        if (!finalOrder.shipping_info && orderData.shipping_info) {
-            finalOrder.shipping_info = orderData.shipping_info;
-        }
-        if (!finalOrder.total) { 
-             finalOrder.total = orderData.line_items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
-        } 
-        
-        // Construct simplified transaction object for email template
-        const mockTransaction = {
-            id: `COD-${finalOrder.pin || finalOrder.id}`, 
-            status: 'PENDING_PAYMENT_ON_DELIVERY',
-            payment_method: { type: 'PAGO_CONTRA_ENTREGA' }
-        };
-
-        console.log(`📧 Triggering COD email for Order #${finalOrder.id}...`);
-        sendOrderConfirmation(finalOrder, mockTransaction)
-            .catch(err => console.error("❌ COD Email Failed:", err));
-    } else {
-        console.log(`ℹ️ Skipping immediate email for ${orderData.payment_method_code}. Waiting for Payment Gateway...`);
-    }
-
-    // 7.5 ACTUALIZAR DB CON RESPUESTA
-    if (dbOrder && venndeloResponse.ok) {
-        try {
-            let finalOrder = data.data || data;
-            // Handle array wrap
-            if (finalOrder.items && Array.isArray(finalOrder.items) && finalOrder.items.length > 0) {
-                finalOrder = finalOrder.items[0];
+    // 6. Actualización Exitosa
+    // Si llegamos aqui, la logística aceptó.
+    try {
+        const updatedOrder = await prisma.order.update({
+            where: { id: dbOrder.id },
+            data: {
+                externalId: shipmentData.external_id,
+                total: shipmentData.total || 0,
+                shippingCost: shipmentData.shipping_cost || 0,
+                carrier: shipmentData.carrier_name,
+                trackingNumber: shipmentData.trackingNumber || null,
+                // Si es COD, descontamos stock real YA.
+                // Si es WOMPI, el stock se queda en "Reserved" hasta el webhook confirmación.
             }
-            
-            await prisma.order.update({
-                where: { id: dbOrder.id },
-                data: {
-                    externalId: String(finalOrder.id),
-                    total: finalOrder.total || 0,
-                    shippingCost: finalOrder.shipping_total || 0,
-                    carrier: finalOrder.shipments?.[0]?.carrier_name || 'Venndelo',
-                    trackingNumber: finalOrder.shipments?.[0]?.tracking_number || null,
-                    // Si es COD, sigue PENDING. Si es WOMPI, sigue PENDING hasta webhook.
-                    // Pero si Venndelo ya dio guía, podríamos mover a READY_TO_SHIP?
-                    // Por seguridad, dejemos que los webhooks/admin gestionen el status.
-                    status: 'PENDING' 
-                }
-            });
-            console.log("✅ DB Sincronizada con Venndelo ID:", finalOrder.id);
-        } catch (updateError) {
-            console.error("❌ Error actualizando DB tras Venndelo:", updateError);
-        }
-    }
+        });
 
-    return res.status(201).json({ success: true, order: data });
+        // Caso especial COD: Confirmamos venta inmediatamente (Stock Real -)
+        if (orderData.payment_method_code === 'COD') {
+            await InventoryService.confirmSale(orderData.line_items);
+            
+            // EMAIL COD
+            const mockTransaction = {
+                id: `COD-${shipmentData.external_id}`, 
+                status: 'PENDING_PAYMENT_ON_DELIVERY',
+                payment_method: { type: 'PAGO_CONTRA_ENTREGA' }
+            };
+            
+            // Reconstruimos objeto para el template de email (mezcla de datos originales + respuesta logística)
+            const emailOrderPayload = {
+                ...updatedOrder, // Datos DB
+                line_items: orderData.line_items,
+                shipping_total: shipmentData.shipping_cost,
+                pin: shipmentData.external_id // Venndelo ID usually
+            };
+
+            sendOrderConfirmation(emailOrderPayload, mockTransaction).catch(console.error);
+        }
+
+        return res.status(201).json({ 
+            success: true, 
+            order: { ...shipmentData, db_id: dbOrder.id } 
+        });
+
+    } catch (finalError) {
+        console.error("❌ Error final procesando respuesta:", finalError);
+        return res.status(500).json({ error: 'Orden creada pero fallo en confirmación final' });
+    }
 
   } catch (error) {
     console.error('ERROR INTERNO SERVIDOR:', error);

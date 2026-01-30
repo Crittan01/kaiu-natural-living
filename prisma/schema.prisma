@@ -50,6 +50,7 @@ model Product {
   
   // Stock Control
   stock       Int      @default(0) 
+  stockReserved Int    @default(0) // Stock comprometido en proceso de pago
   isActive    Boolean  @default(true)
 
   // Multimedia
