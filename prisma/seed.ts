@@ -35,6 +35,12 @@ interface SheetRow {
   STOCK: string;
   CATEGORIA: string;
   IMAGEN_URL: string;
+  
+  // Logística
+  PESO: string;
+  ALTO: string;
+  ANCHO: string;
+  LARGO: string;
 }
 
 async function main() {
@@ -67,6 +73,12 @@ async function main() {
             stock: item.STOCK === 'DISPONIBLE' ? 100 : 0,
             category: item.CATEGORIA,
              // Update images only if provided, else keep existing
+            // Logistics Update
+            weight: parseFloat((item.PESO || "0").toString().replace(',', '.')) || undefined,
+            width: parseFloat((item.ANCHO || "0").toString().replace(',', '.')) || undefined,
+            height: parseFloat((item.ALTO || "0").toString().replace(',', '.')) || undefined,
+            length: parseFloat((item.LARGO || "0").toString().replace(',', '.')) || undefined,
+
             ...(item.IMAGEN_URL ? { images: [item.IMAGEN_URL] } : {})
         } as Prisma.ProductUpdateInput,
         create: {
@@ -78,10 +90,10 @@ async function main() {
             price: price,
             stock: item.STOCK === 'DISPONIBLE' ? 100 : 0,
             category: item.CATEGORIA,
-            weight: 0.2,
-            width: 10,
-            height: 10,
-            length: 10,
+            weight: parseFloat((item.PESO || "0.2").toString().replace(',', '.')) || 0.2,
+            width: parseFloat((item.ANCHO || "10").toString().replace(',', '.')) || 10,
+            height: parseFloat((item.ALTO || "10").toString().replace(',', '.')) || 10,
+            length: parseFloat((item.LARGO || "10").toString().replace(',', '.')) || 10,
             images: item.IMAGEN_URL ? [item.IMAGEN_URL] : []
         } as Prisma.ProductCreateInput
       });

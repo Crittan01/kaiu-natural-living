@@ -30,7 +30,10 @@ export default async function handler(req, res) {
       IMAGEN_URL: p.images.length > 0 ? p.images[0] : '', // Take first image
       CATEGORIA: p.category || 'General',
       BENEFICIOS: p.benefits || '',
-      PESO: p.weight?.toString() || '0.2'
+      PESO: p.weight?.toString() || '0.2',
+      ALTO: p.height?.toString() || '10',
+      ANCHO: p.width?.toString() || '10',
+      LARGO: p.length?.toString() || '10'
     }));
 
     // Filter by 'sheet' param if it mimicked categories. 
