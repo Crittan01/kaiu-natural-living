@@ -27,7 +27,8 @@ export class VenndeloCarrier extends BaseCarrier {
             shipping_info: {
                 city_code: destination.city_code,
                 subdivision_code: destination.subdivision_code,
-                country_code: "CO"
+                country_code: "CO",
+                postal_code: ""
             },
             line_items: items.map(item => ({
                 sku: "GENERIC",
@@ -78,6 +79,11 @@ export class VenndeloCarrier extends BaseCarrier {
         // Lógica específica de Venndelo para departamentos (Bogotá hack)
         if (orderData.shipping_info.city_code === '11001000' && orderData.shipping_info.subdivision_code === '25') {
             orderData.shipping_info.subdivision_code = '11';
+        }
+
+        // Ensure postal_code is present (Required by API)
+        if (orderData.shipping_info && !orderData.shipping_info.postal_code) {
+             orderData.shipping_info.postal_code = "";
         }
 
         let response = await this._sendOrder(orderData);
@@ -155,5 +161,49 @@ export class VenndeloCarrier extends BaseCarrier {
              return retryOrder;
         }
         return null;
+    }
+
+    async getShipmentStatus(externalId) {
+        if (!externalId) return null;
+
+        try {
+            const res = await fetch(`${this.baseUrl}/admin/orders/${externalId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Venndelo-Api-Key': this.apiKey
+                }
+            });
+
+            if (!res.ok) {
+                console.warn(`Venndelo Status Error [${externalId}]:`, res.status);
+                return null;
+            }
+
+            const data = await res.json();
+            const venndeloStatus = data.status;
+
+            // Map to Internal Status
+            const STATUS_MAP = {
+                'PENDING': 'PENDING',
+                'READY': 'PICKUP_REQUESTED', // "Alistados" means Pickup Requested -> Waiting for Pickup
+                'PREPARING': 'READY_TO_SHIP', // "Preparación" means label generated in Venndelo -> Ready for Pickup
+                'SHIPPED': 'SHIPPED',
+                'INCIDENT': 'SHIPPED', 
+                'DELIVERED': 'DELIVERED',
+                'RETURNED': 'RETURNED',
+                'CANCELLED': 'CANCELLED'
+            };
+
+            return {
+                status: STATUS_MAP[venndeloStatus] || venndeloStatus,
+                originalStatus: venndeloStatus,
+                trackingNumber: data.shipments?.[0]?.tracking_number
+            };
+
+        } catch (error) {
+            console.error("Error fetching Venndelo status:", error);
+            return null;
+        }
     }
 }

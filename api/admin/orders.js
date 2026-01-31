@@ -28,11 +28,13 @@ export default async function handler(req, res) {
         const mappedOrders = orders.map(o => ({
             id: o.id,
             pin: o.readableId.toString(),
+            customer_name: o.customerName, // Source of truth for name
             created_at: o.createdAt,
             status: o.status,
             total: o.total,
             fulfillment_status: o.status, // Map if needed
             payment_status: o.status === 'CONFIRMED' || o.paymentMethod === 'WOMPI' ? 'PAID' : 'PENDING',
+            payment_method: o.paymentMethod, // Expose method (COD, WOMPI)
             
             shipping_info: typeof o.shippingAddress === 'string' ? JSON.parse(o.shippingAddress) : o.shippingAddress,
             billing_info: o.billingAddress ? (typeof o.billingAddress === 'string' ? JSON.parse(o.billingAddress) : o.billingAddress) : null,

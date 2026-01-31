@@ -62,7 +62,9 @@ app.get('/api/wompi/check-transaction/:id', adaptParams(checkTransactionHandler)
 // Admin Routes (Protected inside handlers)
 app.post('/api/admin/login', adaptParams(adminLoginHandler));
 app.get('/api/admin/orders', adaptParams(adminOrdersHandler));
-// New Inventory Route (Handles GET and POST)
+app.post('/api/admin/generate-label', adaptParams(adminGenerateLabelHandler));
+app.post('/api/admin/sync-shipments', adaptParams(await import('./api/admin/sync-shipments.js').then(m => m.default)));
+app.post('/api/admin/request-pickup', adaptParams(adminRequestPickupHandler));
 app.use('/api/admin/inventory', adaptParams(adminInventoryHandler));
 // Dashboard Stats Route
 app.use('/api/admin/dashboard-stats', adaptParams(dashboardStatsHandler));

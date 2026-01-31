@@ -81,6 +81,7 @@ enum OrderStatus {
   CONFIRMED           // Pago recibido (Wompi) o Confirmada manual (COD)
   PROCESSING          // En preparación (Bodega)
   READY_TO_SHIP       // Guía generada
+  PICKUP_REQUESTED    // Recogida solicitada a transportadora
   SHIPPED             // Entregada a transportadora
   DELIVERED           // Entregada al cliente
   CANCELLED           // Anulada

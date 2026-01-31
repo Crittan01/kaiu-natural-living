@@ -1,3 +1,4 @@
+import { prisma } from '../db.js';
 import { verifyAdminToken } from './auth-helper.js';
 import { sendShippingConfirmation } from '../services/email.js';
 
@@ -31,37 +32,62 @@ export default async function handler(req, res) {
     }
 
     try {
-        console.log(`Processing Label Generation for Orders: ${orderIds.join(', ')}`);
-
-        // STEP 1: Ensure Shipment is Created
-        const createRes = await fetch(`https://api.venndelo.com/v1/admin/shipping/create-shipments`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Venndelo-Api-Key': VENNDELO_API_KEY
+        // Resolve External IDs (Venndelo IDs) from DB
+        const dbOrders = await prisma.order.findMany({
+            where: {
+                id: { in: orderIds } // IDs are UUID strings, not Ints
             },
-            body: JSON.stringify({ order_ids: orderIds })
+            select: { externalId: true, status: true }
         });
-        
-        const createText = await createRes.text();
-        console.log("Create Shipment Response:", createRes.status, createText);
 
-        if (!createRes.ok) {
-           // If it fails, report it.
-           // Common error for prepaid: "Insufficient balance"
-           if (!createText.includes("ya existe") && !createText.includes("already exists")) {
-                let errMsg = "Error creando envío en Venndelo";
-                try {
-                    const errJson = JSON.parse(createText);
-                    // Venndelo specific error structure sometimes is { error: { message: "..." } } or just { message: "..." }
-                    errMsg = errJson.message || errJson.error?.message || errMsg;
-                    errMsg = errMsg.trim();
-                } catch(e) {}
-                
-                // Return the cleaned up message directly
-                return res.status(400).json({ error: errMsg });
-           }
+        const venndeloIds = dbOrders.map(o => o.externalId).filter(Boolean);
+
+        if (venndeloIds.length === 0) {
+            return res.status(404).json({ error: 'No se encontraron las órdenes enlazadas con Venndelo' });
         }
+
+        console.log(`Processing Label Generation for Venndelo IDs: ${venndeloIds.join(', ')}`);
+
+        // Check if orders are already in a state where shipment exists
+        const skipCreation = dbOrders.some(o => 
+            ['READY_TO_SHIP', 'PICKUP_REQUESTED', 'SHIPPED', 'DELIVERED'].includes(o.status)
+        );
+
+        if (!skipCreation) {
+            // STEP 1: Ensure Shipment is Created
+            const createRes = await fetch(`https://api.venndelo.com/v1/admin/shipping/create-shipments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Venndelo-Api-Key': VENNDELO_API_KEY
+                },
+                body: JSON.stringify({ order_ids: venndeloIds })
+            });
+            
+            const createText = await createRes.text();
+            console.log("Create Shipment Response:", createRes.status, createText);
+
+            if (!createRes.ok) {
+            // If it fails, report it.
+            // Common error for prepaid: "Insufficient balance"
+            if (!createText.includes("ya existe") && !createText.includes("already exists")) {
+                    let errMsg = "Error creando envío en Venndelo";
+                    try {
+                        const errJson = JSON.parse(createText);
+                        // Venndelo specific error structure sometimes is { error: { message: "..." } } or just { message: "..." }
+                        errMsg = errJson.message || errJson.error?.message || errMsg;
+                        errMsg = errMsg.trim();
+                    } catch(e) {}
+                    
+                    // Return the cleaned up message directly
+                    return res.status(400).json({ error: errMsg });
+            }
+            }
+        } else {
+            console.log("Skipping shipment creation (Shipment likely exists based on status)");
+        }
+
+
 
         // STEP 2: Poll for Label
         // We try up to 20 times with 1.5s delay (~30 seconds max wait)
@@ -72,7 +98,7 @@ export default async function handler(req, res) {
             attempts++;
             
             const payload = {
-                order_ids: orderIds,
+                order_ids: venndeloIds,
                 format: "LABEL_10x15",
                 output: "URL"
             };
@@ -86,7 +112,15 @@ export default async function handler(req, res) {
                 body: JSON.stringify(payload)
             });
     
-            const data = await response.json();
+            const genText = await response.text();
+            let data;
+            
+            try {
+                data = JSON.parse(genText);
+            } catch (jsonErr) {
+                console.error("❌ Venndelo Non-JSON Response:", genText);
+                return res.status(502).json({ error: 'La transportadora retornó una respuesta inválida' });
+            }
     
             if (!response.ok) {
                 console.error("Error Venndelo Labels:", data);

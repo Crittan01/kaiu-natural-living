@@ -1,4 +1,6 @@
 
+import { prisma } from '../db.js';
+import InventoryService from '../services/inventory/InventoryService.js';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 
@@ -22,73 +24,82 @@ export default async function wompiWebhookHandler(req, res) {
         console.log(`Transacción ID: ${id}`);
         console.log(`Referencia: ${reference}`);
         console.log(`Estado: ${status}`);
-        console.log(`Monto: ${amount_in_cents} ${currency}`);
 
-        // 1. Verificar Integridad (Checksum)
-        // SHA256(id + status + amount_in_cents + timestamp + secret)
-        const secret = process.env.WOMPI_INTEGRITY_SECRET; // Debe estar en .env.local
-
-        if (!secret) {
-            console.error("ERROR CRÍTICO: WOMPI_INTEGRITY_SECRET no configurado.");
-            return res.status(500).json({ error: "Configuración del servidor incompleta" });
-        }
+        // 1. Verificar Integridad
+        const secret = process.env.WOMPI_INTEGRITY_SECRET;
+        if (!secret) return res.status(500).json({ error: "Configuración incompleta" });
 
         const integrityString = `${id}${status}${amount_in_cents}${timestamp}${secret}`;
         const generatedSignature = crypto.createHash('sha256').update(integrityString).digest('hex');
 
         if (generatedSignature !== signature.checksum) {
-            console.error("Error de Integridad: Las firmas no coinciden.");
-            console.error(`   Recibida: ${signature.checksum}`);
-            console.error(`   Generada: ${generatedSignature}`);
-            return res.status(400).json({ error: "Error de integridad" });
+            console.error("Error Integridad Wompi");
+            return res.status(400).json({ error: "Integridad fallida" });
         }
 
-        console.log("Integridad Verificada.");
-
-        // 2. Procesar Orden según Estado
+        // 2. Procesar Orden
         const VENNDELO_API_KEY = process.env.VENNDELO_API_KEY;
-        // La referencia viene como "KAIU-975200" o "KAIU-TMP-123456"
-        // Si es TMP, no podemos actualizar en Venndelo porque no es ID real (aunque el nuevo flujo usa ID real)
-        const venndeloId = reference.split('-')[1]; 
+        const venndeloId = reference.split('-')[1]; // KAIU-12345 -> 12345
 
-        // Helper para actualizar Venndelo
+        // Buscar Order en DB Local
+        // Si no existe (caso raro), solo actualizamos Venndelo si podemos.
+        const dbOrder = await prisma.order.findUnique({
+             where: { externalId: venndeloId }, // Asumiendo que externalId es único
+             include: { line_items: true }
+        });
+
+        if (!dbOrder) console.warn(`Orden DB no encontrada para referencia ${reference} (ExtID: ${venndeloId})`);
+
+        // Helper para Venndelo
         const updateVenndeloStatus = async (id, newStatus) => {
-            if (!id || isNaN(id)) {
-                console.log(`ID Venndelo no válido para actualización: ${id}`);
-                return; 
-            }
-            try {
-                const vRes = await fetch(`https://api.venndelo.com/v1/admin/orders/${id}/modify-order-confirmation-status`, {
+             if (!id) return;
+             try {
+                await fetch(`https://api.venndelo.com/v1/admin/orders/${id}/modify-order-confirmation-status`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Venndelo-Api-Key': VENNDELO_API_KEY
-                    },
+                    headers: { 'Content-Type': 'application/json', 'X-Venndelo-Api-Key': VENNDELO_API_KEY },
                     body: JSON.stringify({ confirmation_status: newStatus })
                 });
-                const vData = await vRes.json();
-                console.log(`Venndelo Update [${id} -> ${newStatus}]:`, vData.message || vData.status || vData);
-            } catch (err) {
-                console.error("Error actualizando Venndelo:", err.message);
-            }
+             } catch (e) { console.error("Error Venndelo API:", e.message); }
         };
 
         if (status === 'APPROVED') {
-            console.log("PAGO APROBADO. Confirmando orden en Venndelo...");
+            console.log("✅ PAGO APROBADO");
+            // 1. Venndelo -> CONFIRMED
             await updateVenndeloStatus(venndeloId, 'CONFIRMED');
             
-        } else if (status === 'DECLINED' || status === 'VOIDED' || status === 'ERROR') {
-            console.log(`Transacción fallida (${status}). Cancelando orden Venndelo...`);
-            await updateVenndeloStatus(venndeloId, 'REJECTED'); // O CANCELLED según API
-        } else {
-             console.log(`Estado desconocido: ${status}, no se toma acción.`);
+            // 2. DB -> PAYMENT: PAID, STATUS: CONFIRMED
+            if (dbOrder) {
+                await prisma.order.update({
+                    where: { id: dbOrder.id },
+                    data: { paymentStatus: 'PAID', status: 'CONFIRMED' }
+                });
+                
+                // 3. Inventory -> Confirm Sale (Real Stock Decrease)
+                // (Note: create-order reserves stock. ConfirmSale finalizes it).
+                await InventoryService.confirmSale(dbOrder.line_items);
+            }
+
+        } else if (['DECLINED', 'VOIDED', 'ERROR'].includes(status)) {
+            console.log(`❌ PAGO FALLIDO (${status})`);
+            // 1. Venndelo -> REJECTED
+            await updateVenndeloStatus(venndeloId, 'REJECTED');
+
+            // 2. DB -> STATUS: CANCELLED
+            if (dbOrder) {
+                await prisma.order.update({
+                    where: { id: dbOrder.id },
+                    data: { status: 'CANCELLED', paymentStatus: status }
+                });
+
+                // 3. Inventory -> Release Stock
+                await InventoryService.releaseReserve(dbOrder.line_items);
+            }
         }
 
-        // 3. Responder a Wompi lo antes posible
         return res.status(200).json({ success: true });
 
     } catch (error) {
-        console.error("Error en Webhook:", error);
-        return res.status(500).json({ error: "Internal Server Error" });
+        console.error("Error Webhook:", error);
+        return res.status(500).json({ error: "Internal Error" });
     }
 }

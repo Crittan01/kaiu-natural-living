@@ -247,9 +247,9 @@ const Checkout = () => {
         const orderData = await orderRes.json();
         if (!orderRes.ok) throw new Error(orderData.error || "Fallo creando orden preliminar");
         
-        // 2. Get Real Venndelo ID
-        const venndeloId = orderData.order?.items?.[0]?.id || orderData.order?.id;
-        if (!venndeloId) throw new Error("No se recibió ID de orden de Venndelo");
+        // 2. Get Real Venndelo ID (or KAIU ID if fallback)
+        const venndeloId = orderData.order?.external_id || orderData.order?.id || orderData.order?.items?.[0]?.id || orderData.order?.db_id;
+        if (!venndeloId) throw new Error("No se recibió ID de orden de Venndelo (external_id missing)");
         
         const finalReference = `KAIU-${venndeloId}`; // E.g. KAIU-975000
         const amountInCents = Math.round(finalTotal * 100);
@@ -375,7 +375,8 @@ const Checkout = () => {
 
       if (!response.ok) throw new Error(data.error || 'Error al procesar la orden');
 
-      const orderId = data.order?.items?.[0]?.id || data.order?.id || 'N/A';
+      // Prioritize Venndelo External ID or Local Readable ID
+      const orderId = data.order?.readable_id || data.order?.external_id || data.order?.db_id || 'N/A';
 
       toast({
         title: "¡Orden Creada Exitosamente!",

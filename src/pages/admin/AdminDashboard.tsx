@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { FileText, Loader2, RefreshCw, Printer, Truck, TrendingUp, Users, Package, DollarSign, Activity } from 'lucide-react';
+import { Plus, Package, Truck, Search, LayoutGrid, List as ListIcon, Printer, Loader2, RefreshCw, FileText, TrendingUp, Users, DollarSign, Activity, CheckCircle2, XCircle, Clock, Archive } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +22,8 @@ interface Shipment {
 interface Order {
     id: number;
     pin: string;
+    customer_name?: string;
+    payment_method?: string;
     created_at: string;
     status: string;
     total: number;
@@ -132,8 +134,15 @@ export default function AdminDashboard() {
 
         const url = data.data; 
         if (url && typeof url === 'string' && url.length > 10) {
-            window.open(url, '_blank');
-            toast({ title: "Guía Generada", description: "Se ha abierto en una nueva pestaña" });
+            const newWindow = window.open(url, '_blank');
+            toast({ 
+                title: "Guía Generada", 
+                description: "Si no se abrió automáticamente, haz clic aquí.",
+                action: <div 
+                    className="inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 group-[.destructive]:border-muted/40 group-[.destructive]:hover:border-destructive/30 group-[.destructive]:hover:bg-destructive group-[.destructive]:hover:text-destructive-foreground group-[.destructive]:focus:ring-destructive cursor-pointer border-slate-200"
+                    onClick={() => window.open(url, '_blank')}
+                > Abrir PDF </div>
+            });
             fetchData(); 
         } else {
 
@@ -174,16 +183,46 @@ export default function AdminDashboard() {
     }
   };
 
-  const [activeFilter, setActiveFilter] = useState('ACTION_REQUIRED'); // Default to action items
+  const handleSyncShipments = async () => {
+    try {
+        toast({ title: "Sincronizando...", description: "Consultando estados en Venndelo..." });
+        
+        const res = await fetch('/api/admin/sync-shipments', {
+             method: 'POST',
+             headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            toast({ 
+                title: "Sincronización Completa", 
+                description: `Procesadas: ${data.processed}. Actualizadas: ${data.updated}.` 
+            });
+            fetchData(); 
+        } else {
+             throw new Error(data.error);
+        }
+    } catch (e: any) {
+        toast({ title: "Error Sincronizando", description: e.message, variant: "destructive" });
+    }
+  };
+
+  /* FILTERING LOGIC */
+  const [activeFilter, setActiveFilter] = useState('DETAILS');
+  const [paymentFilter, setPaymentFilter] = useState('ALL'); // NEW: Payment Filter
 
   const getFilterPredicate = (filter: string) => {
       switch (filter) {
-          case 'ACTION_REQUIRED':
-              return (o: Order) => ['PENDING', 'APPROVED', 'PREPARING', 'CONFIRMED'].includes(o.status);
-          case 'IN_TRANSIT':
-              return (o: Order) => ['SHIPPED', 'READY', 'NOVEDAD'].includes(o.status);
-          case 'COMPLETED':
-              return (o: Order) => ['DELIVERED', 'CANCELLED', 'REJECTED', 'RETURNED'].includes(o.status);
+          case 'DETAILS': // Nuevos / Por Procesar (Generar Guía)
+              return (o: Order) => ['PENDING', 'APPROVED', 'PREPARING', 'PROCESSING', 'CONFIRMED'].includes(o.status);
+          case 'READY_TO_SHIP': // Listos para Recoger (Solicitar Camión)
+              return (o: Order) => ['READY_TO_SHIP'].includes(o.status);
+          case 'IN_TRANSIT': // Ya en manos de transportadora (o esperando que pasen)
+              return (o: Order) => ['PICKUP_REQUESTED', 'SHIPPED', 'NOVEDAD', 'DISPATCHED'].includes(o.status);
+          case 'DELIVERED':
+              return (o: Order) => ['DELIVERED'].includes(o.status);
+          case 'CANCELLED':
+               return (o: Order) => ['CANCELLED', 'REJECTED', 'RETURNED'].includes(o.status);
           case 'ALL':
           default:
               return (o: Order) => true; // Show everything
@@ -201,7 +240,21 @@ export default function AdminDashboard() {
     setSortConfig({ key, direction });
   };
 
-  const sortedOrders = [...orders.filter(getFilterPredicate(activeFilter))].sort((a, b) => {
+  const filteredOrders = useMemo(() => {
+    let result = orders.filter(getFilterPredicate(activeFilter));
+
+    // Apply Payment Filter
+    if (paymentFilter !== 'ALL') {
+        result = result.filter(o => {
+            if (paymentFilter === 'COD') return o.payment_method === 'COD';
+            if (paymentFilter === 'ONLINE') return o.payment_method !== 'COD';
+            return true;
+        });
+    }
+    return result;
+  }, [orders, activeFilter, paymentFilter]);
+
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
     if (!sortConfig) return 0;
     
     let aValue = a[sortConfig.key as keyof Order];
@@ -233,7 +286,9 @@ export default function AdminDashboard() {
         'CANCELLED': 'bg-red-500',
         'CONFIRMED': 'bg-green-500',
         'REJECTED': 'bg-red-500',
-        'PREPARING': 'bg-yellow-600'
+        'PREPARING': 'bg-yellow-600',
+        'READY_TO_SHIP': 'bg-yellow-500',
+        'PICKUP_REQUESTED': 'bg-orange-500' // New Status Color
     };
     
     // Translate standard statuses for display
@@ -241,7 +296,9 @@ export default function AdminDashboard() {
         'PENDING': 'NUEVO',
         'READY': 'ALISTADO',
         'SHIPPED': 'ENVIADO',
-        'PREPARING': 'PREPARACIÓN'
+        'PREPARING': 'PREPARACIÓN',
+        'READY_TO_SHIP': 'POR DESPACHAR',
+        'PICKUP_REQUESTED': 'ESPERANDO RECOGIDA' // New Status Label
     };
 
     return <Badge className={`${map[status] || 'bg-gray-500'} text-white`}>{labelMap[status] || status}</Badge>;
@@ -412,36 +469,85 @@ export default function AdminDashboard() {
                    <InventoryManager token={token} />
                 </TabsContent>
 
-                {/* --- TAB: SHIPMENTS (TABLE) --- */}
+                {/* --- TAB: SHIPMENTS (NEW LAYOUT) --- */}
                 <TabsContent value="shipments" className="space-y-4">
                     
-                    {/* FILTER BAR */}
-                    <div className="flex gap-2 pb-2 overflow-x-auto">
-                        {['ALL', 'ACTION_REQUIRED', 'IN_TRANSIT', 'COMPLETED'].map((filterKey) => {
-                            const labels: Record<string, string> = {
-                                'ALL': 'Todos',
-                                'ACTION_REQUIRED': 'Por Despachar',
-                                'IN_TRANSIT': 'En Tránsito',
-                                'COMPLETED': 'Histórico'
-                            };
-                            
-                            // Calculate count for this filter
-                            const count = orders.filter(o => getFilterPredicate(filterKey)(o)).length;
+                    <div className="flex flex-col md:flex-row gap-6">
+                        
+                        {/* LEFT SIDEBAR - LIFECYCLE STATUS */}
+                        <div className="w-full md:w-64 flex flex-col gap-2">
+                             <h3 className="text-sm font-medium text-muted-foreground mb-2 px-2">Estado del Pedido</h3>
+                             {['DETAILS', 'READY_TO_SHIP', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED', 'ALL'].map((filterKey) => {
+                                const info: Record<string, { label: string, icon: any }> = {
+                                    'ALL': { label: 'Todos', icon: ListIcon },
+                                    'DETAILS': { label: 'Por Procesar', icon: Clock },
+                                    'READY_TO_SHIP': { label: 'Por Recoger', icon: Package },
+                                    'IN_TRANSIT': { label: 'En Tránsito', icon: Truck },
+                                    'DELIVERED': { label: 'Entregados', icon: CheckCircle2 },
+                                    'CANCELLED': { label: 'Cancelados', icon: XCircle }
+                                };
+                                const itemsCount = orders.filter(o => {
+                                    // 1. Matches Status?
+                                    if (!getFilterPredicate(filterKey)(o)) return false;
+                                    
+                                    // 2. Matches Payment Filter?
+                                    if (paymentFilter === 'COD') return o.payment_method === 'COD';
+                                    if (paymentFilter === 'ONLINE') return o.payment_method !== 'COD';
+                                    
+                                    return true;
+                                }).length;
+                                const Icon = info[filterKey].icon;
 
-                            return (
-                                <Button
-                                    key={filterKey}
-                                    variant={activeFilter === filterKey ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => setActiveFilter(filterKey)}
-                                    className="rounded-full text-xs"
-                                >
-                                    {labels[filterKey]} 
-                                    <Badge variant="secondary" className="ml-2 h-5 min-w-5 px-1 bg-white/20 text-current">{count}</Badge>
+                                return (
+                                    <Button
+                                        key={filterKey}
+                                        variant={activeFilter === filterKey ? "secondary" : "ghost"}
+                                        className={`justify-start h-10 px-3 ${activeFilter === filterKey ? "font-semibold bg-secondary" : ""}`}
+                                        onClick={() => setActiveFilter(filterKey)}
+                                    >
+                                        <Icon className="w-4 h-4 mr-2" />
+                                        {info[filterKey].label}
+                                        <span className="ml-auto text-xs text-muted-foreground bg-muted-foreground/10 px-2 py-0.5 rounded-full">
+                                            {itemsCount}
+                                        </span>
+                                    </Button>
+                                )
+                             })}
+                        </div>
+
+                        {/* RIGHT CONTENT - FILTERS & TABLE */}
+                        <div className="flex-1 space-y-4">
+                             
+                             {/* TOP BAR: PAYMENT & SYNC */}
+                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-muted/30 p-3 rounded-lg border">
+                                
+                                {/* PAYMENT FILTER */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-muted-foreground mr-2">Filtro de Pago:</span>
+                                    <div className="flex gap-1 p-1 bg-muted rounded-md">
+                                        {['ALL', 'COD', 'ONLINE'].map((pFilter) => {
+                                            const pLabels: Record<string, string> = { 'ALL': 'Todos', 'COD': 'Contra Entrega', 'ONLINE': 'Pagado' };
+                                            return (
+                                                <Button
+                                                    key={pFilter}
+                                                    variant={paymentFilter === pFilter ? "default" : "ghost"}
+                                                    size="sm"
+                                                    onClick={() => setPaymentFilter(pFilter)}
+                                                    className="h-7 text-xs px-3"
+                                                >
+                                                {pLabels[pFilter]}
+                                                </Button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* SYNC BUTTON */}
+                                <Button variant="outline" size="sm" onClick={handleSyncShipments} className="gap-2">
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                    Sincronizar
                                 </Button>
-                            );
-                        })}
-                    </div>
+                             </div>
 
                     <Card>
                         <CardHeader>
@@ -469,23 +575,22 @@ export default function AdminDashboard() {
                                                 Total {sortConfig?.key === 'total' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                             </TableHead>
                                         )}
-                                        <TableHead>Guía / Estado</TableHead>
-                                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
-                                            Status {sortConfig?.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                        </TableHead>
+                                        <TableHead>Rastreo</TableHead>
+                                        {/* Status Column Removed as per UI Refinement */}
+                                        <TableHead>Pago</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {loading ? (
                                         <TableRow>
-                                            <TableCell colSpan={showFinancials ? 8 : 7} className="text-center py-10">
+                                            <TableCell colSpan={showFinancials ? 7 : 6} className="text-center py-10">
                                                 <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
                                             </TableCell>
                                         </TableRow>
                                     ) : visibleOrders.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={showFinancials ? 8 : 7} className="text-center py-10 text-muted-foreground">
+                                            <TableCell colSpan={showFinancials ? 7 : 6} className="text-center py-10 text-muted-foreground">
                                                 No hay órdenes en esta categoría.
                                             </TableCell>
                                         </TableRow>
@@ -497,7 +602,7 @@ export default function AdminDashboard() {
                                                 <TableCell>
                                                     <div className="flex flex-col max-w-[200px]">
                                                         <span className="font-medium truncate" title={`${order.shipping_info?.first_name} ${order.shipping_info?.last_name}`}>
-                                                            {(() => {
+                                                            {order.customer_name || (() => {
                                                                 const info = order.shipping_info || order.billing_info;
                                                                 if (!info) return 'Sin Nombre';
                                                                 const first = (info.first_name || '').trim();
@@ -539,34 +644,49 @@ export default function AdminDashboard() {
                                                         ) : <span className="text-muted-foreground text-xs">Pendiente de Guía</span>}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>{getStatusBadge(order.status)}</TableCell>
+                                                {/* Status Column Removed */}
+                                                <TableCell>
+                                                    <Badge variant="outline" className={order.payment_method === 'COD' ? 'border-primary text-primary' : 'border-blue-500 text-blue-500'}>
+                                                        {order.payment_method === 'COD' ? 'Contra Entrega' : 'Online'}
+                                                    </Badge>
+                                                </TableCell>
                                                 <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-2">
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="sm" 
-                                                            className={`h-8 w-8 p-0 ${['READY', 'SHIPPED', 'DELIVERED'].includes(order.status) ? 'opacity-50' : ''}`}
-                                                            onClick={() => handleRequestPickup(String(order.id))}
-                                                            disabled={!['PENDING', 'PREPARING'].includes(order.status) || !order.shipments || order.shipments.length === 0} 
-                                                            title="Solicitar Recogida"
-                                                        >
-                                                            <Truck className={`w-4 h-4 ${['READY', 'SHIPPED'].includes(order.status) ? 'text-green-600' : ''}`} />
-                                                        </Button>
 
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="sm" 
-                                                            className="h-8"
-                                                            onClick={() => handleGenerateLabel(String(order.id))}
-                                                            disabled={generatingLabel === String(order.id) || order.status === 'CANCELLED' || order.status === 'REJECTED' || order.status === 'INCIDENT'}
-                                                            title="Generar/Imprimir Guía"
-                                                        >
-                                                            {String(generatingLabel) === String(order.id) ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                            ) : (
-                                                                <Printer className="w-4 h-4" />
-                                                            )}
-                                                        </Button>
+                                                    <div className="flex justify-end gap-2">
+                                                        {/* ACTION BUTTONS BASED ON STATUS */}
+                                                        {/* Print Label: Available for Pending/Processing (Generate) AND Ready/Pickup/Shipped (Reprint) */}
+                                                        {['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'PICKUP_REQUESTED', 'SHIPPED'].includes(order.status) && (
+                                                            <Button 
+                                                                size="sm" 
+                                                                variant={['SHIPPED', 'READY_TO_SHIP', 'PICKUP_REQUESTED'].includes(order.status) ? "outline" : "default"}
+                                                                onClick={() => handleGenerateLabel(String(order.id))} 
+                                                                disabled={generatingLabel === String(order.id)}
+                                                                className="h-8 px-2"
+                                                                title={['SHIPPED', 'READY_TO_SHIP', 'PICKUP_REQUESTED'].includes(order.status) ? "Reimprimir Guía" : "Generar Guía"}
+                                                            >
+                                                                {String(generatingLabel) === String(order.id) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Printer className="h-3 w-3" />}
+                                                            </Button>
+                                                        )}
+
+                                                        {order.status === 'READY_TO_SHIP' && (
+                                                            <Button 
+                                                                size="sm" 
+                                                                variant="default"
+                                                                onClick={() => handleRequestPickup(String(order.id))}
+                                                                className="h-8 px-2 bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-600"
+                                                                title="Solicitar Recogida a Transportadora"
+                                                            >
+                                                                <Truck className="mr-2 h-3 w-3" />
+                                                                Solicitar Recogida
+                                                            </Button>
+                                                        )}
+                                                        
+                                                        {/* Status Badge for PICKUP_REQUESTED (since it doesn't have a specific button action) */}
+                                                        {order.status === 'PICKUP_REQUESTED' && (
+                                                            <Badge variant="outline" className="h-8 border-orange-300 text-orange-600 bg-orange-50">
+                                                                Esperando Recogida
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
@@ -576,6 +696,8 @@ export default function AdminDashboard() {
                             </Table>
                         </CardContent>
                     </Card>
+                        </div> {/* End Right Content */}
+                    </div> {/* End Flex Layout */}
                 </TabsContent>
             </Tabs>
         </main>

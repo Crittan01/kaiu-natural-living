@@ -51,6 +51,24 @@ class LogisticsManager {
         console.log(`🚚 Creating shipment via ${provider.name}...`);
         return await provider.createShipment(orderData);
     }
+    /**
+     * Consulta el estado del envío en la transportadora correspondiente
+     */
+    async getShipmentStatus(carrierName, externalId) {
+        // Find provider by name (case-insensitive) or default to first if not specified
+        const provider = this.providers.find(p => p.name.toLowerCase() === (carrierName || 'venndelo').toLowerCase()) || this.providers[0];
+        
+        if (!provider) {
+            console.warn(`Carrier not found: ${carrierName}`);
+            return null;
+        }
+
+        if (provider.getShipmentStatus) {
+            return await provider.getShipmentStatus(externalId);
+        }
+        
+        return null;
+    }
 }
 
 export default new LogisticsManager();

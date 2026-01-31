@@ -207,6 +207,8 @@ export default async function handler(req, res) {
             // Reconstruimos objeto para el template de email (mezcla de datos originales + respuesta logística)
             const emailOrderPayload = {
                 ...updatedOrder, // Datos DB
+                billing_info: orderData.billing_info, // Pass original objects
+                shipping_info: orderData.shipping_info,
                 line_items: orderData.line_items,
                 shipping_total: shipmentData.shipping_cost,
                 pin: shipmentData.external_id // Venndelo ID usually
@@ -217,7 +219,11 @@ export default async function handler(req, res) {
 
         return res.status(201).json({ 
             success: true, 
-            order: { ...shipmentData, db_id: dbOrder.id } 
+            order: { 
+                ...shipmentData, 
+                db_id: dbOrder.id,
+                readable_id: dbOrder.readableId
+            } 
         });
 
     } catch (finalError) {
