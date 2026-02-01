@@ -53,7 +53,7 @@ export default async function wompiWebhookHandler(req, res) {
         
         // Fallback: Try externalId if PIN fails (backward compatibility)
         if (!dbOrder) {
-             dbOrder = await prisma.order.findUnique({
+             dbOrder = await prisma.order.findFirst({
                  where: { externalId: pinStr },
                  include: { items: true }
              });

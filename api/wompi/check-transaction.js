@@ -59,7 +59,7 @@ export default async function checkTransactionHandler(req, res) {
                     });
                 }
                 if (!dbOrder) {
-                    dbOrder = await prisma.order.findUnique({
+                    dbOrder = await prisma.order.findFirst({
                         where: { externalId: pinStr },
                         include: { items: true }
                     });

@@ -155,9 +155,9 @@ export default async function handler(req, res) {
                              });
                              
                              // If not found, try matching against the order IDs from request
-                             if (!dbOrder && dbOrderIds && dbOrderIds.length > 0) {
+                             if (!dbOrder && orderIds && orderIds.length > 0) {
                                  dbOrder = await prisma.order.findFirst({
-                                     where: { id: dbOrderIds[0] }
+                                     where: { id: orderIds[0] }
                                  });
                              }
                              
