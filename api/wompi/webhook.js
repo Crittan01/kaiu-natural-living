@@ -45,9 +45,9 @@ export default async function wompiWebhookHandler(req, res) {
         // Buscar Order en DB Local por PIN (readableId)
         let dbOrder = null;
         if (!isNaN(pin)) {
-             dbOrder = await prisma.order.findUnique({
+             dbOrder = await prisma.order.findFirst({
                  where: { readableId: pin },
-                 include: { line_items: true }
+                 include: { items: true }
              });
         }
         
@@ -55,7 +55,7 @@ export default async function wompiWebhookHandler(req, res) {
         if (!dbOrder) {
              dbOrder = await prisma.order.findUnique({
                  where: { externalId: pinStr },
-                 include: { line_items: true }
+                 include: { items: true }
              });
         }
 
@@ -87,12 +87,12 @@ export default async function wompiWebhookHandler(req, res) {
             if (dbOrder) {
                 await prisma.order.update({
                     where: { id: dbOrder.id },
-                    data: { paymentStatus: 'PAID', status: 'CONFIRMED' }
+                    data: { status: 'CONFIRMED' }
                 });
                 
                 // 3. Inventory -> Confirm Sale (Real Stock Decrease)
                 // (Note: create-order reserves stock. ConfirmSale finalizes it).
-                await InventoryService.confirmSale(dbOrder.line_items);
+                await InventoryService.confirmSale(dbOrder.items);
             }
 
         } else if (['DECLINED', 'VOIDED', 'ERROR'].includes(status)) {
@@ -104,11 +104,11 @@ export default async function wompiWebhookHandler(req, res) {
             if (dbOrder) {
                 await prisma.order.update({
                     where: { id: dbOrder.id },
-                    data: { status: 'CANCELLED', paymentStatus: status }
+                    data: { status: 'CANCELLED' }
                 });
 
                 // 3. Inventory -> Release Stock
-                await InventoryService.releaseReserve(dbOrder.line_items);
+                await InventoryService.releaseReserve(dbOrder.items);
             }
         }
 

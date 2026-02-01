@@ -17,21 +17,33 @@ const httpsAgent = new https.Agent({
 
 /**
  * Generates the HTML for the Order Confirmation Email
+ * Supports both Venndelo format and KAIU DB format
  */
 const generateOrderEmailHtml = (order, wompiTransaction) => {
-    const { id, pin, billing_info, shipping_info, line_items, total, shipping_total } = order;
+    // Support both Venndelo (billing_info, line_items) and KAIU DB (customerName, items) formats
+    const firstName = order.billing_info?.first_name 
+        || order.customerName?.split(' ')[0] 
+        || 'Cliente';
     
-    // Logic for Shipping ID (PIN preferred)
-    const displayId = pin || id;
-
-    // Logic for Shipping Cost
+    const displayId = order.pin || order.readableId || order.id;
+    
+    // Items: Venndelo uses line_items, KAIU DB uses items
+    const items = order.line_items || order.items || [];
+    
+    // Calculate shipping cost
     let shippingCost = 0;
-    if (shipping_total !== undefined && shipping_total !== null) {
-        shippingCost = parseFloat(shipping_total);
-    } else {
+    if (order.shipping_total !== undefined && order.shipping_total !== null) {
+        shippingCost = parseFloat(order.shipping_total);
+    } else if (order.shippingCost !== undefined) {
+        shippingCost = order.shippingCost;
+    } else if (items.length > 0) {
         // Fallback calculation
-        const subtotal = line_items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
-        shippingCost = total - subtotal;
+        const subtotal = items.reduce((sum, item) => {
+            const price = item.unit_price || item.price || 0;
+            const qty = item.quantity || 1;
+            return sum + (price * qty);
+        }, 0);
+        shippingCost = (order.total || 0) - subtotal;
     }
 
     // Logic for Transaction Display
@@ -39,13 +51,17 @@ const generateOrderEmailHtml = (order, wompiTransaction) => {
     const transactionLabel = isCOD ? 'Método' : 'Transacción Wompi';
     const transactionValue = isCOD ? 'Pago Contra Entrega' : wompiTransaction.id;
 
-    const itemsHtml = line_items.map(item => `
+    const itemsHtml = items.map(item => {
+        const price = item.unit_price || item.price || 0;
+        const name = item.name || item.productName || 'Producto';
+        return `
         <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${item.unit_price.toLocaleString('es-CO')}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee;">${name}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity || 1}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${price.toLocaleString('es-CO')}</td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 
     // Add Shipping Row if cost > 0
     const shippingHtml = shippingCost > 0 ? `
@@ -80,7 +96,7 @@ const generateOrderEmailHtml = (order, wompiTransaction) => {
     <body>
         <div class="container">
             <div class="header">
-                <h1>✅ ¡Gracias por tu compra, ${billing_info.first_name}!</h1>
+                <h1>✅ ¡Gracias por tu compra, ${firstName}!</h1>
                 <p>Tu pedido ha sido confirmado exitosamente.</p>
             </div>
 
@@ -105,7 +121,7 @@ const generateOrderEmailHtml = (order, wompiTransaction) => {
                     </tbody>
                 </table>
                 <div class="total">
-                    Total: $${Math.round(total).toLocaleString('es-CO')}
+                    Total: $${Math.round(order.total || 0).toLocaleString('es-CO')}
                 </div>
             </div>
 
@@ -117,9 +133,9 @@ const generateOrderEmailHtml = (order, wompiTransaction) => {
             <div style="margin-bottom: 30px;">
                 <h3>📦 Datos de Envío</h3>
                 <p>
-                    ${shipping_info.first_name} ${shipping_info.last_name}<br>
-                    ${shipping_info.address_1}<br>
-                    ${shipping_info.phone}
+                    ${order.shipping_info?.first_name || order.customerName || 'Cliente'} ${order.shipping_info?.last_name || ''}<br>
+                    ${order.shipping_info?.address_1 || order.shippingAddress?.address || order.shippingAddress?.address_1 || 'Dirección en proceso'}<br>
+                    ${order.shipping_info?.phone || order.customerPhone || ''}
                 </p>
             </div>
 
@@ -145,8 +161,14 @@ export const sendOrderConfirmation = async (order, wompiTransaction) => {
         }
 
         const emailHtml = generateOrderEmailHtml(order, wompiTransaction);
-        const recipient = order.billing_info.email;
-        const displayId = order.pin || order.id;
+        // Support both Venndelo (billing_info.email) and KAIU DB (customerEmail) formats
+        const recipient = order.billing_info?.email || order.customerEmail;
+        const displayId = order.pin || order.readableId || order.id;
+        
+        if (!recipient) {
+            console.warn("⚠️ No recipient email found, skipping confirmation email.");
+            return;
+        }
 
         console.log(`📧 Sending confirmation email to ${recipient} (via Secure Fetch)...`);
         
@@ -181,12 +203,21 @@ export const sendOrderConfirmation = async (order, wompiTransaction) => {
 };
 /**
  * Generates the HTML for Shipping Confirmation
+ * Supports both Venndelo format and KAIU DB format
  */
 const generateShippingEmailHtml = (order, trackingNumber, pdfUrl) => {
-    const { id, shipping_info, line_items } = order;
+    // Support both formats
+    const firstName = order.shipping_info?.first_name 
+        || order.customerName?.split(' ')[0] 
+        || 'Cliente';
+    const displayId = order.pin || order.readableId || order.id;
+    const address = order.shipping_info?.address_1 
+        || order.shippingAddress?.address 
+        || order.shippingAddress?.address_1 
+        || 'Dirección confirmada';
+    const phone = order.shipping_info?.phone || order.customerPhone || '';
     
     // Tracking URL: Redirect to our own tracking page or the carrier's
-    // For now, let's point to our /rastreo page
     const trackingLink = `https://kaiu.com.co/rastreo?guide=${trackingNumber}`;
 
     return `
@@ -210,10 +241,10 @@ const generateShippingEmailHtml = (order, trackingNumber, pdfUrl) => {
         <div class="container">
             <div class="header">
                 <h1>🚚 ¡Tu pedido está en camino!</h1>
-                <p>Hola ${shipping_info.first_name}, buenas noticias.</p>
+                <p>Hola ${firstName}, buenas noticias.</p>
             </div>
 
-            <p>Hemos despachado tu pedido <strong>#${id}</strong>. Aquí tienes los detalles para realizar el seguimiento:</p>
+            <p>Hemos despachado tu pedido <strong>#${displayId}</strong>. Aquí tienes los detalles para realizar el seguimiento:</p>
 
             <div class="highlight">
                 <span style="font-size: 14px; color: #666;">Número de Guía</span>
@@ -222,8 +253,8 @@ const generateShippingEmailHtml = (order, trackingNumber, pdfUrl) => {
             </div>
 
             <p><strong>Destino:</strong><br/>
-            ${shipping_info.address_1}<br/>
-            ${shipping_info.phone}</p>
+            ${address}<br/>
+            ${phone}</p>
 
             <p style="font-size: 13px; color: #666;">
                 *Puede tomar unas horas para que la transportadora actualice el estado inicial.
@@ -247,7 +278,14 @@ export const sendShippingConfirmation = async (order, trackingNumber, pdfUrl = '
         if (!key) return;
 
         const emailHtml = generateShippingEmailHtml(order, trackingNumber, pdfUrl);
-        const recipient = order.billing_info.email; // Venndelo has email in billing info often
+        // Support both Venndelo (billing_info.email) and KAIU DB (customerEmail) formats
+        const recipient = order.billing_info?.email || order.customerEmail;
+        const displayId = order.pin || order.readableId || order.id;
+        
+        if (!recipient) {
+            console.warn("⚠️ No recipient email found, skipping shipping email.");
+            return;
+        }
 
         console.log(`📧 Sending shipping email to ${recipient}...`);
         
@@ -260,7 +298,7 @@ export const sendShippingConfirmation = async (order, trackingNumber, pdfUrl = '
             body: JSON.stringify({
                 from: 'KAIU Natural Living <onboarding@resend.dev>',
                 to: [recipient],
-                subject: `¡En camino! Tu pedido KAIU #${order.id} ha sido despachado`,
+                subject: `¡En camino! Tu pedido KAIU #${displayId} ha sido despachado`,
                 html: emailHtml
             }),
             agent: httpsAgent
@@ -281,8 +319,11 @@ export const sendShippingConfirmation = async (order, trackingNumber, pdfUrl = '
  * Generates the HTML for Payment Rejected Email
  */
 const generateRejectedEmailHtml = (order, wompiTransaction) => {
-    const { billing_info, id, pin } = order;
-    const displayId = pin || id;
+    // Support both Venndelo format (billing_info) and KAIU DB format (customerName)
+    const firstName = order.billing_info?.first_name 
+        || order.customerName?.split(' ')[0] 
+        || 'Cliente';
+    const displayId = order.pin || order.readableId || order.id;
     
     return `
     <!DOCTYPE html>
@@ -306,7 +347,7 @@ const generateRejectedEmailHtml = (order, wompiTransaction) => {
                 <h1>❌ Pago Rechazado</h1>
             </div>
 
-            <p>Hola ${billing_info.first_name},</p>
+            <p>Hola ${firstName},</p>
             <p>Tu intento de pago para el pedido <strong>#${displayId}</strong> no pudo ser completado.</p>
 
             <div class="status-box">
@@ -345,8 +386,14 @@ export const sendPaymentRejectedEmail = async (order, wompiTransaction) => {
         if (!key) return;
 
         const emailHtml = generateRejectedEmailHtml(order, wompiTransaction);
-        const recipient = order.billing_info.email;
-        const displayId = order.pin || order.id;
+        // Support both Venndelo (billing_info.email) and KAIU DB (customerEmail) formats
+        const recipient = order.billing_info?.email || order.customerEmail;
+        const displayId = order.pin || order.readableId || order.id;
+        
+        if (!recipient) {
+            console.warn("No recipient email found, skipping rejected email.");
+            return;
+        }
 
         console.log(`📧 Sending REJECTED email to ${recipient}...`);
         

@@ -37,92 +37,107 @@ export default async function checkTransactionHandler(req, res) {
         const transaction = wompiData.data;
         console.log(`Estado Wompi para ${id}: ${transaction.status}`);
 
-        // --- LAZY SYNC: Update Venndelo Status ---
+        // --- LAZY SYNC: Update Venndelo Status + KAIU DB ---
         // Since Webhooks might fail (especially on localhost without tunnel),
-        // we update Venndelo status here if we have a definitive Wompi status.
+        // we update statuses here if we have a definitive Wompi status.
         if (['APPROVED', 'DECLINED', 'VOIDED', 'ERROR'].includes(transaction.status)) {
             try {
-                const venndeloId = transaction.reference.split('-')[1];
+                const pinStr = transaction.reference.split('-')[1]; // KAIU-24 -> 24
+                const pin = parseInt(pinStr, 10);
                 const VENNDELO_API_KEY = process.env.VENNDELO_API_KEY;
 
-                if (venndeloId && !isNaN(venndeloId) && VENNDELO_API_KEY) {
-                    // Logic: APPROVED -> CONFIRMED, 
-                    // DECLINED/VOIDED/ERROR -> CANCEL (Global Status)
+                // Import prisma and InventoryService dynamically to avoid circular deps
+                const { prisma } = await import('../db.js');
+                const InventoryService = (await import('../services/inventory/InventoryService.js')).default;
+
+                // Find KAIU Order by PIN (readableId) or fallback to externalId
+                let dbOrder = null;
+                if (!isNaN(pin)) {
+                    dbOrder = await prisma.order.findFirst({
+                        where: { readableId: pin },
+                        include: { items: true }
+                    });
+                }
+                if (!dbOrder) {
+                    dbOrder = await prisma.order.findUnique({
+                        where: { externalId: pinStr },
+                        include: { items: true }
+                    });
+                }
+
+                if (!dbOrder) {
+                    console.warn(`Order not found in DB for reference ${transaction.reference}`);
+                } else {
+                    const venndeloId = dbOrder.externalId; // Use REAL Venndelo ID
                     
-                    let url = '';
-                    let body = {};
                     let shouldSendEmail = false;
+                    let venndeloUrl = '';
+                    let venndeloBody = {};
 
                     if (transaction.status === 'APPROVED') {
                         // Confirm Order
                         console.log(`Syncing Venndelo Status for ${venndeloId} to CONFIRMED...`);
-                        url = `https://api.venndelo.com/v1/admin/orders/${venndeloId}/modify-order-confirmation-status`;
-                        body = { confirmation_status: 'CONFIRMED' };
+                        venndeloUrl = `https://api.venndelo.com/v1/admin/orders/${venndeloId}/modify-order-confirmation-status`;
+                        venndeloBody = { confirmation_status: 'CONFIRMED' };
                         shouldSendEmail = true;
+                        
+                        await prisma.order.update({
+                            where: { id: dbOrder.id },
+                            data: { status: 'CONFIRMED' }
+                        });
+                        
+                        // Confirm inventory sale
+                        await InventoryService.confirmSale(dbOrder.items);
+                        console.log(`✅ KAIU DB Updated: CONFIRMED + PAID`);
+                        
                     } else {
-                        // Cancel Order
-                        console.log(`Syncing Venndelo Status for ${venndeloId} to CANCELLED (via /cancel)...`);
-                        url = `https://api.venndelo.com/v1/admin/orders/${venndeloId}/cancel`;
-                        body = {}; // Empty body as per debug success
+                        // Cancel Order (DECLINED/VOIDED/ERROR)
+                        console.log(`Syncing Venndelo Status for ${venndeloId} to CANCELLED...`);
+                        venndeloUrl = `https://api.venndelo.com/v1/admin/orders/${venndeloId}/cancel`;
+                        venndeloBody = {};
+                        
+                        await prisma.order.update({
+                            where: { id: dbOrder.id },
+                            data: { status: 'CANCELLED' }
+                        });
+                        
+                        // Release reserved inventory
+                        await InventoryService.releaseReserve(dbOrder.items);
+                        console.log(`❌ KAIU DB Updated: CANCELLED + Stock Released`);
                     }
                     
-                    const vRes = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Venndelo-Api-Key': VENNDELO_API_KEY
-                        },
-                        body: JSON.stringify(body)
-                    });
-                    
-                    let vData;
-                    try {
-                        vData = await vRes.json();
-                    } catch (e) {
-                        vData = await vRes.text();
-                    }
-
-                    // Handle Idempotency (422: Order already processed)
-                    let syncSuccess = false;
-                    if (vRes.status === 422 && JSON.stringify(vData).includes("ya fue procesado")) {
-                         console.log(`Venndelo Sync: Order ${venndeloId} was already up-to-date (Idempotent).`);
-                         syncSuccess = true;
-                    } else if (!vRes.ok) {
-                         console.warn(`Venndelo Sync Warning (${vRes.status}):`, vData);
-                    } else {
-                         console.log(`Venndelo Sync Success (${vRes.status}):`, vData);
-                         syncSuccess = true;
-                    }
-
-                    // --- SEND EMAIL IF SYNC SUCCESSFUL (OR IDEMPOTENT) ---
-                    if (syncSuccess) {
-                        try {
-                             // Fetch Order Details
-                             const orderRes = await fetch(`https://api.venndelo.com/v1/admin/orders/${venndeloId}`, {
-                                headers: { 'X-Venndelo-Api-Key': VENNDELO_API_KEY }
-                             });
-                             
-                             if (orderRes.ok) {
-                                 const orderData = await orderRes.json();
-                                 const order = orderData.data || orderData; 
-                                 
-                                 if (shouldSendEmail) {
-                                     // APPROVED -> Order Confirmation
-                                     await sendOrderConfirmation(order, transaction);
-                                 } else if (transaction.status === 'DECLINED' || transaction.status === 'ERROR') {
-                                     // DECLINED/ERROR -> Payment Rejected Email
-                                     await sendPaymentRejectedEmail(order, transaction);
-                                 }
-                             } else {
-                                 console.error("Could not fetch order details for email sending.");
-                             }
-                        } catch (emailErr) {
-                            console.error("Error in email flow:", emailErr);
+                    // Call Venndelo API
+                    if (venndeloId && VENNDELO_API_KEY) {
+                        const vRes = await fetch(venndeloUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Venndelo-Api-Key': VENNDELO_API_KEY
+                            },
+                            body: JSON.stringify(venndeloBody)
+                        });
+                        
+                        let vData;
+                        try { vData = await vRes.json(); } catch (e) { vData = await vRes.text(); }
+                        
+                        if (vRes.status === 422 && JSON.stringify(vData).includes("ya fue procesado")) {
+                            console.log(`Venndelo Sync: Order ${venndeloId} already up-to-date.`);
+                        } else if (!vRes.ok) {
+                            console.warn(`Venndelo Sync Warning (${vRes.status}):`, vData);
+                        } else {
+                            console.log(`Venndelo Sync Success:`, vData);
                         }
+                    }
+                    
+                    // --- SEND EMAIL ---
+                    if (shouldSendEmail) {
+                        await sendOrderConfirmation(dbOrder, transaction);
+                    } else if (['DECLINED', 'ERROR'].includes(transaction.status)) {
+                        await sendPaymentRejectedEmail(dbOrder, transaction);
                     }
                 }
             } catch (syncErr) {
-                console.error("Error syncing Venndelo status:", syncErr.message);
+                console.error("Error syncing status:", syncErr.message);
             }
         }
         // ----------------------------------------
