@@ -59,12 +59,6 @@ export default async function handler(req, res) {
                             trackingNumber: statusInfo.trackingNumber || order.trackingNumber
                         };
 
-                        // Auto-Mark COD as PAID when DELIVERED
-                        if (newStatus === 'DELIVERED' && order.paymentMethod === 'COD') {
-                            updateData.paymentStatus = 'PAID';
-                            console.log(`💰 Order ${order.readableId} marked as PAID (COD Delivered)`);
-                        }
-
                         await prisma.order.update({
                             where: { id: order.id },
                             data: updateData

@@ -210,7 +210,7 @@ const generateShippingEmailHtml = (order, trackingNumber, pdfUrl) => {
     const firstName = order.shipping_info?.first_name 
         || order.customerName?.split(' ')[0] 
         || 'Cliente';
-    const displayId = order.pin || order.readableId || order.id;
+    const displayId = order.readableId || order.pin || order.id;
     const address = order.shipping_info?.address_1 
         || order.shippingAddress?.address 
         || order.shippingAddress?.address_1 
@@ -280,7 +280,7 @@ export const sendShippingConfirmation = async (order, trackingNumber, pdfUrl = '
         const emailHtml = generateShippingEmailHtml(order, trackingNumber, pdfUrl);
         // Support both Venndelo (billing_info.email) and KAIU DB (customerEmail) formats
         const recipient = order.billing_info?.email || order.customerEmail;
-        const displayId = order.pin || order.readableId || order.id;
+        const displayId = order.readableId || order.pin || order.id;
         
         if (!recipient) {
             console.warn("⚠️ No recipient email found, skipping shipping email.");

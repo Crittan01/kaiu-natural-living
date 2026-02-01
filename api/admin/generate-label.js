@@ -148,8 +148,29 @@ export default async function handler(req, res) {
                              const trackingNumber = order.shipments[0].tracking_number;
                              console.log(`🚚 Found Tracking #: ${trackingNumber}. Sending Email...`);
                              
+                             // Find KAIU DB order to get readableId for customer display
+                             // Try by externalId first, then by the venndeloIds array
+                             let dbOrder = await prisma.order.findFirst({
+                                 where: { externalId: String(venndeloOrderId) }
+                             });
+                             
+                             // If not found, try matching against the order IDs from request
+                             if (!dbOrder && dbOrderIds && dbOrderIds.length > 0) {
+                                 dbOrder = await prisma.order.findFirst({
+                                     where: { id: dbOrderIds[0] }
+                                 });
+                             }
+                             
+                             console.log(`📋 DB Order lookup: venndeloId=${venndeloOrderId}, found=${!!dbOrder}, readableId=${dbOrder?.readableId}`);
+                             
+                             // Enrich order with readableId for email
+                             const enrichedOrder = {
+                                 ...order,
+                                 readableId: dbOrder?.readableId
+                             };
+                             
                              // Send Async (don't block response)
-                             sendShippingConfirmation(order, trackingNumber, pdfUrl)
+                             sendShippingConfirmation(enrichedOrder, trackingNumber, pdfUrl)
                                 .then(() => console.log("Email task finished"))
                                 .catch(err => console.error("Email task failed", err));
                          } else {

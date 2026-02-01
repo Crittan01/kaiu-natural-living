@@ -217,7 +217,7 @@ export default async function handler(req, res) {
                 shipping_info: orderData.shipping_info,
                 line_items: orderData.line_items,
                 shipping_total: shipmentData.shipping_cost,
-                pin: shipmentData.external_id // Venndelo ID usually
+                readableId: dbOrder.readableId // KAIU ID for customer display
             };
 
             sendOrderConfirmation(emailOrderPayload, mockTransaction).catch(console.error);
