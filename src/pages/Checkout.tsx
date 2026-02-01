@@ -247,11 +247,13 @@ const Checkout = () => {
         const orderData = await orderRes.json();
         if (!orderRes.ok) throw new Error(orderData.error || "Fallo creando orden preliminar");
         
-        // 2. Get Real Venndelo ID (or KAIU ID if fallback)
-        const venndeloId = orderData.order?.external_id || orderData.order?.id || orderData.order?.items?.[0]?.id || orderData.order?.db_id;
-        if (!venndeloId) throw new Error("No se recibió ID de orden de Venndelo (external_id missing)");
+        // 2. Get Real KAIU PIN (Legacy: Venndelo ID fallback)
+        // Now we prefer readable_id (The PIN the user wants)
+        const kaiuPin = orderData.order?.readable_id || orderData.order?.db_id || orderData.order?.external_id;
         
-        const finalReference = `KAIU-${venndeloId}`; // E.g. KAIU-975000
+        if (!kaiuPin) throw new Error("No se recibió PIN de orden (readable_id missing)");
+        
+        const finalReference = `KAIU-${kaiuPin}`; // E.g. KAIU-1050
         const amountInCents = Math.round(finalTotal * 100);
 
         // 3. Get Wompi Signature

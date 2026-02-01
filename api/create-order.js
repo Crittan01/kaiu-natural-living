@@ -163,7 +163,13 @@ export default async function handler(req, res) {
     let shipmentData = null;
     try {
         console.log("🚚 Solicitando creación de envío a LogisticsManager...");
-        shipmentData = await LogisticsManager.createShipment(orderData);
+        // Override external_order_id with our KAIU PIN (readableId)
+        // This ensures the Carrier knows this order as "Order #1050" not some random UUID
+        const logisticsPayload = {
+            ...orderData,
+            external_order_id: String(dbOrder.readableId)
+        };
+        shipmentData = await LogisticsManager.createShipment(logisticsPayload);
     } catch (logisticsError) {
         console.error("❌ Fallo Logística:", logisticsError);
         

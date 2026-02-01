@@ -39,14 +39,30 @@ export default async function wompiWebhookHandler(req, res) {
 
         // 2. Procesar Orden
         const VENNDELO_API_KEY = process.env.VENNDELO_API_KEY;
-        const venndeloId = reference.split('-')[1]; // KAIU-12345 -> 12345
+        const pinStr = reference.split('-')[1]; // KAIU-12345 -> 12345
+        const pin = parseInt(pinStr, 10);
 
-        // Buscar Order en DB Local
-        // Si no existe (caso raro), solo actualizamos Venndelo si podemos.
-        const dbOrder = await prisma.order.findUnique({
-             where: { externalId: venndeloId }, // Asumiendo que externalId es único
-             include: { line_items: true }
-        });
+        // Buscar Order en DB Local por PIN (readableId)
+        let dbOrder = null;
+        if (!isNaN(pin)) {
+             dbOrder = await prisma.order.findUnique({
+                 where: { readableId: pin },
+                 include: { line_items: true }
+             });
+        }
+        
+        // Fallback: Try externalId if PIN fails (backward compatibility)
+        if (!dbOrder) {
+             dbOrder = await prisma.order.findUnique({
+                 where: { externalId: pinStr },
+                 include: { line_items: true }
+             });
+        }
+
+        if (!dbOrder) console.warn(`Orden DB no encontrada para referencia ${reference} (PIN: ${pin})`);
+        
+        // For Venndelo Update, we need the EXTERNAL ID (Venndelo's ID), which is stored in dbOrder.externalId
+        const venndeloId = dbOrder?.externalId || pinStr; // Best effort
 
         if (!dbOrder) console.warn(`Orden DB no encontrada para referencia ${reference} (ExtID: ${venndeloId})`);
 

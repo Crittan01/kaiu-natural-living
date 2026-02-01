@@ -134,8 +134,8 @@ export default async function handler(req, res) {
                 // Fetch latest order details to get the Tracking Number (Guía)
                 // Venndelo updates the order with 'shipments' array immediately after label gen.
                 try {
-                     const orderId = orderIds[0]; // Assuming single order for now as per frontend
-                     const orderRes = await fetch(`https://api.venndelo.com/v1/admin/orders/${orderId}`, {
+                     const venndeloOrderId = venndeloIds[0]; // Use Venndelo ID, not DB UUID
+                     const orderRes = await fetch(`https://api.venndelo.com/v1/admin/orders/${venndeloOrderId}`, {
                         headers: { 'X-Venndelo-Api-Key': VENNDELO_API_KEY }
                      });
                      
