@@ -1,4 +1,8 @@
 import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+
+const prisma = new PrismaClient();
 
 export default async function handler(req, res) {
   // CORS Helper
@@ -16,52 +20,68 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const { username, pin } = req.body;
+  const { username, pin } = req.body; // 'username' here is used as 'email'
   
   const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-dev-only'; 
   
-  let validUsers = [];
-  try {
-      validUsers = JSON.parse(process.env.KAIU_ADMIN_USERS || '[]');
-  } catch (e) {
-      console.error("Error parsing KAIU_ADMIN_USERS", e);
-  }
-
   console.log(`🔑 Login Attempt: User=${username}`);
 
-  // Fallback if env is missing (Safety)
-  if (validUsers.length === 0) {
-      // Legacy or Default
-      validUsers.push({ 
-          username: process.env.KAIU_ADMIN_USER || 'kaiu', 
-          pin: process.env.KAIU_ADMIN_PIN || '5411' 
+  if (!username || !pin) {
+      return res.status(400).json({ error: 'Faltan credenciales' });
+  }
+
+  try {
+      // 1. Buscar usuario en DB por email
+      const user = await prisma.user.findUnique({
+          where: { email: username.toLowerCase().trim() }
       });
-  }
 
-  // Find user
-  const userMatch = validUsers.find(u => 
-      u.username.toLowerCase() === username?.toLowerCase().trim() && 
-      u.pin === pin
-  );
-
-  if (!userMatch) {
-      console.warn(`❌ Login Failed for user: ${username} (Pin mismatch or user not found)`);
-      // Delay artificial para mitigar fuerza bruta
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return res.status(401).json({ error: 'Usuario o PIN Incorrecto' });
-  }
-
-  console.log(`✅ Login Success: ${username}`);
-
-  // Generar Token con Role y Username (para logs futuros)
-  const token = jwt.sign({ role: 'admin', user: userMatch.username }, JWT_SECRET, { expiresIn: '24h' });
-
-  return res.status(200).json({ 
-      success: true, 
-      token,
-      user: {
-          username: userMatch.username,
-          role: 'admin' // Future proofing
+      // 2. Verificar existencia
+      if (!user) {
+          console.warn(`❌ Login: User not found (${username})`);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Anti-timing attack
+          return res.status(401).json({ error: 'Credenciales inválidas' });
       }
-  });
+
+      // 3. Verificar Password (Hash)
+      const validPassword = await bcrypt.compare(pin, user.password);
+      if (!validPassword) {
+          console.warn(`❌ Login: Invalid Password for (${username})`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return res.status(401).json({ error: 'Credenciales inválidas' });
+      }
+
+      // 4. Verificar Rol (Opcional, pero recomendado)
+      if (user.role !== 'ADMIN') {
+          console.warn(`❌ Login: User is not ADMIN (${username})`);
+          return res.status(403).json({ error: 'Acceso denegado' });
+      }
+
+      console.log(`✅ Login Success: ${username}`);
+
+      // 5. Generar Token
+      const token = jwt.sign(
+          { 
+              userId: user.id, 
+              role: user.role, 
+              email: user.email 
+          }, 
+          JWT_SECRET, 
+          { expiresIn: '24h' }
+      );
+
+      return res.status(200).json({ 
+          success: true, 
+          token,
+          user: {
+              username: user.email,
+              role: user.role,
+              name: user.name
+          }
+      });
+
+  } catch (error) {
+      console.error("Login Error:", error);
+      return res.status(500).json({ error: "Error en servidor" });
+  }
 }

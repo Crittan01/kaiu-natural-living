@@ -2,17 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { useCart } from '@/context/CartContextDef';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Check, Truck, Loader2, AlertCircle, CreditCard } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox";
 import locationsData from '@/lib/locations.json';
-import { WompiWidget } from '@/components/checkout/WompiWidget';
+import { CheckoutForm, CheckoutFormData } from '@/components/checkout/CheckoutForm';
+import { OrderSummary } from '@/components/checkout/OrderSummary';
 
 const Checkout = () => {
   const { items, cartTotal, itemCount, clearCart } = useCart();
@@ -20,10 +15,9 @@ const Checkout = () => {
   const { toast } = useToast();
 
   /* 
-    Initialize formData from localStorage if available so we can recover it 
-    after returning from Wompi or refresh.
+    Initialize formData from localStorage if available 
   */
-  const [formData, setFormData] = useState(() => {
+  const [formData, setFormData] = useState<CheckoutFormData>(() => {
     try {
         const saved = localStorage.getItem('kaiu_checkout_data');
         return saved ? JSON.parse(saved) : {
@@ -60,25 +54,17 @@ const Checkout = () => {
   const [shippingStatus, setShippingStatus] = useState<'calculated' | 'tbd' | null>(null);
   const [isQuoting, setIsQuoting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Validation State
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Estado derivado: Ciudades filtradas por departamento seleccionado
+  // Derived State
   const selectedDept = locationsData.find(d => d.code === formData.departamento_code);
   const cities = selectedDept ? selectedDept.cities : [];
-  
   const finalTotal = cartTotal + (shippingCost || 0);
 
-  // Generar Referencia Única Estable para esta sesión de checkout
-  // Se regenera solo si cambia el total (opcional, pero mejor mantenerla fija por sesión)
-  // Usamos useState con initializer para que sea único al montar el componente.
   /* Save formData to LocalStorage whenever it changes */
   useEffect(() => {
     localStorage.setItem('kaiu_checkout_data', JSON.stringify(formData));
   }, [formData]);
-
-  const [orderReference] = useState(`KAIU-${Date.now()}`);
 
   // --- VALIDATION LOGIC ---
   const validateField = (name: string, value: string): string => {
@@ -113,14 +99,12 @@ const Checkout = () => {
     setShippingStatus(null);
     setShippingCost(null);
 
-    // console.log("Cotizando para:", formData.ciudad_code); // Debug
-
     try {
         const response = await fetch('/api/quote-shipping', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                city_code: formData.ciudad_code, // Ensure this is not empty
+                city_code: formData.ciudad_code, 
                 subdivision_code: formData.departamento_code,
                 line_items: items.map(item => ({
                     unit_price: item.selectedVariant.precio,
@@ -130,7 +114,7 @@ const Checkout = () => {
                     width: item.selectedVariant.ancho || 10, 
                     length: item.selectedVariant.largo || 10
                 })),
-                payment_method_code: formData.payment_method // Important: Venndelo changes rate based on COD (Recaudo) vs External
+                payment_method_code: formData.payment_method 
             })
         });
         
@@ -168,16 +152,13 @@ const Checkout = () => {
     const { name } = e.target;
     let { value } = e.target;
     
-    // Auto-Capitalize Title Case (Nombre, Direccion, Barrio)
-    // Force lowercase first to handle "JUAN PEREZ" -> "Juan Perez"
+    // Auto-Capitalize Title Case
     if (['nombre', 'direccion', 'barrio'].includes(name)) {
         value = value.toLowerCase().replace(/(?:^|\s)\S/g, function(a) { return a.toUpperCase(); });
     }
 
-    // Real-time validation
     const errorMsg = validateField(name, value);
     setErrors(prev => ({ ...prev, [name]: errorMsg }));
-
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -199,9 +180,6 @@ const Checkout = () => {
     setIsSubmitting(true);
     
     try {
-        // 1. Create Order in Venndelo (Pending Payment)
-        // We reuse the payload logic, maybe refactor payload creation?
-        // Copy-paste payload construction for safety now.
         const orderPayload = {
             billing_info: {
                 first_name: formData.nombre.split(' ')[0],
@@ -234,7 +212,7 @@ const Checkout = () => {
                 type: "STANDARD"
             })),
             payment_method_code: 'EXTERNAL_PAYMENT', 
-            external_order_id: `KAIU-TMP-${Date.now()}`, // Temporary, will be updated by Venndelo ID
+            external_order_id: `KAIU-TMP-${Date.now()}`, 
             discounts: []
         };
 
@@ -247,16 +225,13 @@ const Checkout = () => {
         const orderData = await orderRes.json();
         if (!orderRes.ok) throw new Error(orderData.error || "Fallo creando orden preliminar");
         
-        // 2. Get Real KAIU PIN (Legacy: Venndelo ID fallback)
-        // Now we prefer readable_id (The PIN the user wants)
         const kaiuPin = orderData.order?.readable_id || orderData.order?.db_id || orderData.order?.external_id;
         
         if (!kaiuPin) throw new Error("No se recibió PIN de orden (readable_id missing)");
         
-        const finalReference = `KAIU-${kaiuPin}`; // E.g. KAIU-1050
+        const finalReference = `KAIU-${kaiuPin}`; 
         const amountInCents = Math.round(finalTotal * 100);
 
-        // 3. Get Wompi Signature
         const signRes = await fetch('/api/wompi/sign', {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
@@ -270,7 +245,6 @@ const Checkout = () => {
         const signData = await signRes.json();
         if (!signRes.ok) throw new Error(signData.error || "Fallo firmando transacción");
         
-        // 4. Submit Hidden Form
         const form = document.getElementById('wompi-redirect-form') as HTMLFormElement;
         if (!form) throw new Error("Formulario Wompi no encontrado");
         
@@ -281,13 +255,7 @@ const Checkout = () => {
         (document.getElementById('wompi-fullname') as HTMLInputElement).value = formData.nombre;
         (document.getElementById('wompi-phone') as HTMLInputElement).value = formData.telefono.replace(/\D/g, '');
         
-        // Clear Cart (Assuming they will go to Wompi)??? 
-        // Better NOT clear cart yet. Only on success webhook or return.
-        // But if they return, we can recover? 
-        // Standard practice: Do not clear cart until confirmation. 
-        // User is redirected away. 
-        
-        form.submit(); // Bye Bye User (Redirect)
+        form.submit(); 
 
     } catch (error: unknown) {
         console.error("Wompi Flow Error:", error);
@@ -327,11 +295,7 @@ const Checkout = () => {
     setIsSubmitting(true);
 
     try {
-      const selectedCity = cities.find(c => c.code === formData.ciudad_code);
-      const selectedDeptName = selectedDept?.name || '';
-
       const orderPayload = {
-        // pickup_info se inyecta en el servidor desde variables de entorno
         billing_info: {
             first_name: formData.nombre.split(' ')[0],
             last_name: formData.nombre.split(' ').slice(1).join(' ') || '.',
@@ -377,7 +341,6 @@ const Checkout = () => {
 
       if (!response.ok) throw new Error(data.error || 'Error al procesar la orden');
 
-      // Prioritize Venndelo External ID or Local Readable ID
       const orderId = data.order?.readable_id || data.order?.external_id || data.order?.db_id || 'N/A';
 
       toast({
@@ -426,329 +389,33 @@ const Checkout = () => {
             className="max-w-6xl mx-auto grid md:grid-cols-2 gap-8 lg:gap-12"
           >
             {/* Form Section */}
-            <div className="bg-card p-6 md:p-8 rounded-2xl shadow-sm border border-border/50 h-fit">
-              <div className="mb-6">
-                <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground">Finalizar Compra</h1>
-                <p className="text-muted-foreground mt-2">Completa tus datos para el envío.</p>
-              </div>
-
-              <form id="checkout-form" onSubmit={handleFormSubmit} className="space-y-4">
-                <div className="space-y-2">
-                    <Label htmlFor="nombre">Nombre Completo</Label>
-                    <Input 
-                        id="nombre" name="nombre" 
-                        placeholder="Ej. Ana Pérez" 
-                        required 
-                        value={formData.nombre}
-                        onChange={handleInputChange} 
-                        className={errors.nombre ? "border-red-500 bg-red-50" : ""}
-                    />
-                    {errors.nombre && <span className="text-xs text-red-500">{errors.nombre}</span>}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                        <Label htmlFor="identificacion">Cédula / NIT</Label>
-                        <Input 
-                            id="identificacion" name="identificacion" 
-                            placeholder="Ej. 1020304050" 
-                            required 
-                            value={formData.identificacion}
-                            onChange={handleInputChange} 
-                            className={errors.identificacion ? "border-red-500 bg-red-50" : ""}
-                        />
-                        {errors.identificacion && <span className="text-xs text-red-500">{errors.identificacion}</span>}
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input 
-                            id="email" 
-                            name="email" 
-                            type="email" 
-                            required 
-                            value={formData.email} 
-                            onChange={handleInputChange}
-                            className={errors.email ? "border-red-500 bg-red-50" : ""}
-                        />
-                        {errors.email && <span className="text-xs text-red-500">{errors.email}</span>}
-                    </div>
-                </div>
-                
-                <div className="space-y-2">
-                        <Label htmlFor="telefono">Teléfono (Celular)</Label>
-                        <Input 
-                            id="telefono" name="telefono" type="tel" 
-                            placeholder="3001234567"
-                            required 
-                            value={formData.telefono}
-                            onChange={handleInputChange} 
-                            className={errors.telefono ? "border-red-500 bg-red-50" : ""}
-                        />
-                        {errors.telefono && <span className="text-xs text-red-500">{errors.telefono}</span>}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label>Departamento</Label>
-                        <Select onValueChange={(val) => handleSelectChange('departamento_code', val)}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Seleccionar" />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-[300px]">
-                                {locationsData.map((dept) => (
-                                    <SelectItem key={dept.code} value={dept.code}>{dept.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Ciudad</Label>
-                        <Select 
-                            disabled={!formData.departamento_code} 
-                            onValueChange={(val) => handleSelectChange('ciudad_code', val)}
-                            value={formData.ciudad_code}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Seleccionar" />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-[300px]">
-                                {cities.map((city) => (
-                                    <SelectItem key={city.code} value={city.code}>{city.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="direccion">Dirección de Entrega</Label>
-                    <Input 
-                        id="direccion" 
-                        name="direccion" 
-                        placeholder="Calle 10 # 20-30 Torre 1 Apto 202" 
-                        required 
-                        value={formData.direccion} 
-                        onChange={handleInputChange}
-                        className={errors.direccion ? "border-red-500 bg-red-50" : ""}
-                    />
-                    {errors.direccion && <span className="text-xs text-red-500">{errors.direccion}</span>}
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="barrio">Barrio</Label>
-                    <Input 
-                        id="barrio" 
-                        name="barrio" 
-                        placeholder="Ej. El Poblado" 
-                        required 
-                        value={formData.barrio} 
-                        onChange={handleInputChange}
-                        className={errors.barrio ? "border-red-500 bg-red-50" : ""}
-                    />
-                    {errors.barrio && <span className="text-xs text-red-500">{errors.barrio}</span>}
-                </div>
-                 
-                <div className="space-y-2">
-                    <Label htmlFor="notas">Notas Adicionales (Opcional)</Label>
-                    <Input id="notas" name="notas" placeholder="Dejar en portería..." value={formData.notas} onChange={handleInputChange} />
-                </div>
-
-                {/* Shipping Calculation Feedback */}
-                <div className={`p-4 rounded-lg flex gap-3 items-start mt-4 ${shippingStatus === 'tbd' ? 'bg-orange-100 text-orange-800' : 'bg-accent/10'}`}>
-                    <Truck className={`w-5 h-5 mt-0.5 ${shippingStatus === 'tbd' ? 'text-orange-600' : 'text-accent'}`} />
-                    <div className="text-sm">
-                        <p className="font-medium font-bold">
-                             {shippingStatus === 'tbd' ? 'Envío a Coordinar' : 'Envío Calculado'}
-                        </p>
-                        <p className={`${shippingStatus === 'tbd' ? 'text-orange-700' : 'text-muted-foreground'}`}>
-                            {shippingStatus === 'tbd' 
-                                ? "Para esta ciudad no hay tarifa automática. Coordinaremos el envío contigo tras la compra."
-                                : shippingCost !== null 
-                                    ? `Costo de envío: $${shippingCost.toLocaleString()}`
-                                    : "Selecciona tu ciudad para calcular el envío."}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="space-y-3 pt-4 border-t">
-                    <Label className="text-base font-medium">Método de Pago</Label>
-                    <div className="grid grid-cols-1 gap-3">
-                         {/* Option 1: COD */}
-                        <div 
-                            className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${formData.payment_method === 'COD' ? 'border-primary bg-primary/5' : 'border-border hover:bg-secondary/50'}`}
-                            onClick={() => setFormData(prev => ({ ...prev, payment_method: 'COD' }))}
-                        >
-                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.payment_method === 'COD' ? 'border-primary' : 'border-muted-foreground'}`}>
-                                {formData.payment_method === 'COD' && <div className="w-2 h-2 rounded-full bg-primary" />}
-                            </div>
-                            <div className="flex-1">
-                                <p className="font-medium text-sm">Pago Contra Entrega</p>
-                                <p className="text-xs text-muted-foreground">Pagas en efectivo al recibir tu pedido.</p>
-                            </div>
-                        </div>
-
-                        {/* Option 2: Online (Wompi) */}
-                        <div 
-                            className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${formData.payment_method === 'EXTERNAL_PAYMENT' ? 'border-primary bg-primary/5' : 'border-border hover:bg-secondary/50'}`}
-                            onClick={() => setFormData(prev => ({ ...prev, payment_method: 'EXTERNAL_PAYMENT' }))}
-                        >
-                             <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.payment_method === 'EXTERNAL_PAYMENT' ? 'border-primary' : 'border-muted-foreground'}`}>
-                                {formData.payment_method === 'EXTERNAL_PAYMENT' && <div className="w-2 h-2 rounded-full bg-primary" />}
-                             </div>
-                             <div className="flex-1">
-                                <p className="font-medium text-sm">Pago en Línea (Wompi)</p>
-                                <p className="text-xs text-muted-foreground">Tarjetas de Crédito, Débito, PSE, Nequi</p>
-                             </div>
-                             {/* Wompi Logo Mock */}
-                             <div className="h-6 w-auto opacity-70">
-                                💳
-                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-2 mt-4">
-                    <Checkbox 
-                        id="terms" 
-                        checked={formData.termsAccepted} 
-                        onCheckedChange={(c) => setFormData(prev => ({ ...prev, termsAccepted: c as boolean }))} 
-                    />
-                    <Label htmlFor="terms" className="text-sm cursor-pointer">
-                        Acepto los <span className="underline text-primary">Términos y Condiciones</span> y Política de Tratamiento de Datos.
-                    </Label>
-                </div>
-
-                {cartTotal < 20000 && (
-                     <div className="p-4 rounded-lg bg-red-100 text-red-800 border border-red-200 mt-4 text-sm font-medium">
-                        El pedido mínimo es de $20.000 (sin incluir envío).
-                     </div>
-                )}
-              </form>
-
-              {/* ACTIONS OUTSIDE FORM TO PREVENT NESTING */}
-              {formData.payment_method === 'EXTERNAL_PAYMENT' ? (
-                  <div className="mt-6">
-                      {isFormValid ? (
-                          <>
-                              <Button 
-                                onClick={handleWompiPayment} 
-                                className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 text-lg shadow-md transition-all"
-                                disabled={isSubmitting}
-                              >
-                                {isSubmitting ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Procesando...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CreditCard className="mr-2 w-5 h-5"/>
-                                        Pagar ${finalTotal.toLocaleString()} con Wompi
-                                    </>
-                                )}
-                              </Button>
-                              <p className="text-xs text-center text-muted-foreground mt-2">
-                                  Serás redirigido a la pasarela segura de Wompi Bancolombia.
-                              </p>
-                              
-                              {/* Hidden Form for Wompi Redirection - Populated by handleWompiPayment */}
-                              <form id="wompi-redirect-form" action="https://checkout.wompi.co/p/" method="GET" className="hidden">
-                                    <input type="hidden" name="public-key" value={import.meta.env.VITE_WOMPI_PUB_KEY} />
-                                    <input type="hidden" name="currency" value="COP" />
-                                    <input type="hidden" name="amount-in-cents" id="wompi-amount" />
-                                    <input type="hidden" name="reference" id="wompi-reference" />
-                                    <input type="hidden" name="signature:integrity" id="wompi-signature" />
-                                    {/* WAF PROTECTION: Do not send redirect-url if on localhost, it triggers 403 Forbidden */
-                                     !['localhost', '127.0.0.1'].includes(window.location.hostname) && (
-                                        <input type="hidden" name="redirect-url" value={`${window.location.origin}/checkout/success`} />
-                                     )}
-                                    
-                                    <input type="hidden" name="customer-data:email" id="wompi-email" />
-                                    <input type="hidden" name="customer-data:full-name" id="wompi-fullname" />
-                                    {/* Sanitize phone: digits only */}
-                                    <input type="hidden" name="customer-data:phone-number" id="wompi-phone" />
-                                    <input type="hidden" name="customer-data:phone-number-prefix" value="57" />
-                              </form>
-                          </>
-                      ) : (
-                          <div className="border rounded bg-secondary/50 p-4 text-center">
-                              <p className="text-sm text-muted-foreground mb-2"><AlertCircle className="w-4 h-4 inline mr-1"/> Completa correctamente todos los datos y acepta términos para habilitar el pago.</p>
-                              <Button disabled className="w-full">Pagar con Wompi</Button>
-                          </div>
-                      )}
-                  </div>
-              ) : (
-                  <Button type="submit" form="checkout-form" className="w-full mt-6" size="lg" disabled={isSubmitting || shippingStatus === null || isQuoting || cartTotal < 20000 || !isFormValid}>
-                      {isSubmitting ? 'Procesando...' : `Confirmar Pedido - $${finalTotal.toLocaleString()}`}
-                  </Button>
-              )}
-            </div>
+            <CheckoutForm 
+                formData={formData}
+                setFormData={setFormData}
+                errors={errors}
+                shippingStatus={shippingStatus}
+                shippingCost={shippingCost}
+                isSubmitting={isSubmitting}
+                isQuoting={isQuoting}
+                cartTotal={cartTotal}
+                finalTotal={finalTotal}
+                isFormValid={!!isFormValid}
+                cities={cities}
+                handleInputChange={handleInputChange}
+                handleSelectChange={handleSelectChange}
+                handleFormSubmit={handleFormSubmit}
+                handleWompiPayment={handleWompiPayment}
+            />
 
             {/* Order Summary */}
-            <div className="space-y-6">
-                <div className="bg-card p-6 md:p-8 rounded-2xl shadow-sm border border-border/50">
-                    <h2 className="font-display text-xl font-bold mb-4">Resumen de tu Orden</h2>
-                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                        {items.map((item) => (
-                            <div key={`${item.id}-${item.selectedVariant.sku}`} className="flex gap-4 items-start">
-                                <div className="w-16 h-16 bg-secondary/20 rounded-md overflow-hidden shrink-0">
-                                    <img src={item.imagen_url} alt={item.nombre} className="w-full h-full object-cover" />
-                                </div>
-                                <div className="flex-1">
-                                    <h4 className="font-medium text-sm text-foreground">{item.nombre}</h4>
-                                    <p className="text-xs text-muted-foreground">{item.selectedVariant.nombre}</p>
-                                    <div className="flex justify-between items-center mt-1">
-                                        <p className="text-xs text-muted-foreground">Cant: {item.quantity}</p>
-                                        <p className="font-medium text-sm">${(item.selectedVariant.precio * item.quantity).toLocaleString()}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    
-                    <Separator className="my-4" />
-                    
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Subtotal</span>
-                            <span className="font-medium">${cartTotal.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Envío</span>
-                            {isQuoting ? (
-                                <span className="flex items-center gap-2 text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin"/> Calculando...</span>
-                            ) : shippingStatus === 'tbd' ? (
-                                <span className="font-medium text-orange-600">A Coordinar</span>
-                            ) : shippingCost !== null ? (
-                                <span className="font-medium">${shippingCost.toLocaleString()}</span>
-                            ) : (
-                                <span className="text-muted-foreground italic">--</span>
-                            )}
-                        </div>
-                        <div className="flex justify-between text-lg font-bold pt-2 text-primary">
-                            <span>Total (Pagar)</span>
-                            <span>${finalTotal.toLocaleString()}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Trust Badges */}
-                <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10">
-                    <div className="flex flex-col gap-4">
-                        <div className="flex gap-3 items-center">
-                            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                                <Check className="w-4 h-4" />
-                            </div>
-                            <p className="text-sm font-medium">Pago Seguro via Venndelo / Wompi</p>
-                        </div>
-                        <div className="flex gap-3 items-center">
-                             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                                <Check className="w-4 h-4" />
-                            </div>
-                            <p className="text-sm font-medium">Aceites 100% Puros y Naturales</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <OrderSummary 
+                items={items}
+                cartTotal={cartTotal}
+                shippingCost={shippingCost}
+                shippingStatus={shippingStatus}
+                isQuoting={isQuoting}
+                finalTotal={finalTotal}
+            />
           </motion.div>
         </div>
       </section>

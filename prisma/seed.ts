@@ -123,6 +123,55 @@ async function main() {
     
     console.log('🏁 Seeding finished.');
 
+    // ---------------------------------------------------------
+    // SEED ADMIN USER
+    // ---------------------------------------------------------
+    let adminUsers: { username: string; pin: string }[] = [];
+
+    // Validar si es JSON (Nuevo formato)
+    if (process.env.KAIU_ADMIN_USERS && process.env.KAIU_ADMIN_USERS.startsWith('[')) {
+       try {
+          adminUsers = JSON.parse(process.env.KAIU_ADMIN_USERS);
+       } catch (e) {
+          console.error("Error parsing KAIU_ADMIN_USERS JSON:", e);
+       }
+    } 
+    // Fallback Legacy (Usuario único o formato simple)
+    else if (process.env.KAIU_ADMIN_USER && process.env.KAIU_ADMIN_PIN) {
+        adminUsers.push({
+            username: process.env.KAIU_ADMIN_USER,
+            pin: process.env.KAIU_ADMIN_PIN
+        });
+    }
+
+    if (adminUsers.length > 0) {
+        console.log(`🔐 Seeding ${adminUsers.length} Admin Users...`);
+        const bcrypt = await import('bcryptjs');
+
+        for (const u of adminUsers) {
+            if (!u.username || !u.pin) continue;
+            
+            const hashedPassword = await bcrypt.hash(u.pin, 10);
+            
+            await prisma.user.upsert({
+                where: { email: u.username }, // Usamos username como email para login
+                update: {
+                    password: hashedPassword,
+                    role: 'ADMIN'
+                },
+                create: {
+                    email: u.username,
+                    password: hashedPassword,
+                    name: `Admin ${u.username}`,
+                    role: 'ADMIN'
+                }
+            });
+            console.log(`✅ Admin upserted: ${u.username}`);
+        }
+    } else {
+        console.warn("⚠️ No Admin credentials found in env. Skipping Admin seed.");
+    }
+
   } catch (error) {
     console.error('❌ Error seeding:', error);
     process.exit(1);
