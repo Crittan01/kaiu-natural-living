@@ -17,6 +17,8 @@ import adminRequestPickupHandler from './api/admin/request-pickup.js';
 import checkTransactionHandler from './api/wompi/check-transaction.js';
 import dashboardStatsHandler from './api/admin/dashboard-stats.js';
 import adminInventoryHandler from './api/admin/inventory.js';
+import mockChatWebhook from './api/whatsapp/webhook-mock.js';
+import whatsappWebhook from './api/whatsapp/webhook.js';
 
 // Configuración inicial
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -69,21 +71,36 @@ app.use('/api/admin/inventory', adaptParams(adminInventoryHandler));
 // Dashboard Stats Route
 app.use('/api/admin/dashboard-stats', adaptParams(dashboardStatsHandler));
 
-// Iniciar Servidor
-// Iniciar Servidor
-const server = app.listen(PORT, () => {
-    console.log(`Servidor API Local corriendo en http://localhost:${PORT}`);
-    console.log(`El frontend debe apuntar a este puerto para /api/`);
-});
+// AI Mock Chat Route (PoC)
+app.use('/api', mockChatWebhook);
 
-// Graceful Shutdown para evitar EADDRINUSE en reinicios de nodemon
-const shutdown = () => {
-    console.log('Cerrando servidor API...');
-    server.close(() => {
-        console.log('Servidor API cerrado.');
-        process.exit(0);
+// Real WhatsApp Webhook (Meta)
+app.use('/api/whatsapp', whatsappWebhook);
+
+// Iniciar Servidor
+// Iniciar Servidor
+// Iniciar Servidor (Solo en local o si se ejecuta directamente)
+if (process.env.NODE_ENV !== 'production' || process.argv[1] === fileURLToPath(import.meta.url)) {
+    const server = app.listen(PORT, () => {
+        console.log(`Servidor API Local corriendo en http://localhost:${PORT}`);
+        console.log(`El frontend debe apuntar a este puerto para /api/`);
     });
-};
+
+    // Graceful Shutdown
+    const shutdown = () => {
+        console.log('Cerrando servidor API...');
+        server.close(() => {
+            console.log('Servidor API cerrado.');
+            process.exit(0);
+        });
+    };
+
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
+}
+
+export default app;
+
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);

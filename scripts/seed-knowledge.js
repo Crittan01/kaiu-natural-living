@@ -1,0 +1,83 @@
+import { PrismaClient } from '@prisma/client';
+import { pipeline } from '@xenova/transformers';
+
+const prisma = new PrismaClient();
+
+// Bypass SSL check for HuggingFace download (Development Only)
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+// FAQ Data (Hardcoded for PoC)
+const faqs = [
+    {
+        question: "¿Qué son los aceites esenciales?",
+        answer: "Los aceites esenciales son compuestos aromáticos naturales extraídos de las plantas. En Kaiu, ofrecemos aceites 100% puros y terapéudos."
+    },
+    {
+        question: "¿Cómo comprar?",
+        answer: "Puedes comprar directamente en nuestra web agregando productos al carrito. Aceptamos pagos con Wompi (Tarjetas/PSE) y pago contra entrega."
+    },
+    {
+        question: "¿Hacen envíos a todo el país?",
+        answer: "Sí, realizamos envíos a toda Colombia a través de transportadoras aliadas como Coordinadora, Envía e Interrapidísimo. El tiempo de entrega es de 2 a 5 días hábiles."
+    },
+    {
+        question: "¿Tienen tienda física?",
+        answer: "Somos una tienda 100% online, lo que nos permite ofrecerte los mejores precios y llegar a cualquier rincón del país."
+    }
+];
+
+async function generateEmbedding(text, pipe) {
+    const output = await pipe(text, { pooling: 'mean', normalize: true });
+    return Array.from(output.data);
+}
+
+async function main() {
+    console.log("🚀 Iniciando ingestión de conocimiento...");
+
+    // 1. Initialize Embedding Model (Local)
+    // 'Xenova/all-MiniLM-L6-v2' is a small, fast model good for semantic search.
+    console.log("Loading embedding model...");
+    const pipe = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+
+    // 2. Clear existing Knowledge Base
+    await prisma.knowledgeBase.deleteMany({});
+    console.log("🧹 Base de conocimiento limpiada.");
+
+    // 3. Ingest Products
+    const products = await prisma.product.findMany({ where: { isActive: true }});
+    console.log(`📦 Procesando ${products.length} productos...`);
+
+    for (const p of products) {
+        const text = `Producto: ${p.name}. Precio: $${p.price}. Descripción: ${p.description || ''}. Beneficios: ${p.benefits || ''}`;
+        const vector = await generateEmbedding(text, pipe);
+
+        // Store vector using raw SQL because Prisma Schema doesn't support vector type yet
+        await prisma.$executeRaw`
+            INSERT INTO knowledge_base (id, content, metadata, embedding, "createdAt")
+            VALUES (gen_random_uuid(), ${text}, ${JSON.stringify({ source: 'product', id: p.id, title: p.name })}::jsonb, ${vector}::vector, NOW());
+        `;
+    }
+
+    // 4. Ingest FAQs
+    console.log(`❓ Procesando ${faqs.length} preguntas frecuentes...`);
+    for (const faq of faqs) {
+        const text = `Pregunta: ${faq.question} Respuesta: ${faq.answer}`;
+        const vector = await generateEmbedding(text, pipe);
+
+        await prisma.$executeRaw`
+            INSERT INTO knowledge_base (id, content, metadata, embedding, "createdAt")
+            VALUES (gen_random_uuid(), ${text}, ${JSON.stringify({ source: 'faq', title: faq.question })}::jsonb, ${vector}::vector, NOW());
+        `;
+    }
+
+    console.log("✅ Ingestión completada exitosamente.");
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

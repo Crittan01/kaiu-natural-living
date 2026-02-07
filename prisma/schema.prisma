@@ -169,3 +169,22 @@ model Address {
   
   @@map("addresses")
 }
+
+// ---------------------------------------------------------
+// MODELOS DE AI & KNOWLEDGE BASE (RAG)
+// ---------------------------------------------------------
+
+model KnowledgeBase {
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  metadata  Json?    // { source: "product", id: "...", title: "..." }
+  
+  // Vector support is handled via raw SQL in Postgres (pgvector)
+  // Prisma doesn't natively support vector types in schema yet without unsupported features.
+  // We will manage embeddings via direct SQL or a specialized raw query.
+  // For this PoC, we'll store embedding as a float array in a supported way or just manage the vector column manually in migration.
+  
+  createdAt DateTime @default(now())
+  
+  @@map("knowledge_base")
+}
