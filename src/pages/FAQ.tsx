@@ -71,7 +71,7 @@ const FAQ = () => {
             </p>
             <Button variant="whatsapp" size="lg" className="mt-6" asChild>
               <a
-                href="https://wa.me/521234567890?text=¡Hola!%20Tengo%20una%20pregunta%20sobre%20los%20productos%20Kaiu"
+                href="https://wa.me/573125835649?text=¡Hola!%20Tengo%20una%20pregunta%20sobre%20los%20productos%20Kaiu"
                 target="_blank"
                 rel="noopener noreferrer"
               >

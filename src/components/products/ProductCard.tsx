@@ -232,7 +232,7 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
   const handleWhatsApp = () => {
     const message = `¡Hola! Quiero comprar ${product.nombre} en tamaño ${selectedVariant.nombre}.`;
     window.open(
-      `https://wa.me/521234567890?text=${encodeURIComponent(message)}`,
+      `https://wa.me/573125835649?text=${encodeURIComponent(message)}`,
       '_blank'
     );
   };

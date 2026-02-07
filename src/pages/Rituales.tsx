@@ -276,7 +276,7 @@ const Rituales = () => {
               asChild
             >
               <a
-                href="https://wa.me/521234567890?text=¡Hola!%20Necesito%20orientación%20sobre%20rituales%20con%20aceites%20esenciales"
+                href="https://wa.me/573125835649?text=¡Hola!%20Necesito%20orientación%20sobre%20rituales%20con%20aceites%20esenciales"
                 target="_blank"
                 rel="noopener noreferrer"
               >

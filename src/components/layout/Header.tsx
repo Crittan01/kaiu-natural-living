@@ -69,7 +69,7 @@ export function Header() {
           <div className="hidden md:block">
             <Button variant="gold" size="sm" asChild>
               <a
-                href="https://wa.me/521234567890?text=¡Hola!%20Estoy%20desde%20la%20app%20de%20Kaiu"
+                href="https://wa.me/573125835649?text=¡Hola!%20Estoy%20desde%20la%20app%20de%20Kaiu"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -137,7 +137,7 @@ export function Header() {
               </Link>
               <Button variant="gold" className="mt-2" asChild>
                 <a
-                  href="https://wa.me/521234567890?text=¡Hola!%20Estoy%20desde%20la%20app%20de%20Kaiu"
+                  href="https://wa.me/573125835649?text=¡Hola!%20Estoy%20desde%20la%20app%20de%20Kaiu"
                   target="_blank"
                   rel="noopener noreferrer"
                 >

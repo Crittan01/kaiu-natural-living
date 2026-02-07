@@ -239,7 +239,7 @@ const Kits = () => {
                    Personalizamos kits de bienestar para empresas y eventos.
                  </p>
                  <Button variant="gold" size="lg" asChild>
-                    <a href="https://wa.me/521234567890?text=Hola,%20me%20interesan%20los%20regalos%20corporativos" target="_blank" rel="noreferrer">
+                    <a href="https://wa.me/573125835649?text=Hola,%20me%20interesan%20los%20regalos%20corporativos" target="_blank" rel="noreferrer">
                         Cotizar Personalización
                     </a>
                  </Button>
