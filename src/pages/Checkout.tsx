@@ -348,8 +348,15 @@ const Checkout = () => {
         description: `Tu pedido #${orderId} ha sido recibido.`,
       });
       
+      
       clearCart();
-      navigate('/');
+      // navigate('/'); BEFORE
+      navigate('/checkout/success', { 
+        state: { 
+            orderId: orderId,
+            total: finalTotal
+        } 
+      });
 
     } catch (error) {
         console.error('Checkout Error:', error);
