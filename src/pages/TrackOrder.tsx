@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 
 interface TrackResult {
   id: string;
+  readable_id?: number;
   pin?: string;
   carrier?: string;
   tracking_number?: string;
@@ -128,7 +129,7 @@ export default function TrackOrder() {
                 <div className="border rounded-lg p-6 space-y-4 animate-in fade-in slide-in-from-bottom-2">
                     <div className="flex justify-between items-start">
                         <div>
-                            <h3 className="font-bold text-lg">Orden #{result.pin || result.id.substring(0,8)}</h3>
+                            <h3 className="font-bold text-lg">Orden #{result.readable_id || result.pin || result.id.substring(0,8)}</h3>
                             <p className="text-sm text-muted-foreground">Fecha: {new Date(result.created_at).toLocaleDateString()}</p>
                         </div>
                         <Badge className={`${getStatusColor(result.status)} text-white`}>
