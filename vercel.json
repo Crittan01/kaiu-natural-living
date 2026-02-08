@@ -1,14 +1,6 @@
 
 {
-  "functions": {
-    "api/test.js": { "maxDuration": 10 },
-    "api/index.js": { "maxDuration": 60 }
-  },
   "rewrites": [
-    { "source": "/api/test", "destination": "/api/test.js" },
-    { "source": "/api/health", "destination": "/api/index.js" },
-    { "source": "/api/debug-ai", "destination": "/api/index.js" },
-    { "source": "/api/whatsapp", "destination": "/api/index.js" },
     { "source": "/api/(.*)", "destination": "/api/index.js" }
   ]
 }
