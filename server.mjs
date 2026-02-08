@@ -19,6 +19,7 @@ import dashboardStatsHandler from './backend/admin/dashboard-stats.js';
 import adminInventoryHandler from './backend/admin/inventory.js';
 import mockChatWebhook from './backend/whatsapp/webhook-mock.js';
 import whatsappWebhook from './backend/whatsapp/webhook.js';
+import debugAiHandler from './backend/debug-ai.js';
 
 // Configuración inicial
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -73,6 +74,9 @@ app.use('/api/admin/dashboard-stats', adaptParams(dashboardStatsHandler));
 
 // AI Mock Chat Route (PoC)
 app.use('/api', mockChatWebhook);
+
+// Debug Route for AI on Vercel
+app.get('/api/debug-ai', adaptParams(debugAiHandler));
 
 // Real WhatsApp Webhook (Meta)
 app.use('/api/whatsapp', whatsappWebhook);

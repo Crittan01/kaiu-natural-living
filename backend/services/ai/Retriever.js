@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 env.cacheDir = '/tmp'; 
 env.allowLocalModels = false; // Force download to /tmp if not found
 // Note: We bypass SSL verification validation here if needed, but in Prod Vercel it should be fine.
-// process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; 
 
 // Singleton for Embedding Pipeline (Lazy Load)
 let embeddingPipe = null;
