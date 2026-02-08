@@ -83,4 +83,16 @@ export default defineConfig(({ mode }) => ({
       '/api': 'http://127.0.0.1:3001'
     }
   },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
+        }
+      }
+    }
+  }
 }));

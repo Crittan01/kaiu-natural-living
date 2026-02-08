@@ -12,16 +12,9 @@ let embeddingPipe = null;
 // Note: This matches the behavior needed for this environment
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-// Configure Xenova to use /tmp for cache (Critical for Vercel Serverless)
-import { env } from '@xenova/transformers';
-env.localModelPath = '/tmp/xenova-models';
-env.cacheDir = '/tmp/xenova-cache';
-env.allowLocalModels = false; // Force download if not present
-
 async function getEmbeddingPipe() {
     if (!embeddingPipe) {
         console.log("🔌 Loading Embedding Model...");
-        // Use a smaller quantized model if possible, or sticking to MiniLM
         embeddingPipe = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
     }
     return embeddingPipe;
@@ -45,35 +38,36 @@ function getChatModel() {
 }
 
 export async function generateSupportResponse(userQuestion) {
-    const TIMEOUT_MS = 9000; // 9 seconds (just under Vercel 10s default)
-    
-    const aiPromise = (async () => {
-        try {
-            console.log(`🤖 Processing question: "${userQuestion}"`);
+    try {
+        console.log(`🤖 Processing question: "${userQuestion}"`);
 
-            // 1. Generate Embedding for Question
-            const pipe = await getEmbeddingPipe();
-            const output = await pipe(userQuestion, { pooling: 'mean', normalize: true });
-            const questionVector = Array.from(output.data);
+        // 1. Generate Embedding for Question
+        const pipe = await getEmbeddingPipe();
+        const output = await pipe(userQuestion, { pooling: 'mean', normalize: true });
+        const questionVector = Array.from(output.data);
 
-            // 2. Vector Search in DB (Find top 3 relevant chunks)
-            const results = await prisma.$queryRaw`
-                SELECT id, content, metadata, 1 - (embedding <=> ${questionVector}::vector) as similarity
-                FROM knowledge_base
-                ORDER BY embedding <=> ${questionVector}::vector
-                LIMIT 3;
-            `;
+        // 2. Vector Search in DB (Find top 3 relevant chunks)
+        // Note: vector <-> vector distance (cosine similarity usually)
+        // pgvector operator for cosine distance is <=>
+        const results = await prisma.$queryRaw`
+            SELECT id, content, metadata, 1 - (embedding <=> ${questionVector}::vector) as similarity
+            FROM knowledge_base
+            ORDER BY embedding <=> ${questionVector}::vector
+            LIMIT 3;
+        `;
 
-            if (results.length === 0 || results[0].similarity < 0.5) {
-                console.log("⚠️ No relevant knowledge found.");
-            }
+        if (results.length === 0 || results[0].similarity < 0.5) {
+            console.log("⚠️ No relevant knowledge found.");
+            // Fallback for generic chat? Or strict RAG?
+            // For now, let's allow Claude to answer generally but warn about context.
+        }
 
-            // 3. Construct Context Blob
-            const contextText = results.map(r => r.content).join("\n---\n");
-            console.log(`📚 Context found (${results.length} chunks):`, contextText.substring(0, 100) + "...");
+        // 3. Construct Context Blob
+        const contextText = results.map(r => r.content).join("\n---\n");
+        console.log(`📚 Context found (${results.length} chunks):`, contextText.substring(0, 100) + "...");
 
-            // 4. Call Claude
-            const systemPrompt = `
+        // 4. Call Claude
+        const systemPrompt = `
 Eres KAIU, un asistente virtual experto en aceites esenciales y bienestar natural.
 Tu tono es empático, relajado, profesional y cercano. Estás aquí para asesorar, no solo para vender.
 
@@ -91,37 +85,20 @@ Los datos vienen etiquetados como [PRODUCTO] o [PREGUNTA FRECUENTE]. Úsalos par
 <contexto>
 ${contextText}
 </contexto>
-            `;
+        `;
 
-            const response = await getChatModel().invoke([
-                new SystemMessage(systemPrompt),
-                new HumanMessage(userQuestion),
-            ]);
+        const response = await getChatModel().invoke([
+            new SystemMessage(systemPrompt),
+            new HumanMessage(userQuestion),
+        ]);
 
-            return {
-                text: response.content,
-                sources: results.map(r => r.metadata) // return sources for debugging
-            };
+        return {
+            text: response.content,
+            sources: results.map(r => r.metadata) // return sources for debugging
+        };
 
-        } catch (error) {
-            console.error("❌ Error in RAG Service:", error);
-            throw error; // Let the wrapper catch it or return fallback
-        }
-    })();
-
-    const timeoutPromise = new Promise((resolve) => {
-        setTimeout(() => {
-            console.warn("⚠️ AI Generation Timed Out (Vercel Limit)");
-            resolve({ 
-                text: "¡Hola! Estoy despertando un poco lento (mis servidores están fríos 🥶). Por favor, pregúntame de nuevo en 10 segundos y te responderé de inmediato. 🙏",
-                timedOut: true 
-            });
-        }, TIMEOUT_MS);
-    });
-
-    try {
-        return await Promise.race([aiPromise, timeoutPromise]);
     } catch (error) {
-        return { text: "Lo siento, tuve un error interno. Por favor intenta más tarde." };
+        console.error("❌ Error in RAG Service:", error);
+        return { text: "Lo siento, tuve un error interno procesando tu consulta. Por favor intenta más tarde." };
     }
 }
