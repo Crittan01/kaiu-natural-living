@@ -66,8 +66,10 @@ router.get('/webhook', (req, res) => {
 
 // 2. POST /api/whatsapp/webhook - Incoming Messages
 router.post('/webhook', validateSignature, async (req, res) => {
-    // Acknowledge immediately to avoid Meta retries (3s limit)
-    res.sendStatus(200);
+    // NOTE: In Vercel Serverless, we MUST wait for process to finish before sending response.
+    // If we send 200 early, the Lambda freezes/kills the process.
+    // Meta has a 3s timeout. If AI takes longer, Meta will retry. 
+    // We accept duplicate replies for this PoC to ensure at least one gets through.
 
     const body = req.body;
 
@@ -83,30 +85,10 @@ router.post('/webhook', validateSignature, async (req, res) => {
             if (message && message.type === 'text') {
                 const from = message.from; // User Phone
                 const text = message.text.body;
-                const wamid = message.id;
-
+                
                 console.log(`📩 Message from ${from}: ${text}`);
 
-                // --- Background Processing Start ---
-                // We typically use 'await' here because Res is already sent? 
-                // No, in Node, res.send() doesn't stop execution. 
-                // However, Vercel Serverless might kill the process immediately after response.
-                // WE MUST USE logic to keep it alive or await if Vercel config allows.
-                // Since user approved Vercel Hobby, we will AWAIT here even if it delays response?
-                // NO. Meta will retry. 
-                // TRICK: response is already sent. We hope Vercel keeps the lambda alive for a few seconds.
-                
-                // For valid Vercel background work requires `waitUntil` from vercel SDK which is for Edge.
-                // For Standard Node Serverless, we should ideally respond AFTER processing if <60s?
-                // Actually, Meta Timeout is strict 3s.
-                // But Vercel Standard Functions > 3s.
-                // So we can Process THEN Respond? 
-                // NO, AI takes ~10s. Meta will timeout.
-                
-                // SOLUTION: We'll assume this runs on a persistent server (Render/Railway) OR Vercel Pro.
-                // OR we accept that for Vercel Hobby, we might get retries.
-                // Let's implement logic: Generate -> Send.
-                
+                // Generate AI Response (This is the heavy part)
                 const aiResponse = await generateSupportResponse(text);
 
                 // Send Reply via Graph API
@@ -128,8 +110,12 @@ router.post('/webhook', validateSignature, async (req, res) => {
             }
         } catch (error) {
             console.error("❌ Error processing webhook:", error.message);
+            // We still return 200 to stop Meta from retrying forever on bug
         }
     }
+
+    // Always return 200 OK at the end
+    res.status(200).send('EVENT_RECEIVED');
 });
 
 export default router;
