@@ -259,21 +259,40 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
       >
         {/* Image Section */}
         <div className="w-32 sm:w-48 md:w-1/3 min-w-[120px] relative aspect-[3/4] md:aspect-auto overflow-hidden shrink-0 bg-secondary/10">
-             <img
-              src={selectedVariant.imagen_url || product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
-              alt={`${product.nombre} ${selectedVariant.nombre}`}
-              className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ${isOutOfStock ? 'grayscale opacity-80' : ''}`}
-              onError={(e) => {
-                e.currentTarget.src = 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop';
-                e.currentTarget.onerror = null;
-              }}
-              referrerPolicy="no-referrer"
-            />
-            {isOutOfStock && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                    <span className="bg-black/70 text-white px-2 py-1 rounded text-[10px] font-bold">AGOTADO</span>
-                </div>
-            )}
+             <Dialog>
+                 <DialogTrigger asChild>
+                   <div className="w-full h-full cursor-pointer">
+                     <img
+                      src={selectedVariant.imagen_url || product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
+                      alt={`${product.nombre} ${selectedVariant.nombre}`}
+                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ${isOutOfStock ? 'grayscale opacity-80' : ''}`}
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop';
+                        e.currentTarget.onerror = null;
+                      }}
+                      referrerPolicy="no-referrer"
+                    />
+                    {isOutOfStock && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                            <span className="bg-black/70 text-white px-2 py-1 rounded text-[10px] font-bold">AGOTADO</span>
+                        </div>
+                    )}
+                   </div>
+                 </DialogTrigger>
+                 <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background">
+                    <QuickViewContent 
+                        product={product}
+                        selectedVariant={selectedVariant}
+                        setSelectedVariant={setSelectedVariant}
+                        isOutOfStock={!!isOutOfStock}
+                        benefits={benefits}
+                        variantGroups={variantGroups}
+                        getCleanVariantName={getCleanVariantName}
+                        addToCart={addToCart}
+                        isGrouped={variantGroups.isGrouped}
+                    />
+                 </DialogContent>
+             </Dialog>
              <button
               onClick={handleSave}
               className="absolute top-2 right-2 md:top-4 md:right-4 w-7 h-7 md:w-9 md:h-9 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center transition-colors hover:bg-card shadow-sm"
@@ -403,42 +422,31 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
       transition={{ duration: 0.5 }}
     >
       <div className="relative aspect-square overflow-hidden bg-secondary/10">
-        <img
-          src={selectedVariant.imagen_url || product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
-          alt={`${product.nombre} ${selectedVariant.nombre}`}
-          className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ${isOutOfStock ? 'grayscale opacity-80' : ''}`}
-          onError={(e) => {
-            e.currentTarget.src = 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop';
-            e.currentTarget.onerror = null;
-          }}
-          referrerPolicy="no-referrer"
-        />
-        {isOutOfStock && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                <span className="bg-black/70 text-white px-3 py-1 rounded-full font-bold text-xs uppercase tracking-wider">AGOTADO</span>
-            </div>
-        )}
-        <button
-          onClick={handleSave}
-          className="absolute top-4 right-4 w-10 h-10 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center transition-colors hover:bg-card"
-        >
-          <Heart
-            className={`w-5 h-5 transition-colors ${
-              isSaved ? 'fill-accent text-accent' : 'text-muted-foreground'
-            }`}
-          />
-        </button>
-        
         <Dialog>
-          <DialogTrigger asChild>
-            <button
-              className="absolute top-4 left-4 w-10 h-10 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center transition-colors hover:bg-card opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-              title="Vista Rápida"
-            >
-              <Eye className="w-5 h-5 text-foreground" />
-            </button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background">
+           <DialogTrigger asChild>
+             <div className="w-full h-full cursor-pointer relative">
+                <img
+                  src={selectedVariant.imagen_url || product.imagen_url || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop'}
+                  alt={`${product.nombre} ${selectedVariant.nombre}`}
+                  className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ${isOutOfStock ? 'grayscale opacity-80' : ''}`}
+                  onError={(e) => {
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1000&auto=format&fit=crop';
+                    e.currentTarget.onerror = null;
+                  }}
+                  referrerPolicy="no-referrer"
+                />
+                {isOutOfStock && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                        <span className="bg-black/70 text-white px-3 py-1 rounded-full font-bold text-xs uppercase tracking-wider">AGOTADO</span>
+                    </div>
+                )}
+                 {/* Mobile Overlay Hint */}
+                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/30 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-sm opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    Ver Detalles
+                 </div>
+             </div>
+           </DialogTrigger>
+           <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background">
             <QuickViewContent 
                 product={product}
                 selectedVariant={selectedVariant}
@@ -450,8 +458,19 @@ export function ProductCard({ product, layout = 'grid' }: ProductCardProps) {
                 addToCart={addToCart}
                 isGrouped={variantGroups.isGrouped}
             />
-          </DialogContent>
+           </DialogContent>
         </Dialog>
+
+        <button
+          onClick={handleSave}
+          className="absolute top-4 right-4 w-10 h-10 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center transition-colors hover:bg-card z-10"
+        >
+          <Heart
+            className={`w-5 h-5 transition-colors ${
+              isSaved ? 'fill-accent text-accent' : 'text-muted-foreground'
+            }`}
+          />
+        </button>
       </div>
 
       <div className="p-5">
