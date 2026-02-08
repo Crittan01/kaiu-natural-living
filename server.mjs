@@ -3,22 +3,22 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import dotenv from 'dotenv';
-import createOrderHandler from './api/create-order.js';
-import quoteShippingHandler from './api/quote-shipping.js';
-import getProductsHandler from './api/get-products.js';
-import trackOrderHandler from './api/track-order.js';
-import wompiSignatureHandler from './api/wompi/sign.js';
-import wompiWebhookHandler from './api/wompi/webhook.js';
-import adminLoginHandler from './api/admin/login.js';
-import adminOrdersHandler from './api/admin/orders.js';
-import adminGenerateLabelHandler from './api/admin/generate-label.js';
-import adminConfirmOrderHandler from './api/admin/confirm-order.js';
-import adminRequestPickupHandler from './api/admin/request-pickup.js';
-import checkTransactionHandler from './api/wompi/check-transaction.js';
-import dashboardStatsHandler from './api/admin/dashboard-stats.js';
-import adminInventoryHandler from './api/admin/inventory.js';
-import mockChatWebhook from './api/whatsapp/webhook-mock.js';
-import whatsappWebhook from './api/whatsapp/webhook.js';
+import createOrderHandler from './backend/create-order.js';
+import quoteShippingHandler from './backend/quote-shipping.js';
+import getProductsHandler from './backend/get-products.js';
+import trackOrderHandler from './backend/track-order.js';
+import wompiSignatureHandler from './backend/wompi/sign.js';
+import wompiWebhookHandler from './backend/wompi/webhook.js';
+import adminLoginHandler from './backend/admin/login.js';
+import adminOrdersHandler from './backend/admin/orders.js';
+import adminGenerateLabelHandler from './backend/admin/generate-label.js';
+import adminConfirmOrderHandler from './backend/admin/confirm-order.js';
+import adminRequestPickupHandler from './backend/admin/request-pickup.js';
+import checkTransactionHandler from './backend/wompi/check-transaction.js';
+import dashboardStatsHandler from './backend/admin/dashboard-stats.js';
+import adminInventoryHandler from './backend/admin/inventory.js';
+import mockChatWebhook from './backend/whatsapp/webhook-mock.js';
+import whatsappWebhook from './backend/whatsapp/webhook.js';
 
 // Configuración inicial
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -65,7 +65,7 @@ app.get('/api/wompi/check-transaction/:id', adaptParams(checkTransactionHandler)
 app.post('/api/admin/login', adaptParams(adminLoginHandler));
 app.get('/api/admin/orders', adaptParams(adminOrdersHandler));
 app.post('/api/admin/generate-label', adaptParams(adminGenerateLabelHandler));
-app.post('/api/admin/sync-shipments', adaptParams(await import('./api/admin/sync-shipments.js').then(m => m.default)));
+app.post('/api/admin/sync-shipments', adaptParams(await import('./backend/admin/sync-shipments.js').then(m => m.default)));
 app.post('/api/admin/request-pickup', adaptParams(adminRequestPickupHandler));
 app.use('/api/admin/inventory', adaptParams(adminInventoryHandler));
 // Dashboard Stats Route
