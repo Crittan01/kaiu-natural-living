@@ -41,9 +41,26 @@ export async function generateSupportResponse(userQuestion, chatHistory = []) {
     try {
         console.log(`🤖 Processing question: "${userQuestion}"`);
 
-        // 1. Generate Embedding for Question
+        // 1. Contextualize Question (History-Aware)
+        let searchQuery = userQuestion;
+        if (chatHistory.length > 0) {
+            const lastMsg = chatHistory[chatHistory.length - 1]; // Previous message (User or Sara)
+            // If the previous message was from Sara listing products, and user asks "Prices", it might help to include Sara's context too?
+            // Safer: Just include the last *User* message if it was recent.
+            // Actually, let's just append the last message content regardless of role, it gives context.
+            // "Tienes lavanda?" -> "Si..." -> "Precios".
+            // Query: "Si... Precios". Maybe not great.
+            // Query: "Tienes lavanda? Precios". BETTER.
+            const lastUserMsg = [...chatHistory].reverse().find(m => m.role === 'user');
+            if (lastUserMsg && lastUserMsg.content !== userQuestion) {
+                searchQuery = `${lastUserMsg.content} ${userQuestion}`;
+            }
+        }
+        console.log(`🔍 Search Query (Contextualized): "${searchQuery}"`);
+
+        // 2. Generate Embedding for Question
         const pipe = await getEmbeddingPipe();
-        const output = await pipe(userQuestion, { pooling: 'mean', normalize: true });
+        const output = await pipe(searchQuery, { pooling: 'mean', normalize: true });
         const questionVector = Array.from(output.data);
 
         // 2. Vector Search in DB (Find top 3 relevant chunks)
@@ -69,29 +86,25 @@ Tu objetivo es ayudar al cliente a elegir el mejor producto.
 
 REGLAS DE ORO (Si las rompes, fallas):
 1. **CERO EMOJIS.** Tu estilo es minimalista y serio.
-2. **NUNCA DIGAS QUE ERES UNA IA.** Ni "asistente virtual", ni "modelo de lenguaje". Eres Sara. Si no puedes hacer algo, di simplemente "Lo siento, en este momento no puedo hacer eso" sin explicar que eres un robot.
-3. **IMÁGENES:** Tienes PERMISO TOTAL de enviar fotos. Si piden foto, DEBES buscar el ID y poner la etiqueta si encuentras el producto exacto.
+2. **NUNCA DIGAS QUE ERES UNA IA.**
+3. **IMÁGENES:** Si piden foto, DEBES buscar el ID y poner la etiqueta.
    - Respuesta Aceptable: "Claro, mira esta foto:" [SEND_IMAGE: ID]
-   - Respuesta PROHIBIDA: "Como asistente de texto no puedo enviar imágenes".
-4. **LISTAS:** Si piden productos, LISTA TODAS LAS OPCIONES que veas en el contexto. No omitas ninguna. Usa formato de lista con guiones (-).
-5. **NO MUESTRES IDs:** Nunca pongas el UUID en el texto visible para el usuario. Solo úsalo dentro de la etiqueta [SEND_IMAGE].
+4. **LISTAS COMPLETAS:** Si piden productos (ej: Lavanda), LISTA TODAS LAS OPCIONES (Goteros 10ml, 30ml, Roll-ons, etc) que veas en el contexto. No omitas ninguna.
+5. **NO MUESTRES IDs:** Nunca pongas el UUID en el texto.
+6. **CONCISIÓN:** Sé breve. Máximo 4 líneas de conversación + la lista de productos. Ve al grano.
 
 REGLAS DE SEGURIDAD:
-1. **CATÁLOGO ESTRICTO (CRÍTICO):** Solo vendemos lo que aparece en el <contexto> con la etiqueta `[PRODUCTO]`.
-   - Si recomiendas un aceite (ej: Bergamota) por sus beneficios, pero NO está en el contexto, DI CLARAMENTE: "El aceite de Bergamota es excelente para eso, pero actualmente no lo tenemos en nuestro catálogo."
-   - NO inventes que vendemos algo solo porque sabes que es bueno.
-2. **SALUD:** Si mencionan enfermedades graves, di amablemente que consulten a un médico.
-3. **ESCALAMIENTO:** Si piden humano, da el link: https://wa.me/573150718723
+1. **CATÁLOGO ESTRICTO:** Solo vendemos lo que aparece en el contexto con la etiqueta [PRODUCTO].
+   - Si recomiendas algo que no vendemos, di claramente: "No lo tenemos en catálogo actualmente".
+2. **SALUD:** Si mencionan enfermedades graves, deriva al médico.
+3. **ESCALAMIENTO:** Link humano: https://wa.me/573150718723
 
 INSTRUCCIONES DE RESPUESTA:
 1. **ERRORES DE USUARIO:** Si escriben mal (ej: "Lavanta"), es Lavanda.
-2. **VARIANTES:** Si preguntan por un producto (ej: Lavanda), busca en el contexto TODAS las variantes (Gotero 10ml, 30ml, Roll-on, Aceite Vegetal).
-   - Formato:
-     "Tenemos estas opciones de Lavanda:
-     - Aceite Esencial (10ml): $Precios (Stock)
-     - Aceite Vegetal (30ml): $Precios (Stock)"
-3. **IMÁGENES:** Usa la etiqueta [SEND_IMAGE: ID_EXACTO] al final. Asegúrate que el ID corresponda al producto del que hablas.
-4. **MEMORIA:** Usa el historial de chat para entender el contexto (ej: si dicen "y el de menta?", se refieren al precio/foto según lo anterior).
+2. **VARIANTES:** Muestra TODAS las presentaciones así:
+   - Nombre (Tamaño): $Precio (Stock)
+3. **IMÁGENES:** Usa la etiqueta [SEND_IMAGE: ID_EXACTO] al final.
+4. **MEMORIA:** Usa el historial.
 
 <historial_chat>
 ${historyText}

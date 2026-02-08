@@ -74,8 +74,32 @@ app.use('/api/admin/dashboard-stats', adaptParams(dashboardStatsHandler));
 // AI Mock Chat Route (PoC)
 app.use('/api', mockChatWebhook);
 
+import { generateSupportResponse } from './backend/services/ai/Retriever.js';
+
+// ... (imports remain)
+
 // Real WhatsApp Webhook (Meta)
 app.use('/api/whatsapp', whatsappWebhook);
+
+// Web Chat Endpoint (Omnichannel)
+app.post('/api/chat', async (req, res) => {
+    try {
+        const { message, history } = req.body;
+        if (!message) return res.status(400).json({ error: "Message required" });
+
+        // Call Shared AI Brain
+        const aiResponse = await generateSupportResponse(message, history || []);
+        
+        // Return standard JSON
+        res.json({
+            text: aiResponse.text,
+            sources: aiResponse.sources
+        });
+    } catch (error) {
+        console.error("Web Chat Error:", error);
+        res.status(500).json({ error: "Internal AI Error" });
+    }
+});
 
 // Iniciar Servidor
 // Iniciar Servidor

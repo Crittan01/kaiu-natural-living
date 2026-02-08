@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Header } from './Header';
 import { Footer } from './Footer';
-import { WhatsAppButton } from './WhatsAppButton';
+import { ChatWidget } from './ChatWidget';
 import { CookieBanner } from './CookieBanner';
 
 interface LayoutProps {
@@ -16,7 +16,7 @@ export function Layout({ children }: LayoutProps) {
         {children}
       </main>
       <Footer />
-      <WhatsAppButton />
+      <ChatWidget />
       <CookieBanner />
     </div>
   );
