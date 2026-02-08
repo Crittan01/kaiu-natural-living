@@ -98,13 +98,39 @@ router.post('/webhook', validateSignature, async (req, res) => {
                 }
 
                 console.log(`📩 Message from ${from}: ${text}`);
+                // Mark message as read
+                axios.post(
+                    `https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`,
+                    {
+                        messaging_product: "whatsapp",
+                        status: "read",
+                        message_id: wamid
+                    },
+                    { headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' } }
+                ).catch(() => {});
 
-                // --- 2. AI Processing ---
-                const aiResponse = await generateSupportResponse(text);
+                // --- 2. Session History Management ---
+                // Simple in-memory store. For production, use Redis or DB.
+                if (!global.sessionStore) global.sessionStore = new Map();
+                const userHistory = global.sessionStore.get(from) || [];
+                
+                // Add user message
+                userHistory.push({ role: 'user', content: text });
+                
+                // Keep only last 10 messages
+                if (userHistory.length > 10) userHistory.shift();
+
+                // --- 3. AI Processing ---
+                const aiResponse = await generateSupportResponse(text, userHistory);
                 let responseText = aiResponse.text;
+                
+                // Add AI response to history
+                userHistory.push({ role: 'assistant', content: responseText });
+                global.sessionStore.set(from, userHistory);
+
                 let imageToSend = null;
 
-                // --- 3. Image Parsing ---
+                // --- 4. Image Parsing ---
                 // Check if AI output contains [SEND_IMAGE: ID]
                 // UUID regex: 8-4-4-4-12 hex digits
                 const imageTagMatch = responseText.match(/\[SEND_IMAGE:\s*([a-fA-F0-9-]{36})\]/);

@@ -37,7 +37,7 @@ function getChatModel() {
     return chatModel;
 }
 
-export async function generateSupportResponse(userQuestion) {
+export async function generateSupportResponse(userQuestion, chatHistory = []) {
     try {
         console.log(`🤖 Processing question: "${userQuestion}"`);
 
@@ -56,15 +56,11 @@ export async function generateSupportResponse(userQuestion) {
             LIMIT 15;
         `;
 
-        if (results.length === 0 || results[0].similarity < 0.3) {
-            console.log("⚠️ No relevant knowledge found.");
-            // Fallback for generic chat? Or strict RAG?
-            // For now, let's allow Claude to answer generally but warn about context.
-        }
-
         // 3. Construct Context Blob
         const contextText = results.map(r => r.content).join("\n---\n");
-        console.log(`📚 Context found (${results.length} chunks):`, contextText.substring(0, 100) + "...");
+        
+        // Format History for Prompt
+        const historyText = chatHistory.map(m => `${m.role === 'user' ? 'Cliente' : 'Sara'}: ${m.content}`).join("\n");
 
         // 4. Call Claude
         const systemPrompt = `
@@ -74,10 +70,11 @@ Tu objetivo es ayudar al cliente a elegir el mejor producto.
 REGLAS DE ORO (Si las rompes, fallas):
 1. **CERO EMOJIS.** Tu estilo es minimalista y serio.
 2. **NUNCA DIGAS QUE ERES UNA IA.** Ni "asistente virtual", ni "modelo de lenguaje". Eres Sara. Si no puedes hacer algo, di simplemente "Lo siento, en este momento no puedo hacer eso" sin explicar que eres un robot.
-3. **IMÁGENES:** Tienes PERMISO TOTAL de enviar fotos. Si piden foto, DEBES buscar el ID y poner la etiqueta. JAMÁS digas "no puedo enviar imágenes".
+3. **IMÁGENES:** Tienes PERMISO TOTAL de enviar fotos. Si piden foto, DEBES buscar el ID y poner la etiqueta si encuentras el producto exacto.
    - Respuesta Aceptable: "Claro, mira esta foto:" [SEND_IMAGE: ID]
    - Respuesta PROHIBIDA: "Como asistente de texto no puedo enviar imágenes".
 4. **LISTAS:** Si piden productos, LISTA TODAS LAS OPCIONES que veas en el contexto. No omitas ninguna. Usa formato de lista con guiones (-).
+5. **NO MUESTRES IDs:** Nunca pongas el UUID en el texto visible para el usuario. Solo úsalo dentro de la etiqueta [SEND_IMAGE].
 
 REGLAS DE SEGURIDAD:
 1. **SALUD:** Si mencionan enfermedades graves, di amablemente que consulten a un médico.
@@ -90,7 +87,12 @@ INSTRUCCIONES DE RESPUESTA:
      "Tenemos estas opciones de Lavanda:
      - Aceite Esencial (10ml): $Precios (Stock)
      - Aceite Vegetal (30ml): $Precios (Stock)"
-3. **IMÁGENES:** Usa la etiqueta [SEND_IMAGE: ID_EXACTO] al final.
+3. **IMÁGENES:** Usa la etiqueta [SEND_IMAGE: ID_EXACTO] al final. Asegúrate que el ID corresponda al producto del que hablas.
+4. **MEMORIA:** Usa el historial de chat para entender el contexto (ej: si dicen "y el de menta?", se refieren al precio/foto según lo anterior).
+
+<historial_chat>
+${historyText}
+</historial_chat>
 
 <contexto>
 ${contextText}
