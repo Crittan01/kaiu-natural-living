@@ -27,8 +27,11 @@ async function sendTestMessage() {
         const payload = {
             messaging_product: "whatsapp",
             to: TO_PHONE,
-            type: "text",
-            text: { body: "🤖 Hola! Esta es una prueba de verificación desde el script local." }
+            type: "template",
+            template: {
+                name: "hello_world",
+                language: { code: "en_US" }
+            }
         };
 
         const response = await axios.post(url, payload, {
