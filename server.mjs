@@ -84,6 +84,14 @@ app.get('/debug-ai', adaptParams(debugAiHandler));
 app.get('/api/health', adaptParams(healthHandler));
 app.get('/health', adaptParams(healthHandler));
 
+// Test Route (Fallback if standalone function fails)
+app.get('/api/test', (req, res) => {
+    res.json({ message: "Express Test Route Working!" });
+});
+app.get('/test', (req, res) => {
+    res.json({ message: "Express Test Route Working!" });
+});
+
 // Real WhatsApp Webhook (Meta)
 app.use('/api/whatsapp', whatsappWebhook);
 app.use('/whatsapp', whatsappWebhook);
