@@ -41,6 +41,9 @@ async function testAI() {
     // Scenario 4: Stock Check (Should mention stock status)
     await runQuery("¿Tienen aceite de lavanda disponible?", generateSupportResponse);
 
+    // Scenario 4b: Variant Specific Check (New)
+    await runQuery("¿Tienen el de lavanda de 10ml?", generateSupportResponse);
+
     // Scenario 5: Image Request (Should return [SEND_IMAGE: ...])
     await runQuery("Me gustaría ver una foto del aceite de lavanda", generateSupportResponse);
 }

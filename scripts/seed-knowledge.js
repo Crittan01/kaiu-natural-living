@@ -58,21 +58,36 @@ async function main() {
             .replace(/dolor/gi, "malestar");
     };
 
+    const convertDriveLink = (url) => {
+        if (!url) return '';
+        // Check if it's a google drive file view link
+        const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)\/view/);
+        if (driveMatch) {
+            const fileId = driveMatch[1];
+            // Convert to direct download/view link that WhatsApp might render
+            // Warning: WhatsApp strictly requires specific headers. 'uc?export=view' is best effort.
+            return `https://drive.google.com/uc?export=view&id=${fileId}`;
+        }
+        return url;
+    };
+
     const disclaimer = " (Nota: Este producto es cosmético y de bienestar, no sustituye tratamiento médico).";
 
     for (const p of products) {
         const cleanBenefits = sanitizeText(p.benefits || 'No especificados');
         const cleanDescription = sanitizeText(p.description || '');
         const stockStatus = p.stock > 0 ? `Disponible (${p.stock} unidades)` : 'Agotado';
-        const image = p.images && p.images.length > 0 ? p.images[0] : '';
+        const rawImage = p.images && p.images.length > 0 ? p.images[0] : '';
+        const image = convertDriveLink(rawImage);
+        const variant = p.variantName ? `Variante: ${p.variantName}` : '';
         
-        const text = `[PRODUCTO] ID: ${p.id} | Nombre: ${p.name} | Categoría: ${p.category || 'General'} | Precio: $${p.price} | Stock: ${stockStatus} | Beneficios: ${cleanBenefits} | Descripción: ${cleanDescription}${disclaimer}`;
+        const text = `[PRODUCTO] ID: ${p.id} | SKU: ${p.sku} | Nombre: ${p.name} | ${variant} | Categoría: ${p.category || 'General'} | Precio: $${p.price} | Stock: ${stockStatus} | Beneficios: ${cleanBenefits} | Descripción: ${cleanDescription}${disclaimer}`;
         const vector = await generateEmbedding(text, pipe);
 
         // Store vector using raw SQL
         await prisma.$executeRaw`
             INSERT INTO knowledge_base (id, content, metadata, embedding, "createdAt")
-            VALUES (gen_random_uuid(), ${text}, ${JSON.stringify({ source: 'product', id: p.id, title: p.name, category: p.category, image: image, stock: p.stock })}::jsonb, ${vector}::vector, NOW());
+            VALUES (gen_random_uuid(), ${text}, ${JSON.stringify({ source: 'product', id: p.id, sku: p.sku, title: p.name, variant: p.variantName, category: p.category, image: image, stock: p.stock })}::jsonb, ${vector}::vector, NOW());
         `;
     }
 
