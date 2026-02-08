@@ -1,21 +1,16 @@
 import { PrismaClient } from '@prisma/client';
-import { pipeline, env } from '@xenova/transformers';
+import { pipeline } from '@xenova/transformers';
 import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 
 const prisma = new PrismaClient();
 
-// Configure Transformers.js for Vercel Serverless (Read-Only FS)
-env.cacheDir = '/tmp'; 
-env.allowLocalModels = false; // Force download to /tmp if not found
-// Note: We bypass SSL verification validation here if needed, but in Prod Vercel it should be fine.
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; 
-
 // Singleton for Embedding Pipeline (Lazy Load)
 let embeddingPipe = null;
 
-// Singleton for Anthropic Client (Lazy Load)
-let chatModel = null;
+// Bypass SSL for local dev (Fixes Anthropic & Xenova fetch errors)
+// Note: This matches the behavior needed for this environment
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 async function getEmbeddingPipe() {
     if (!embeddingPipe) {
@@ -25,10 +20,13 @@ async function getEmbeddingPipe() {
     return embeddingPipe;
 }
 
+// Singleton for Anthropic Client (Lazy Load)
+let chatModel = null;
+
 function getChatModel() {
     if (!chatModel) {
         if (!process.env.ANTHROPIC_API_KEY) {
-             console.warn("⚠️ ANTHROPIC_API_KEY is missing!");
+            throw new Error("ANTHROPIC_API_KEY is not set");
         }
         chatModel = new ChatAnthropic({
             modelName: "claude-3-haiku-20240307", // Fast & Cheap
