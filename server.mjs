@@ -77,11 +77,26 @@ app.use('/api/admin/dashboard-stats', adaptParams(dashboardStatsHandler));
 app.use('/api', mockChatWebhook);
 
 // Debug Route for AI on Vercel
+// Handle both /api/debug-ai and /debug-ai (in case Vercel strips prefix)
 app.get('/api/debug-ai', adaptParams(debugAiHandler));
+app.get('/debug-ai', adaptParams(debugAiHandler));
+
 app.get('/api/health', adaptParams(healthHandler));
+app.get('/health', adaptParams(healthHandler));
 
 // Real WhatsApp Webhook (Meta)
 app.use('/api/whatsapp', whatsappWebhook);
+app.use('/whatsapp', whatsappWebhook);
+
+// Catch-All 404 Handler (To verify if Express is running)
+app.use((req, res) => {
+    res.status(404).json({
+        error: "Route not found",
+        url: req.url,
+        method: req.method,
+        timestamp: new Date().toISOString()
+    });
+});
 
 // Iniciar Servidor
 // Iniciar Servidor
