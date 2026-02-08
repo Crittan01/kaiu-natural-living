@@ -102,5 +102,3 @@ if (process.env.NODE_ENV !== 'production' || process.argv[1] === fileURLToPath(i
 export default app;
 
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
