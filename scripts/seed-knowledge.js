@@ -48,20 +48,20 @@ async function main() {
     console.log(`📦 Procesando ${products.length} productos...`);
 
     for (const p of products) {
-        const text = `Producto: ${p.name}. Precio: $${p.price}. Descripción: ${p.description || ''}. Beneficios: ${p.benefits || ''}`;
+        const text = `[PRODUCTO] Nombre: ${p.name} | Categoría: ${p.category || 'General'} | Precio: $${p.price} | Beneficios: ${p.benefits || 'No especificados'} | Descripción: ${p.description || ''}`;
         const vector = await generateEmbedding(text, pipe);
 
         // Store vector using raw SQL because Prisma Schema doesn't support vector type yet
         await prisma.$executeRaw`
             INSERT INTO knowledge_base (id, content, metadata, embedding, "createdAt")
-            VALUES (gen_random_uuid(), ${text}, ${JSON.stringify({ source: 'product', id: p.id, title: p.name })}::jsonb, ${vector}::vector, NOW());
+            VALUES (gen_random_uuid(), ${text}, ${JSON.stringify({ source: 'product', id: p.id, title: p.name, category: p.category })}::jsonb, ${vector}::vector, NOW());
         `;
     }
 
     // 4. Ingest FAQs
     console.log(`❓ Procesando ${faqs.length} preguntas frecuentes...`);
     for (const faq of faqs) {
-        const text = `Pregunta: ${faq.question} Respuesta: ${faq.answer}`;
+        const text = `[PREGUNTA FRECUENTE] Pregunta: ${faq.question} | Respuesta: ${faq.answer}`;
         const vector = await generateEmbedding(text, pipe);
 
         await prisma.$executeRaw`
