@@ -14,6 +14,9 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 // Singleton for Embedding Pipeline (Lazy Load)
 let embeddingPipe = null;
 
+// Singleton for Anthropic Client (Lazy Load)
+let chatModel = null;
+
 async function getEmbeddingPipe() {
     if (!embeddingPipe) {
         console.log("🔌 Loading Embedding Model...");
@@ -22,12 +25,19 @@ async function getEmbeddingPipe() {
     return embeddingPipe;
 }
 
-// Singleton for Anthropic Client
-const chatModel = new ChatAnthropic({
-    modelName: "claude-3-haiku-20240307", // Fast & Cheap
-    temperature: 0.3,
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-});
+function getChatModel() {
+    if (!chatModel) {
+        if (!process.env.ANTHROPIC_API_KEY) {
+             console.warn("⚠️ ANTHROPIC_API_KEY is missing!");
+        }
+        chatModel = new ChatAnthropic({
+            modelName: "claude-3-haiku-20240307", // Fast & Cheap
+            temperature: 0.3,
+            anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+        });
+    }
+    return chatModel;
+}
 
 export async function generateSupportResponse(userQuestion) {
     try {
@@ -73,7 +83,7 @@ CONTEXTO:
 ${contextText}
         `;
 
-        const response = await chatModel.invoke([
+        const response = await getChatModel().invoke([
             new SystemMessage(systemPrompt),
             new HumanMessage(userQuestion),
         ]);
