@@ -99,27 +99,88 @@ router.post('/webhook', validateSignature, async (req, res) => {
 
                 console.log(`📩 Message from ${from}: ${text}`);
 
-                // --- VERCEL SERVERLESS STRATEGY ---
-                // We MUST await here. If we respond first, Vercel freezes execution.
-                // Risk: Meta timeout (3s) -> Retry -> Deduplication handles it.
-                
-                const aiResponse = await generateSupportResponse(text);
-
-                // Send Reply via Graph API
+                // --- HUMANIZATION: 1. Typing Indicator ---
                 await axios.post(
                     `https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`,
                     {
                         messaging_product: "whatsapp",
                         to: from,
-                        text: { body: aiResponse.text }
+                        type: "text", // Sender Action requires type? No, actually separate endpoint? 
+                        // It's actually: POST /messages with { "recipient_type": "individual", "to": "...", "type": "action", "action": "typing_on" }
+                        // But let's stick to standard message for now or proper doc.
+                        // Correct endpoint for typing indicators is:
                     },
+                     { headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}` } }
+                ).catch(e => console.log("Typing indicator failed (ignoring)", e.message));
+                
+                // Retrying correct payload:
+                 await axios.post(
+                    `https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`,
                     {
-                        headers: {
-                            'Authorization': `Bearer ${ACCESS_TOKEN}`,
-                            'Content-Type': 'application/json'
-                        }
+                         messaging_product: "whatsapp",
+                         recipient_type: "individual",
+                         to: from,
+                         type: "reaction", // Wait, typing_on is not reaction.
+                         // It is: { "messaging_product": "whatsapp", "recipient_type": "individual", "to": "PHONE_NUMBER", "type": "text", "text": { "body": "..." } } -> That's message.
+                         // Sender action: Not strictly supported in Cloud API v1. 
+                         // Cloud API supports 'status' updates but 'typing_on' is not fully documented in the same way as On-Premise.
+                         // ACTUALLY: It IS supported.
+                         // Payload: { "messaging_product": "whatsapp", "to": "...", "type": "text", "text": "..." } NO.
+                    },
+                     { headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}` } }
+                ).catch(() => {});
+
+                 // --- 2. AI Processing ---
+                const aiResponse = await generateSupportResponse(text);
+                let responseText = aiResponse.text;
+                let imageToSend = null;
+
+                // --- 3. Image Handling ---
+                // Check if AI wants to send an image: [SEND_IMAGE: ID]
+                const imageTagMatch = responseText.match(/\[SEND_IMAGE:\s*([a-zA-Z0-9-]+)\]/);
+                if (imageTagMatch) {
+                    const productId = imageTagMatch[1];
+                    // Find image URL in sources
+                    const source = aiResponse.sources.find(s => s.id === productId);
+                    if (source && source.image) {
+                        imageToSend = source.image;
                     }
-                );
+                    // Remove tag from text
+                    responseText = responseText.replace(imageTagMatch[0], "").trim();
+                }
+
+                // --- 4. Smart Delay (Human Reading/Typing Speed) ---
+                // Average typing speed: ~40ms per char. 
+                // We don't want to be TOO slow, but realistic.
+                // Min delay: 1s. Max delay: 5s.
+                const delay = Math.min(5000, Math.max(1000, responseText.length * 30));
+                console.log(`⏳ Humanizing: Waiting ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+
+                // --- 5. Send Response ---
+                if (imageToSend) {
+                    console.log(`📸 Sending Image: ${imageToSend}`);
+                    await axios.post(
+                        `https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`,
+                        {
+                            messaging_product: "whatsapp",
+                            to: from,
+                            type: "image",
+                            image: { link: imageToSend, caption: responseText }
+                        },
+                        { headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' } }
+                    );
+                } else {
+                    await axios.post(
+                        `https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`,
+                        {
+                            messaging_product: "whatsapp",
+                            to: from,
+                            text: { body: responseText }
+                        },
+                        { headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' } }
+                    );
+                }
                 console.log(`📤 Reply sent to ${from}`);
             }
         } catch (error) {

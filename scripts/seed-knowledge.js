@@ -47,14 +47,32 @@ async function main() {
     const products = await prisma.product.findMany({ where: { isActive: true }});
     console.log(`📦 Procesando ${products.length} productos...`);
 
+    const sanitizeText = (text) => {
+        if (!text) return '';
+        return text
+            .replace(/cura/gi, "apoyo para")
+            .replace(/tratamiento/gi, "cuidado")
+            .replace(/medicamento/gi, "producto natural")
+            .replace(/insomnio/gi, "sueño reparador")
+            .replace(/ansiedad/gi, "relajación")
+            .replace(/dolor/gi, "malestar");
+    };
+
+    const disclaimer = " (Nota: Este producto es cosmético y de bienestar, no sustituye tratamiento médico).";
+
     for (const p of products) {
-        const text = `[PRODUCTO] Nombre: ${p.name} | Categoría: ${p.category || 'General'} | Precio: $${p.price} | Beneficios: ${p.benefits || 'No especificados'} | Descripción: ${p.description || ''}`;
+        const cleanBenefits = sanitizeText(p.benefits || 'No especificados');
+        const cleanDescription = sanitizeText(p.description || '');
+        const stockStatus = p.stock > 0 ? `Disponible (${p.stock} unidades)` : 'Agotado';
+        const image = p.images && p.images.length > 0 ? p.images[0] : '';
+        
+        const text = `[PRODUCTO] ID: ${p.id} | Nombre: ${p.name} | Categoría: ${p.category || 'General'} | Precio: $${p.price} | Stock: ${stockStatus} | Beneficios: ${cleanBenefits} | Descripción: ${cleanDescription}${disclaimer}`;
         const vector = await generateEmbedding(text, pipe);
 
-        // Store vector using raw SQL because Prisma Schema doesn't support vector type yet
+        // Store vector using raw SQL
         await prisma.$executeRaw`
             INSERT INTO knowledge_base (id, content, metadata, embedding, "createdAt")
-            VALUES (gen_random_uuid(), ${text}, ${JSON.stringify({ source: 'product', id: p.id, title: p.name, category: p.category })}::jsonb, ${vector}::vector, NOW());
+            VALUES (gen_random_uuid(), ${text}, ${JSON.stringify({ source: 'product', id: p.id, title: p.name, category: p.category, image: image, stock: p.stock })}::jsonb, ${vector}::vector, NOW());
         `;
     }
 
