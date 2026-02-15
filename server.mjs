@@ -90,10 +90,42 @@ app.post('/api/chat', async (req, res) => {
         // Call Shared AI Brain
         const aiResponse = await generateSupportResponse(message, history || []);
         
+        let responseText = aiResponse.text;
+        let productCard = null;
+
+        // Parse [SEND_IMAGE: UUID] tag
+        const imageMatch = responseText.match(/\[SEND_IMAGE:\s*([a-zA-Z0-9-]+)\]/);
+        if (imageMatch) {
+            const imageId = imageMatch[1];
+            // Find product details in sources
+            const productSource = aiResponse.sources.find(s => s.id === imageId);
+            
+            if (productSource) {
+                console.log(`📸 Found Product for Card: ${productSource.title} (${imageId})`);
+                productCard = {
+                    title: productSource.title,
+                    image: productSource.image,
+                    link: `/catalogo?q=${encodeURIComponent(productSource.title)}`, // Simple link for now
+                    price: productSource.price
+                };
+            } else {
+                console.warn(`⚠️ AI requested image ${imageId} but it wasn't in sources.`);
+            }
+            
+            // Remove the tag from the user-facing text
+            // responseText = responseText.replace(imageMatch[0], '').trim(); 
+            // Better to keep it cleaned on frontend or here? 
+            // The frontend ChatWidget regex replaces explicit UUIDs, but let's be clean here.
+            // Actually ChatWidget expects the tag to be hidden via CSS or stripped. 
+            // Let's rely on ChatWidget stripping if it handles it, or strip it here.
+            // Checking ChatWidget code... it creates a "Link Card" if msg.product exists.
+        }
+
         // Return standard JSON
         res.json({
-            text: aiResponse.text,
-            sources: aiResponse.sources
+            text: responseText,
+            sources: aiResponse.sources,
+            product: productCard
         });
     } catch (error) {
         console.error("Web Chat Error:", error);

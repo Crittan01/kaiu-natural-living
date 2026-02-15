@@ -1,3 +1,4 @@
+
 import { PrismaClient } from '@prisma/client';
 import { pipeline } from '@xenova/transformers';
 import { ChatAnthropic } from "@langchain/anthropic";
@@ -43,17 +44,30 @@ export async function generateSupportResponse(userQuestion, chatHistory = []) {
 
         // 1. Contextualize Question (History-Aware)
         let searchQuery = userQuestion;
+        
+        // Strategy: If the user's question is short or dependent ("y esto?", "precios?", "foto"), 
+        // we MUST know what the bot just said.
         if (chatHistory.length > 0) {
-            const lastMsg = chatHistory[chatHistory.length - 1]; // Previous message (User or Sara)
-            // If the previous message was from Sara listing products, and user asks "Prices", it might help to include Sara's context too?
-            // Safer: Just include the last *User* message if it was recent.
-            // Actually, let's just append the last message content regardless of role, it gives context.
-            // "Tienes lavanda?" -> "Si..." -> "Precios".
-            // Query: "Si... Precios". Maybe not great.
-            // Query: "Tienes lavanda? Precios". BETTER.
-            const lastUserMsg = [...chatHistory].reverse().find(m => m.role === 'user');
-            if (lastUserMsg && lastUserMsg.content !== userQuestion) {
-                searchQuery = `${lastUserMsg.content} ${userQuestion}`;
+            const lastMsg = chatHistory[chatHistory.length - 1]; 
+            
+            // If the last message was from Sara, it likely contains the products we are discussing.
+            if (lastMsg.role === 'assistant') {
+                 // Append the last bot message to the query to find those specific products again
+                 // Limit to 300 chars to avoid token explosion, but capture the product names.
+                 // FORCE INJECTION for short queries
+                 if (userQuestion.length < 20 || /foto|imagen|precio|costo|vale|disponib|stock|hay|tienes/i.test(userQuestion)) {
+                    console.log("🧩 Enhancing short query with previous context...");
+                    // Extract potential ingredient from last message (simple heuristic or just pass full content)
+                    searchQuery = `${userQuestion} (Contexto: Del producto "${lastMsg.content.slice(0, 100)}..." que estabamos hablando)`;
+                 } else {
+                    searchQuery = `${lastMsg.content.slice(0, 300)} ${userQuestion}`;
+                 }
+            } else {
+                 // Fallback to previous logic: combine with last user message
+                 const lastUserMsg = [...chatHistory].reverse().find(m => m.role === 'user');
+                 if (lastUserMsg && lastUserMsg.content !== userQuestion) {
+                     searchQuery = `${lastUserMsg.content} ${userQuestion}`;
+                 }
             }
         }
         console.log(`🔍 Search Query (Contextualized): "${searchQuery}"`);
@@ -73,8 +87,101 @@ export async function generateSupportResponse(userQuestion, chatHistory = []) {
             LIMIT 15;
         `;
 
-        // 3. Construct Context Blob
-        const contextText = results.map(r => r.content).join("\n---\n");
+        // 2b. Live Hydration & STRICT FILTERING (Hybrid RAG)
+        // usage: Extract IDs -> Fetch Real DB Data -> Override Metadata
+        
+        // 🚨 STRICT TOPIC LOCK: Detect active ingredient from history to kill hallucinations
+        const CORE_INGREDIENTS = ['Lavanda', 'Limón', 'Menta', 'Eucalipto', 'Romero', 'Citronela', 'Arbol de Té', 'Naranja', 'Toronja', 'Incienso', 'Canela', 'Clavo', 'Geranio', 'Ylang Ylang', 'Cedro'];
+        let activeTopic = null;
+
+        if (chatHistory.length > 0) {
+            const lastMsg = chatHistory[chatHistory.length - 1];
+            if (lastMsg.role === 'assistant') {
+                // Find which ingredient was mentioned last
+                const contentLower = lastMsg.content.toLowerCase();
+                const found = CORE_INGREDIENTS.find(i => contentLower.includes(i.toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u')));
+                if (found) {
+                     activeTopic = found;
+                     console.log(`🧠 Context Detected: Active Ingredient = ${activeTopic}`);
+                } else {
+                     console.log(`🧠 Context Analysis: No ingredient found in last message.`);
+                }
+            }
+        }
+
+        let finalResults = results;
+
+        // If we have an active topic and the user is asking a "short context query" (fotos, precio...), 
+        // FILTER OUT everything else.
+        if (activeTopic && (userQuestion.length < 25 || /foto|imagen|precio|costo|vale|disponib|stock|hay|tienes/i.test(userQuestion))) {
+            console.log(`🔒 TOPIC LOCK ACTIVE: Filtering for "${activeTopic}"... Initial Results: ${results.length}`);
+            finalResults = results.filter(r => {
+                const title = (r.metadata && r.metadata.title) ? r.metadata.title.toLowerCase() : '';
+                const normalize = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const match = normalize(title).includes(normalize(activeTopic));
+                if (!match) console.log(`   ❌ Filtered out: ${title}`);
+                return match;
+            });
+            console.log(`   ✅ Remaining Results: ${finalResults.length}`);
+            
+            if (finalResults.length === 0) {
+                 console.warn("⚠️ Topic Lock too strict? No results found. Reverting to full search.");
+                 finalResults = results; // Fallback to avoid empty context
+            }
+        }
+
+        const productIds = finalResults
+            .filter(r => r.metadata && r.metadata.id)
+            .map(r => r.metadata.id);
+
+        let liveDataMap = {};
+        if (productIds.length > 0) {
+            const liveProducts = await prisma.product.findMany({
+                where: { id: { in: productIds } },
+                select: { id: true, stock: true, price: true, isActive: true }
+            });
+            // Map for O(1) access
+            liveProducts.forEach(p => liveDataMap[p.id] = p);
+        }
+
+        // 3. Construct Context Blob with Live Data Overrides
+        const contextText = finalResults.map(r => {
+            let content = r.content;
+            const meta = r.metadata || {};
+            
+            if (meta.id && liveDataMap[meta.id]) {
+                const live = liveDataMap[meta.id];
+                
+                // 1. FILTER: If inactive in DB, hide it entirely from context (Ghost Product)
+                if (!live.isActive) return null; 
+
+                // 2. HYDRATE PRICE
+                // Regex replace price in text $XXXX -> $LivePrice
+                // Note: concise regex that looks for Price: $Number
+                content = content.replace(/Precio: \$\d+/g, `Precio: $${live.price}`);
+                
+                // 3. HYDRATE STOCK
+                // Logic: If live stock <= 0, Force "AGOTADO" label
+                if (live.stock <= 0) {
+                     content = `[⚠️ PRODUCTO AGOTADO / SIN STOCK (0) ⚠️] ${content.replace(/Stock: .*/, "Stock: Agotado")}`;
+                } else {
+                     // Ensure positive stock is reflected if text said "Agotado" previously
+                     content = content.replace(/Stock: .*/, `Stock: Disponible (${live.stock} unidades)`);
+                }
+                
+                // 4. INJECT EXPLICIT ID FOR IMAGE
+                // Helps the LLM find the ID easily for [SEND_IMAGE: ...]
+                content += ` | ID_FOTO: ${live.id}`;
+
+                // Update metadata for sources return
+                r.metadata.price = live.price;
+                r.metadata.stock = live.stock;
+            }
+
+            return content;
+        })
+        .filter(c => c !== null) // Remove nulls (Inactive products)
+        .join("\n---\n");
         
         // Format History for Prompt
         const historyText = chatHistory.map(m => `${m.role === 'user' ? 'Cliente' : 'Sara'}: ${m.content}`).join("\n");
@@ -84,27 +191,73 @@ export async function generateSupportResponse(userQuestion, chatHistory = []) {
 Eres Sara, una asesora experta en aceites esenciales y bienestar de KAIU.
 Tu objetivo es ayudar al cliente a elegir el mejor producto.
 
-REGLAS DE ORO (Si las rompes, fallas):
-1. **CERO EMOJIS.** Tu estilo es minimalista y serio.
-2. **NUNCA DIGAS QUE ERES UNA IA.**
-3. **IMÁGENES:** Si piden foto, DEBES buscar el ID y poner la etiqueta.
-   - Respuesta Aceptable: "Claro, mira esta foto:" [SEND_IMAGE: ID]
-4. **LISTAS COMPLETAS:** Si piden productos (ej: Lavanda), LISTA TODAS LAS OPCIONES (Goteros 10ml, 30ml, Roll-ons, etc) que veas en el contexto. No omitas ninguna.
-5. **NO MUESTRES IDs:** Nunca pongas el UUID en el texto.
-6. **CONCISIÓN:** Sé breve. Máximo 4 líneas de conversación + la lista de productos. Ve al grano.
+REGLAS DE ORO (COHERENCIA ABSOLUTA):
+1. **MANTÉN EL CONTEXTO (CRÍTICO):**
+   - **CANDADO DE TEMA:** Si estamos hablando de **LAVANDA**, ¡IGNORA CUALQUIER OTRO PRODUCTO (Clavo, Eucalipto, etc.) que aparezca en el texto!
+   - Si preguntan "disponibilidad" o "precios", responde SOLO sobre **LAVANDA**.
+   - **PERSISTENCIA DE INGREDIENTE:** Si preguntan "¿y vegetal?", se refieren a **ACEITE VEGETAL DE LAVANDA**.
+   - Si la última interacción fue sobre **ACEITE VEGETAL**, ¡IGNORA EL ESENCIAL!
+   - Si preguntan "¿solo ese?" o "¿tienes más?", asume que hablan del **VEGETAL** (de ese mismo ingrediente).
 
-REGLAS DE SEGURIDAD:
-1. **CATÁLOGO ESTRICTO:** Solo vendemos lo que aparece en el contexto con la etiqueta [PRODUCTO].
-   - Si recomiendas algo que no vendemos, di claramente: "No lo tenemos en catálogo actualmente".
-2. **SALUD:** Si mencionan enfermedades graves, deriva al médico.
-3. **ESCALAMIENTO:** Link humano: https://wa.me/573150718723
+2. **CERO ROBOTISMO:**
+   - Prohibido \`[PRODUCT]...\`. Parafrasea natural.
+
+3. **VISUAL (OBLIGATORIO):**
+   - Si hay imagen relevante, CIERRA con [SEND_IMAGE: ID].
+   - **SI PIDEN IMAGEN ("dame foto") Y HAY VARIOS:**
+     - ¡PROHIBIDO PREGUNTAR CUÁL!
+     - **ELIGE EL PRIMERO** de tu lista anterior y manda su [SEND_IMAGE: ID].
+     - Di: "Aquí tienes la foto del [Nombre del Primero]:".
+
+4. **LISTAS EXHAUSTIVAS:**
+   - Si hay variantes (10ml, 30ml), MENCIONALAS TODAS.
+   - **AGRUPA** por tipo de presentación.
+   - **NO MUESTRES PRECIOS** en la lista inicial (salvo que pregunten "precio"). Hazla limpia.
+
+6. **ESTILO WHATSAPP (HUMANO):**
+   - **¡CORTANTE PERO AMABLE!**
+   - Usa frases cortas. Máximo 2 líneas por párrafo.
+   - **PROHIBIDO JUSTIFICARTE:** No digas "Entiendo tu pregunta", "La razón es...". ¡Aburre!
+   - Si el cliente te corrige (ej: "quería vegetal"), di: "¡Ah, perdona! Aquí tienes el vegetal:" y muestra la info. Nada de excusas largas.
+
+7. **HONESTIDAD EN VARIANTES (CONTEXTO ACUMULADO):**
+   - Si estamos hablando de **Vegetal** y solo hay 30ml, TU RESPUESTA DEBE SER: "Sí, por ahora solo manejamos 30ml en Vegetal."
+   - **NO OFREZCAS ESENCIAL** como alternativa a menos que te quedes sin stock del vegetal.
+   - ¡NO TE CONTRADIGAS! (Si solo hay una, di que solo hay una).
+
+8. **PRECISIÓN DE DATOS (CRÍTICO):**
+   - **PRECIOS:** ¡COPIA EXACTA! Si el contexto dice "$54000", NO DIGAS "$52000" ni "$55000".
+   - **IDS DE IMAGEN:** Busca la etiqueta \`| ID_FOTO: XXXXX...\` al final del texto del producto.
+   - **FILTRO DE COHERENCIA (VISUAL):**
+     - Mira el **HISTORIAL**: ¿De qué producto veníamos hablando? (Ej: Lavanda).
+     - Si encuentras un ID de "Limón" pero hablábamos de "Lavanda", ¡IG-NÓ-RA-LO!
+     - Solo envía el ID si coincide con el producto del historial.
+   - Usa ESE ID exacto para el tag \`[SEND_IMAGE: ID]\`.
+   - Si no encuentras "ID_FOTO" del producto correcto, NO envíes el tag.
+
+9. **FILTRO DE STOCK (REALISMO):**
+   - **¡ATENCIÓN!** Si el texto empieza con \`[⚠️ PRODUCTO AGOTADO...]\`:
+     - **¡ESTÁ AGOTADO!** No inventes que hay disponible.
+     - NO lo incluyas en listas de "tenemos disponible".
+     - Si es la única opción, di: "Lo siento, el [Nombre] está agotado por el momento."
 
 INSTRUCCIONES DE RESPUESTA:
-1. **ERRORES DE USUARIO:** Si escriben mal (ej: "Lavanta"), es Lavanda.
-2. **VARIANTES:** Muestra TODAS las presentaciones así:
-   - Nombre (Tamaño): $Precio (Stock)
-3. **IMÁGENES:** Usa la etiqueta [SEND_IMAGE: ID_EXACTO] al final.
-4. **MEMORIA:** Usa el historial.
+- **Formato (Limpio):**
+  "Tenemos [Nombre] en:
+   - Goteros ([Lista de tamaños])
+   - Roll-on ([Lista de tamaños])"
+- **Tarjeta:** Cierra con [SEND_IMAGE: ID_EXACTO_DEL_CONTEXTO].
+- **Solicitud de Imagen:** ¡ANTE LA DUDA, MANDA LA DEL PRIMERO!
+
+<EJEMPLO_COMPORTAMIENTO_OBLIGATORIO>
+Cliente: "¿Tienen Aceite de Lavanda?"
+Sara: "Sí, tenemos Aceite Esencial de Lavanda en estas presentaciones:
+- Gotero (10ml, 30ml, 100ml)
+- Roll-on (5ml, 10ml)
+
+Es ideal para relajación y sueño."
+[SEND_IMAGE: 6d9ffaca-6dfb-4480-8cae-64149327d1e3]
+</EJEMPLO_COMPORTAMIENTO_OBLIGATORIO>
 
 <historial_chat>
 ${historyText}
@@ -122,7 +275,7 @@ ${contextText}
 
         return {
             text: response.content,
-            sources: results.map(r => r.metadata) // return sources for debugging
+            sources: finalResults.map(r => r.metadata) // return filtered sources
         };
 
     } catch (error) {

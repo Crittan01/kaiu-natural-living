@@ -87,7 +87,7 @@ async function main() {
         // Store vector using raw SQL
         await prisma.$executeRaw`
             INSERT INTO knowledge_base (id, content, metadata, embedding, "createdAt")
-            VALUES (gen_random_uuid(), ${text}, ${JSON.stringify({ source: 'product', id: p.id, sku: p.sku, title: p.name, variant: p.variantName, category: p.category, image: image, stock: p.stock })}::jsonb, ${vector}::vector, NOW());
+            VALUES (gen_random_uuid(), ${text}, ${JSON.stringify({ source: 'product', id: p.id, sku: p.sku, title: p.name, variant: p.variantName, category: p.category, image: image, stock: p.stock, slug: p.slug, price: p.price })}::jsonb, ${vector}::vector, NOW());
         `;
     }
 

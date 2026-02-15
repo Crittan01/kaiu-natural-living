@@ -202,8 +202,9 @@ export default function AdminDashboard() {
         } else {
              throw new Error(data.error);
         }
-    } catch (e: any) {
-        toast({ title: "Error Sincronizando", description: e.message, variant: "destructive" });
+    } catch (e) {
+        const message = e instanceof Error ? e.message : "Error desconocido";
+        toast({ title: "Error Sincronizando", description: message, variant: "destructive" });
     }
   };
 
@@ -478,7 +479,7 @@ export default function AdminDashboard() {
                         <div className="w-full md:w-64 flex flex-col gap-2">
                              <h3 className="text-sm font-medium text-muted-foreground mb-2 px-2">Estado del Pedido</h3>
                              {['DETAILS', 'READY_TO_SHIP', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED', 'ALL'].map((filterKey) => {
-                                const info: Record<string, { label: string, icon: any }> = {
+                                const info: Record<string, { label: string, icon: React.ElementType }> = {
                                     'ALL': { label: 'Todos', icon: ListIcon },
                                     'DETAILS': { label: 'Por Procesar', icon: Clock },
                                     'READY_TO_SHIP': { label: 'Por Recoger', icon: Package },

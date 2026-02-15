@@ -12,10 +12,11 @@ import { Input } from '@/components/ui/input';
 const Catalogo = () => {
   const [searchParams] = useSearchParams();
   const initialCategory = searchParams.get('categoria') || '';
+  const initialSearch = searchParams.get('q') || '';
   
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [showFilters, setShowFilters] = useState(false);
   
   // Async Data State

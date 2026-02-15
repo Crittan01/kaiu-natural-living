@@ -11,13 +11,21 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+interface ProductCard {
+  id: string;
+  title: string;
+  price: number;
+  slug: string;
+  image: string;
+}
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-  image?: string | null;
+  product?: ProductCard | null;
 }
 
-const INITIAL_MESSAGE: Message = { role: 'assistant', content: '¡Hola! Soy Sara 🌿, tu asesora de bienestar. ¿En qué puedo ayudarte hoy?' };
+const INITIAL_MESSAGE: Message | null = null;
 
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -25,9 +33,9 @@ export function ChatWidget() {
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
       const saved = sessionStorage.getItem('kaiu_chat_history');
-      return saved ? JSON.parse(saved) : [INITIAL_MESSAGE];
+      return saved ? JSON.parse(saved) : (INITIAL_MESSAGE ? [INITIAL_MESSAGE] : []);
     } catch (e) {
-      return [INITIAL_MESSAGE];
+      return INITIAL_MESSAGE ? [INITIAL_MESSAGE] : [];
     }
   });
 
@@ -49,7 +57,7 @@ export function ChatWidget() {
   }, [messages, isOpen]);
 
   const handleClearChat = () => {
-    setMessages([INITIAL_MESSAGE]);
+    setMessages(INITIAL_MESSAGE ? [INITIAL_MESSAGE] : []);
     sessionStorage.removeItem('kaiu_chat_history');
   };
 
@@ -65,6 +73,12 @@ export function ChatWidget() {
     try {
       const history = newMessages.slice(1).map(m => ({ role: m.role, content: m.content }));
       
+      // 1. "Reading" Delay (2 seconds before "Typing..." appears)
+      // This gives the feeling that Sara is reading the message.
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      setIsLoading(true); // Show "Typing..." dots
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -75,23 +89,29 @@ export function ChatWidget() {
       
       if (data.error) throw new Error(data.error);
 
-      // Parse Image Logic
+      // Parse Image/Product Logic
       let assistantText = data.text;
-      let assistantImage = null;
+      let assistantProduct = null;
       
       const imageMatch = assistantText.match(/\[SEND_IMAGE:\s*([a-fA-F0-9-]{36})\]/);
       if (imageMatch) {
         const imageId = imageMatch[1];
-        // Find URL in sources
-        const source = data.sources?.find((s: any) => s.id === imageId);
-        if (source && source.image) {
-            assistantImage = source.image;
+        // Find product metadata in sources
+        const source = data.sources?.find((s: { id: string; title: string; price?: number; slug?: string; image?: string }) => s.id === imageId);
+        if (source) {
+            assistantProduct = {
+                id: source.id,
+                title: source.title,
+                price: source.price || 0,
+                slug: source.slug || '',
+                image: source.image
+            };
         }
         // Remove tag for display
         assistantText = assistantText.replace(imageMatch[0], '').trim();
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: assistantText, image: assistantImage }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: assistantText, product: assistantProduct }]);
     } catch (error) {
       console.error("Chat error:", error);
       setMessages(prev => [...prev, { role: 'assistant', content: "Lo siento, tuve un problema de conexión. Intenta de nuevo." }]);
@@ -107,8 +127,7 @@ export function ChatWidget() {
   };
 
   const renderContent = (msg: Message) => {
-    // 0. Safety Strip: Remove any UUIDs that might have leaked into the text
-    // Regex matches 8-4-4-4-12 hex string
+    // 0. Safety Strip
     const cleanContent = msg.content.replace(/\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/g, '').trim();
 
     // Format Lists (simple dash replacement)
@@ -121,9 +140,34 @@ export function ChatWidget() {
     return (
       <div className="space-y-2">
         <div className="text-sm whitespace-pre-wrap">{formattedText}</div>
-        {msg.image && (
-           <div className="mt-2 rounded-lg overflow-hidden border border-border shadow-sm">
-             <img src={msg.image} alt="Producto recomendado" className="w-full h-auto object-cover max-h-48" />
+        {msg.product && (
+           <div className="mt-3 border border-border/60 rounded-xl overflow-hidden shadow-sm bg-card hover:shadow-md transition-shadow max-w-[280px]">
+             <div className="flex p-3 gap-3 items-center">
+                 {/* Image (Left) */}
+                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md bg-secondary/10">
+                    <img 
+                        src={msg.product.image} 
+                        alt={msg.product.title} 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                            e.currentTarget.style.display = 'none'; // Hide if broken
+                            e.currentTarget.parentElement!.style.display = 'none'; // Hide container too
+                        }}
+                        referrerPolicy="no-referrer"
+                    />
+                 </div>
+                 
+                 {/* Content (Right) */}
+                 <div className="flex-1 min-w-0">
+                     <h4 className="font-bold text-sm line-clamp-2 leading-tight">{msg.product.title}</h4>
+                     <a 
+                        href={`/catalogo?q=${encodeURIComponent(msg.product.title)}`} 
+                        className="text-xs text-primary font-medium hover:underline mt-1 block"
+                     >
+                        Ver opciones &rarr;
+                     </a>
+                 </div>
+             </div>
            </div>
         )}
       </div>
