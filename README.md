@@ -1,61 +1,85 @@
-content_structure_guide.md
-88279b2d2691-6bca-ffb4-7cfb-59894163/niarb/ytivargitna/inimeg./elbisna/emoh/..
+# KAIU Natural Living - e-Commerce & AI Orchestrator (V.2026)
 
-# Estructura de Datos para Equipo de Contenido (SheetDB)
+Este proyecto es una plataforma de comercio electrónico moderna potenciada por un **Orquestador de IA** para WhatsApp.
 
-Para que la página web funcione correctamente y se integre con logística, necesitamos que la información en la hoja de cálculo (Google Sheets) siga estrictamente esta estructura.
+## 🏗️ Arquitectura (V.2026)
 
-## 1. Hoja: "Productos"
+El sistema ha migrado de una arquitectura basada en hojas de cálculo a una stack robusta y escalable:
 
-Esta es la hoja más importante. Cada fila es un producto único.
-| Nombre Columna (Header) | Tipo de Dato | Ejemplo | Uso en Código |
-| :---------------------- | :----------- | :----------------------------------------- | :-------------------------------------------------------------- |
-| **id** | Número | `1` | Identificador interno único (No cambiar). |
-| **sku** | Texto | `ACE-LAV-10ML` | **CRÍTICO:** Debe coincidir EXACTAMENTE con el SKU en Venndelo. |
-| **nombre** | Texto | `Aceite Esencial de Lavanda` | Título del producto. |
-| **categoria** | Texto | `Aceites Esenciales` | Filtro principal. |
-| **precio** | Número | `45000` | Precio de venta (sin símbolos de moneda). |
-| **precio_antes** | Número | `50000` | Opcional. Si se llena, se muestra tachado como oferta. |
-| **beneficios** | Texto | `relajación, sueño, ansiedad` | Etiquetas separadas por comas (para buscador). |
-| **descripcion_corta** | Texto | `Aceite 100% puro para relajación.` | Se muestra en la tarjeta del catálogo. |
-| **descripcion_larga** | Texto | `Nuestro aceite de lavanda proviene de...` | Se muestra en el detalle/modal. |
-| **ingredientes** | Texto | `Lavandula angustifolia oil` | Lista de componentes. |
-| **modo_uso** | Texto | `Difusión: 3 gotas. Tópico: Diluir...` | Instrucciones de aplicación. |
-| **tips** | Texto | `Úsalo en la almohada antes de dormir.` | Consejos de valor "KAIU". |
-| **certificaciones** | Texto | `Cruelty Free, Orgánico, Vegano` | Sellos de calidad (separados por comas). |
-| **imagen_url** | URL | `https://i.imgur.com/example.jpg` | Link directo a la foto (debe terminar en .jpg/.png). |
-| **variantes** | Texto | `10ml, 30ml` | Tamaños disponibles (separados por comas). |
-| **stock** | Texto | `DISPONIBLE` | `DISPONIBLE` o `AGOTADO`. |
+- **Frontend**: React + Vite + TailwindCSS (Dashboard & Tienda).
+- **Backend**: Node.js + Express.
+- **Base de Datos**: PostgreSQL (Supabase) con extensión `pgvector` para RAG.
+- **ORM**: Prisma IO.
+- **Colas / Segundo Plano**: BullMQ + Redis.
+- **IA**: Anthropic Claude 3.5 Sonnet + LangChain.
+- **Mensajería**: WhatsApp Cloud API.
 
 ---
 
-## 2. Hoja: "Rituales"
+## 🚀 Requisitos Previos
 
-Contenido educativo para la sección de experiencias.
-| Nombre Columna | Tipo | Ejemplo | Descripción |
-| :--------------------------- | :----- | :--------------------------------- | :--------------------------------------------------- |
-| **id** | Número | `101` | Identificador único. |
-| **titulo** | Texto | `Ritual de Sueño Profundo` | Nombre del ritual. |
-| **resumen** | Texto | `Prepara tu mente para descansar.` | Subtítulo corto. |
-| **contenido** | Texto | `Paso 1: Aplica lavanda...` | Texto completo del ritual. |
-| **imagen_url** | URL | `https://...` | Foto inspiracional del ritual. |
-| **producto_relacionado_sku** | Texto | `ACE-LAV-10ML` | SKU del producto que se recomienda para este ritual. |
+- Node.js v20+
+- PostgreSQL (con pgvector activado)
+- Redis Server (Local o Remoto)
+
+## 🛠️ Configuración Local
+
+1.  **Instalar dependencias**:
+
+    ```bash
+    npm install
+    ```
+
+2.  **Configurar Entorno**:
+    Copia `.env.example` a `.env.local` y `prisma/.env` y completa las variables:
+    - `DATABASE_URL`: Tu conexión a Postgres.
+    - `REDIS_HOST`: localhost (o tu proveedor).
+    - `WHATSAPP_*`: Credenciales de Meta.
+    - `ANTHROPIC_API_KEY`: Tu llave de Anthropic.
+
+3.  **Iniciar Base de Datos**:
+
+    ```bash
+    npx prisma db push
+    npm run seed  # (Opcional) Carga datos iniciales
+    ```
+
+4.  **Ejecutar Todo (Script Mágico)**:
+    ```bash
+    ./START_ALL.sh
+    ```
+    Este script inicia Redis, Backend (Puerto 3001) y Frontend (Vite) simultáneamente.
 
 ---
 
-## 3. Hoja: "FAQ"
+## 🤖 AI Orchestrator & Dashboard
 
-Preguntas frecuentes.
-| Nombre Columna | Tipo | Ejemplo |
-| :------------- | :----- | :---------------------------------------------- | ------------------------------------- |
-| **pregunta** | Texto | `¿Los aceites se pueden ingerir?` |
-| **respuesta** | Texto | `No recomendamos la ingesta sin supervisión...` |
-| **orden** | Número | `1` |
+El sistema incluye un **Panel de Control** en `/dashboard` para agentes humanos.
+
+- **Modo IA**: El bot responde automáticamente usando RAG (Búsqueda en base de conocimiento).
+- **Handover**: Si el usuario pide "humano", el bot se apaga y notifica al dashboard.
+- **Privacidad**: Filtros PII automáticos (Emails/Teléfonos ocultos en historial de IA).
+- **Transparencia**: Todas las respuestas de IA llevan firma.
 
 ---
 
-## ⚠️ Reglas de Oro para el Equipo
+## 📦 Despliegue (Producción)
 
-1.  **NO cambiar los nombres de las columnas (Headers):** Si cambian "imagen_url" por "Foto", la página se rompe.
-2.  **SKUs Idénticos:** El SKU en esta hoja debe ser idéntico al código que usen en Venndelo para el inventario. Es la llave maestra.
-3.  **URLs de Imágenes:** Deben ser enlaces directos públicos. No usar enlaces de Google Drive protegidos.
+### Base de Datos & Redis
+
+Recomendado: **Supabase** (DB) + **Upstash** (Redis) o **Railway** (Ambos).
+
+### Backend & Frontend
+
+Pueden desplegarse en **Vercel**, **Railway** o **VPS**.
+Asegúrate de configurar las variables de entorno de producción.
+
+---
+
+## 📁 Estructura del Proyecto
+
+- `src/`: Frontend React (Componentes, Páginas).
+- `backend/`: Servidor Express y Lógica de Negocio.
+- `backend/whatsapp/`: Webhooks y Workers de BullMQ.
+- `backend/services/ai/`: Lógica RAG y LangChain.
+- `prisma/`: Esquema de Base de Datos y Seeders.

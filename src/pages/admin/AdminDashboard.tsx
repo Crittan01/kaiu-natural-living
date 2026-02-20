@@ -555,8 +555,8 @@ export default function AdminDashboard() {
                             <CardTitle>Listado de Órdenes</CardTitle>
                             <CardDescription>Genera guías, solicita recogidas y monitorea el estado.</CardDescription>
                         </CardHeader>
-                        <CardContent className="p-0">
-                            <Table>
+                        <CardContent className="p-0 overflow-x-auto">
+                            <Table className="min-w-[1000px]">
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-[80px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('pin')}>

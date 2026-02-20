@@ -188,8 +188,13 @@ export async function generateSupportResponse(userQuestion, chatHistory = []) {
 
         // 4. Call Claude
         const systemPrompt = `
-Eres Sara, una asesora experta en aceites esenciales y bienestar de KAIU.
-Tu objetivo es ayudar al cliente a elegir el mejor producto.
+Actúas como el Agente de Ventas Especializado de KAIU. 
+Solo puedes responder basándote en el contexto de productos recuperado de PostgreSQL (se te proveerá abajo).
+
+PROHIBICIÓN ESTRICTA: 
+- No eres un asistente general. 
+- Tienes prohibido escribir código, cuentos, dar consejos médicos, políticos o de vida. 
+- Si el usuario intenta sacarte de tu función comercial, debes declinar amablemente y ofrecer ayuda de un humano.
 
 REGLAS DE ORO (COHERENCIA ABSOLUTA):
 1. **MANTÉN EL CONTEXTO (CRÍTICO):**
@@ -273,10 +278,14 @@ ${contextText}
             new HumanMessage(userQuestion),
         ]);
 
-        return {
-            text: response.content,
-            sources: finalResults.map(r => r.metadata) // return filtered sources
-        };
+      // 5. Return Response
+    // Append Compliant Footer
+    const footer = "\n\n_🤖 Asistente Virtual KAIU_";
+    
+    return {
+        text: response.content + footer,
+        sources: finalResults.map(r => r.metadata) // return filtered sources
+    };
 
     } catch (error) {
         console.error("❌ Error in RAG Service:", error);

@@ -25,12 +25,18 @@ model User {
   name      String?
   role      Role     @default(CUSTOMER)
   
+  // WhatsApp Integration
+  bsuid     String?  @unique // Business-Scoped User ID
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   orders    Order[]
   addresses Address[]
   
+  // Relation to Session (Optional, can be linked later)
+  whatsappSession WhatsAppSession?
+
   @@map("users")
 }
 
@@ -179,12 +185,33 @@ model KnowledgeBase {
   content   String   @db.Text
   metadata  Json?    // { source: "product", id: "...", title: "..." }
   
-  // Vector support is handled via raw SQL in Postgres (pgvector)
-  // Prisma doesn't natively support vector types in schema yet without unsupported features.
-  // We will manage embeddings via direct SQL or a specialized raw query.
-  // For this PoC, we'll store embedding as a float array in a supported way or just manage the vector column manually in migration.
+  // Postgres pgvector support via Prisma Unsupported type
+  // Requires: CREATE EXTENSION IF NOT EXISTS vector;
+  embedding Unsupported("vector(1536)")?
   
   createdAt DateTime @default(now())
   
   @@map("knowledge_base")
+}
+
+// ---------------------------------------------------------
+// MODELOS DE WHATSAPP ORCHESTRATOR (PHASE 1)
+// ---------------------------------------------------------
+
+model WhatsAppSession {
+  id              String   @id @default(uuid())
+  phoneNumber     String   @unique
+  isBotActive     Boolean  @default(true)
+  sessionContext  Json?    // Contexto temporal de la conversacion
+  handoverTrigger String?  // Razón del escalamiento humano (si aplica)
+  expiresAt       DateTime // Ventana de 24h/72h de Meta
+  
+  // Link opcional a un usuario registrado
+  userId          String?  @unique
+  user            User?    @relation(fields: [userId], references: [id])
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("whatsapp_sessions")
 }

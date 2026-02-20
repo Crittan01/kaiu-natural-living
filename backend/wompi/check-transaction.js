@@ -142,12 +142,15 @@ export default async function checkTransactionHandler(req, res) {
         }
         // ----------------------------------------
 
+        const orderIdFromRef = transaction.reference ? transaction.reference.split('-')[1] : undefined;
+
         res.status(200).json({
             id: transaction.id,
             status: transaction.status, // APPROVED, DECLINED, ERROR, VOIDED
             reference: transaction.reference,
             amount_in_cents: transaction.amount_in_cents,
-            timestamp: transaction.created_at
+            timestamp: transaction.created_at,
+            orderId: orderIdFromRef // <-- Fix for Issue #1
         });
 
     } catch (error) {

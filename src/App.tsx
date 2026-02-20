@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WishlistProvider } from "./context/WishlistContext";
 import { CartProvider } from "./context/CartContext";
 import ScrollToTop from "./components/ScrollToTop";
@@ -27,6 +27,13 @@ const Terms = lazy(() => import("./pages/Terms"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Retracto = lazy(() => import("./pages/Retracto"));
 
+// Dashboard (New)
+const DashboardLayout = lazy(() => import('./components/dashboard/DashboardLayout'));
+const DashboardChatList = lazy(() => import('./components/dashboard/ChatList'));
+const DashboardChatView = lazy(() => import('./components/dashboard/ChatView'));
+const DashboardBase = lazy(() => import('./pages/Dashboard'));
+const KnowledgePanel = lazy(() => import('./components/dashboard/KnowledgePanel'));
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -40,6 +47,7 @@ const App = () => (
             <ScrollToTop />
             <Suspense fallback={<LoadingFallback />}>
                 <Routes>
+                  {/* Public Routes */}
                   <Route path="/" element={<Index />} />
                   <Route path="/catalogo" element={<Catalogo />} />
                   <Route path="/rituales" element={<Rituales />} />
@@ -49,6 +57,8 @@ const App = () => (
                   <Route path="/checkout" element={<Checkout />} />
                   <Route path="/checkout/success" element={<CheckoutSuccess />} />
                   <Route path="/rastreo" element={<TrackOrder />} />
+                  
+                  {/* Admin & Legacy */}
                   <Route path="/admin" element={<AdminLogin />} />
                   <Route path="/admin/login" element={<AdminLogin />} />
                   <Route path="/admin/dashboard" element={<AdminDashboard />} />
@@ -56,7 +66,20 @@ const App = () => (
                   <Route path="/terminos" element={<Terms />} />
                   <Route path="/privacidad" element={<Privacy />} />
                   <Route path="/retracto" element={<Retracto />} />
-                  <Route path="*" element={<NotFound />} />
+
+                  {/* Dashboard Routes */}
+                  <Route path="/dashboard" element={<DashboardLayout />}>
+                      <Route index element={<DashboardChatList />} /> 
+                      <Route path="chats" element={<DashboardBase />}>
+                          <Route index element={<DashboardChatList />} />
+                          <Route path=":id" element={<DashboardChatView />} />
+                      </Route>
+                      <Route path="knowledge" element={<KnowledgePanel />} />
+                      <Route path="settings" element={<div className="p-10 text-gray-500">Configuración (Próximamente)</div>} />
+                  </Route>
+
+                  {/* Fallback */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Suspense>
           </BrowserRouter>
