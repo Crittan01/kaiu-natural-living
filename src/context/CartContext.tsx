@@ -31,8 +31,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       
       if (existing) {
         toast({
-          title: "Carrito actualizado",
-          description: `Se aumentó la cantidad de ${product.nombre} (${variant.nombre})`,
+          description: `+${quantity} ${product.nombre} (${variant.nombre}) actualizados.`,
+          duration: 1500,
         });
         return prev.map((item) =>
           (item.id === product.id && item.selectedVariant.id === variant.id)
@@ -42,8 +42,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       
       toast({
-        title: "Agregado al carrito",
-        description: `${product.nombre} (${variant.nombre}) se agregó.`,
+        description: `${product.nombre} (${variant.nombre}) en carrito.`,
+        duration: 1500,
       });
       
       // Crear nuevo item de carrito con la variante seleccionada

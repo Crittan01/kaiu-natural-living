@@ -28,8 +28,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     if (!isInWishlist(product.id)) {
       setItems((prev) => [...prev, product]);
       toast({
-        title: "Agregado a Favoritos",
-        description: `${product.nombre} se guardó en tu lista de deseos.`,
+        description: `${product.nombre} se guardó en favoritos ❤`,
+        duration: 1500,
       });
     }
   };
@@ -37,8 +37,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   const removeFromWishlist = (productId: number) => {
     setItems((prev) => prev.filter((item) => item.id !== productId));
     toast({
-      title: "Eliminado de Favoritos",
-      description: "El producto se eliminó de tu lista de deseos.",
+      description: "Producto eliminado de favoritos.",
+      duration: 1500,
     });
   };
 
