@@ -29,7 +29,7 @@ export function Header() {
           <Link to="/" className="flex items-center gap-2">
             <img 
               src={kaiuLogo} 
-              alt="Kaiu Cosmética Natural" 
+              alt="Kaiu - Natural Living" 
               className="h-10 w-10 md:h-12 md:w-12 rounded-full object-cover"
             />
             <span className="font-display text-xl md:text-2xl font-semibold text-primary">

@@ -22,6 +22,11 @@ interface ProductInventory {
     isActive: boolean;
     images: string[];
     category?: string;
+    benefits?: string;
+    weight?: number;
+    width?: number;
+    height?: number;
+    length?: number;
 }
 
 // Helper to convert Google Drive view links to direct image links
@@ -51,6 +56,7 @@ export function InventoryManager() {
     const [searchTerm, setSearchTerm] = useState('');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [editingProduct, setEditingProduct] = useState<ProductInventory | null>(null);
+    const [isAddingProduct, setIsAddingProduct] = useState(false);
     const { toast } = useToast();
 
     const [sortConfig, setSortConfig] = useState<{ key: keyof ProductInventory; direction: 'asc' | 'desc' } | null>(null);
@@ -138,6 +144,27 @@ export function InventoryManager() {
         }
     };
 
+    const handleCreate = async (newProduct: Partial<ProductInventory>) => {
+        try {
+            const res = await fetch('/api/admin/inventory', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(newProduct)
+            });
+
+            if (!res.ok) throw new Error('Fallo al crear producto');
+            
+            toast({ title: "Creado", description: "Producto agregado correctamente", duration: 1500 });
+            await fetchInventory(); // Refresh full list to get IDs and DB specifics
+            setIsAddingProduct(false);
+        } catch (error) {
+            toast({ title: "Error", description: "No se pudo crear el producto", variant: "destructive" });
+        }
+    };
+
     const handleSort = (key: keyof ProductInventory) => {
         let direction: 'asc' | 'desc' = 'asc';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -204,23 +231,28 @@ export function InventoryManager() {
                             <CardTitle>Gestión de Inventario</CardTitle>
                             <CardDescription>Administra tus productos, precios y stock.</CardDescription>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Button 
-                                variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
-                                size="icon" 
-                                onClick={() => setViewMode('list')}
-                                title="Vista Lista"
-                            >
-                                <ListIcon className="h-4 w-4" />
+                        <div className="flex items-center gap-4">
+                            <Button className="bg-kaiu-forest text-white hover:bg-kaiu-forest/90" onClick={() => setIsAddingProduct(true)}>
+                                + Agregar Producto
                             </Button>
-                            <Button 
-                                variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
-                                size="icon" 
-                                onClick={() => setViewMode('grid')}
-                                title="Vista Cuadrícula"
-                            >
-                                <LayoutGrid className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-2 border-l pl-4">
+                                <Button 
+                                    variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
+                                    size="icon" 
+                                    onClick={() => setViewMode('list')}
+                                    title="Vista Lista"
+                                >
+                                    <ListIcon className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                    variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
+                                    size="icon" 
+                                    onClick={() => setViewMode('grid')}
+                                    title="Vista Cuadrícula"
+                                >
+                                    <LayoutGrid className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
                     </div>
                     
@@ -470,6 +502,12 @@ export function InventoryManager() {
                     }} 
                 />
             )}
+            {isAddingProduct && (
+                <AddProductModal 
+                    onClose={() => setIsAddingProduct(false)} 
+                    onSave={handleCreate} 
+                />
+            )}
         </Card>
     );
 }
@@ -477,38 +515,248 @@ export function InventoryManager() {
 function EditProductModal({ product, onClose, onSave }: { product: ProductInventory, onClose: () => void, onSave: (sku: string, updates: Partial<ProductInventory>) => void }) {
     const [name, setName] = useState(product.name);
     const [description, setDescription] = useState(product.description || '');
-    const [category, setCategory] = useState(product.category || '');
     const [variantName, setVariantName] = useState(product.variantName || '');
+    const [benefits, setBenefits] = useState(product.benefits || '');
+    const [weight, setWeight] = useState(product.weight?.toString() || '0.2');
+    const [width, setWidth] = useState(product.width?.toString() || '10');
+    const [height, setHeight] = useState(product.height?.toString() || '10');
+    const [length, setLength] = useState(product.length?.toString() || '10');
+
+    // Category Logic
+    const predefinedCategories = ["Aceites Esenciales", "Aceites Vegetales", "Cuidado Corporal", "Cuidado Facial", "Sinergias", "Kits", "Difusores"];
+    const initialCategory = product.category || '';
+    const isCustom = initialCategory !== '' && !predefinedCategories.includes(initialCategory);
+    
+    const [categorySelect, setCategorySelect] = useState(isCustom ? 'Otros' : initialCategory);
+    const [customCategory, setCustomCategory] = useState(isCustom ? initialCategory : '');
+
+    const handleSave = () => {
+        const finalCategory = categorySelect === 'Otros' ? customCategory : categorySelect;
+        onSave(product.sku, { 
+            name, 
+            description, 
+            category: finalCategory, 
+            variantName,
+            benefits,
+            weight: Number(weight) || 0.2,
+            width: Number(width) || 10,
+            height: Number(height) || 10,
+            length: Number(length) || 10
+        });
+    };
 
     return (
         <Dialog open={true} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Editar Detalles del Producto</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                        <Label>Nombre del Producto</Label>
-                        <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ej: Aceite de Coco" />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label>Nombre del Producto</Label>
+                            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ej: Aceite de Coco" />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>SKU (Único)</Label>
+                            <Input value={product.sku} disabled className="bg-muted text-muted-foreground" title="El SKU no se puede editar" />
+                        </div>
                     </div>
                     <div className="grid gap-2">
                         <Label>Descripción Comercial</Label>
-                        <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Beneficios y usos del producto..." />
+                        <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Descripción larga..." />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Beneficios / Tags (separados por coma)</Label>
+                        <Input value={benefits} onChange={e => setBenefits(e.target.value)} placeholder="Ej: Hidratante, Calmante, Vegano" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                             <Label>Categoría</Label>
-                            <Input value={category} onChange={e => setCategory(e.target.value)} placeholder="Ej: Aceites Naturales" />
+                            <Select value={categorySelect} onValueChange={setCategorySelect}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Categoría Principal..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {predefinedCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                    <SelectItem value="Otros">Otra categoría...</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {categorySelect === 'Otros' && (
+                                <Input 
+                                    value={customCategory} 
+                                    onChange={e => setCustomCategory(e.target.value)} 
+                                    placeholder="Escribe la nueva categoría" 
+                                    className="mt-2"
+                                />
+                            )}
                         </div>
                         <div className="grid gap-2">
                             <Label>Nombre Variante</Label>
                             <Input value={variantName} onChange={e => setVariantName(e.target.value)} placeholder="Ej: Frasco 100ml" />
                         </div>
                     </div>
+                    <div className="mt-4 pt-4 border-t">
+                        <Label className="block mb-3 text-muted-foreground">Logística (Dimensiones de Empaque)</Label>
+                        <div className="grid grid-cols-4 gap-2">
+                            <div className="grid gap-1">
+                                <span className="text-xs">Peso (kg)</span>
+                                <Input type="number" step="0.1" value={weight} onChange={e => setWeight(e.target.value)} />
+                            </div>
+                            <div className="grid gap-1">
+                                <span className="text-xs">Ancho (cm)</span>
+                                <Input type="number" value={width} onChange={e => setWidth(e.target.value)} />
+                            </div>
+                            <div className="grid gap-1">
+                                <span className="text-xs">Alto (cm)</span>
+                                <Input type="number" value={height} onChange={e => setHeight(e.target.value)} />
+                            </div>
+                            <div className="grid gap-1">
+                                <span className="text-xs">Largo (cm)</span>
+                                <Input type="number" value={length} onChange={e => setLength(e.target.value)} />
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={() => onSave(product.sku, { name, description, category, variantName })} className="bg-kaiu-forest text-white hover:bg-kaiu-forest/90">Guardar Cambios</Button>
+                    <Button onClick={handleSave} className="bg-kaiu-forest text-white hover:bg-kaiu-forest/90">Guardar Cambios</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function AddProductModal({ onClose, onSave }: { onClose: () => void, onSave: (product: Partial<ProductInventory>) => void }) {
+    const [name, setName] = useState('');
+    const [sku, setSku] = useState('');
+    const [price, setPrice] = useState('');
+    const [stock, setStock] = useState('');
+    const [description, setDescription] = useState('');
+    const [variantName, setVariantName] = useState('');
+    const [benefits, setBenefits] = useState('');
+    
+    // Default config values
+    const [weight, setWeight] = useState('0.2');
+    const [width, setWidth] = useState('10');
+    const [height, setHeight] = useState('10');
+    const [length, setLength] = useState('10');
+
+    // Category Logic
+    const predefinedCategories = ["Aceites Esenciales", "Aceites Vegetales", "Cuidado Corporal", "Cuidado Facial", "Sinergias", "Kits", "Difusores"];
+    const [categorySelect, setCategorySelect] = useState('');
+    const [customCategory, setCustomCategory] = useState('');
+
+    const handleSave = () => {
+        const finalCategory = categorySelect === 'Otros' ? customCategory : categorySelect;
+        onSave({ 
+            sku,
+            name, 
+            price: Number(price), 
+            stock: Number(stock || 0), 
+            description, 
+            category: finalCategory, 
+            variantName,
+            benefits,
+            weight: Number(weight) || 0.2,
+            width: Number(width) || 10,
+            height: Number(height) || 10,
+            length: Number(length) || 10
+        });
+    };
+
+    return (
+        <Dialog open={true} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Crear Nuevo Producto</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label>Nombre del Producto *</Label>
+                            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ej: Crema Facial Antioxidante" />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>SKU (Opcional)</Label>
+                            <Input value={sku} onChange={e => setSku(e.target.value)} placeholder="Ej: CRE-FAC-01" />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label>Precio (COP) *</Label>
+                            <Input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="Ej: 45000" />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Stock Inicial</Label>
+                            <Input type="number" value={stock} onChange={e => setStock(e.target.value)} placeholder="Ej: 10" />
+                        </div>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Descripción Comercial</Label>
+                        <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Descripción larga..." />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Beneficios / Tags (separados por coma)</Label>
+                        <Input value={benefits} onChange={e => setBenefits(e.target.value)} placeholder="Ej: Hidratante, Calmante" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label>Categoría</Label>
+                            <Select value={categorySelect} onValueChange={setCategorySelect}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {predefinedCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                    <SelectItem value="Otros">Otra categoría...</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {categorySelect === 'Otros' && (
+                                <Input 
+                                    value={customCategory} 
+                                    onChange={e => setCustomCategory(e.target.value)} 
+                                    placeholder="Escribe la nueva categoría" 
+                                    className="mt-2"
+                                />
+                            )}
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Nombre Variante</Label>
+                            <Input value={variantName} onChange={e => setVariantName(e.target.value)} placeholder="Ej: Frasco 50g" />
+                        </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t">
+                        <Label className="block mb-3 text-muted-foreground">Logística (Opcional)</Label>
+                        <div className="grid grid-cols-4 gap-2">
+                            <div className="grid gap-1">
+                                <span className="text-xs">Peso (kg)</span>
+                                <Input type="number" step="0.1" value={weight} onChange={e => setWeight(e.target.value)} />
+                            </div>
+                            <div className="grid gap-1">
+                                <span className="text-xs">Ancho (cm)</span>
+                                <Input type="number" value={width} onChange={e => setWidth(e.target.value)} />
+                            </div>
+                            <div className="grid gap-1">
+                                <span className="text-xs">Alto (cm)</span>
+                                <Input type="number" value={height} onChange={e => setHeight(e.target.value)} />
+                            </div>
+                            <div className="grid gap-1">
+                                <span className="text-xs">Largo (cm)</span>
+                                <Input type="number" value={length} onChange={e => setLength(e.target.value)} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+                    <Button 
+                        disabled={!name || !price}
+                        onClick={handleSave} 
+                        className="bg-kaiu-forest text-white hover:bg-kaiu-forest/90"
+                    >
+                        Agregar al Catálogo
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

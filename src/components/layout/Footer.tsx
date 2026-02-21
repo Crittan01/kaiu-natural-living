@@ -101,7 +101,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 pt-8 border-t border-primary-foreground/20 text-center text-sm text-primary-foreground/60">
-          <p>© {new Date().getFullYear()} Kaiu Cosmética Natural. Hecho con 🌿 en Colombia.</p>
+          <p>© {new Date().getFullYear()} Kaiu - Natural Living. Hecho con 🌿 en Colombia.</p>
         </div>
       </div>
     </footer>

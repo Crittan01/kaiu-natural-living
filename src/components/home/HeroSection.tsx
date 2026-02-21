@@ -11,7 +11,7 @@ export function HeroSection() {
       <div className="absolute inset-0">
         <img
           src={heroBg}
-          alt="Cosmética natural"
+          alt="Kaiu - Natural Living"
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-primary/70 via-primary/50 to-primary/80" />
@@ -45,7 +45,7 @@ export function HeroSection() {
           {/* Subtitle */}
           <p className="mt-6 text-lg md:text-xl text-primary-foreground/90 max-w-2xl mx-auto leading-relaxed">
             Rituales diarios, cuidado del hogar, conexión con lo natural. 
-            Descubre aceites esenciales y vegetales que transforman tu bienestar.
+            Descubre productos naturales que transforman tu bienestar.
           </p>
 
           {/* CTA Buttons */}

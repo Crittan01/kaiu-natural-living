@@ -130,7 +130,7 @@ const Catalogo = () => {
               Nuestro Catálogo
             </h1>
             <p className="mt-4 text-lg text-muted-foreground max-w-xl mx-auto">
-              Aceites esenciales y vegetales 100% puros y naturales
+              Productos 100% puros y naturales
             </p>
           </motion.div>
 
