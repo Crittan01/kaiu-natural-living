@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { MessageSquare, Database, Settings, LogOut, LayoutDashboard } from "lucide-react";
 
@@ -53,7 +53,7 @@ export default function DashboardLayout() {
   );
 }
 
-function NavItem({ to, icon, label, active }: { to: string, icon: any, label: string, active: boolean }) {
+function NavItem({ to, icon, label, active }: { to: string, icon: React.ReactNode, label: string, active: boolean }) {
   return (
     <Link to={to} className={`
       flex items-center gap-3 p-3 rounded-xl transition-all duration-200 group

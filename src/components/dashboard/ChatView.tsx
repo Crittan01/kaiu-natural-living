@@ -8,6 +8,24 @@ import { io } from "socket.io-client";
 // Initialize Socket (Singleton-ish for this component)
 const socket = io('http://localhost:3001'); // Ensure this matches backend port
 
+// Interfaces
+interface MessageData {
+    role: 'user' | 'assistant';
+    content: string;
+    time: string;
+}
+
+interface SocketPayload {
+    sessionId: string;
+    message: MessageData;
+}
+
+interface SessionData {
+    id: string;
+    isBotActive: boolean;
+    messages: MessageData[];
+}
+
 export default function ChatView() {
     const { id } = useParams();
     const queryClient = useQueryClient();
@@ -15,7 +33,7 @@ export default function ChatView() {
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Fetch Messages
-    const { data, isLoading } = useQuery({
+    const { data, isLoading } = useQuery<SessionData | null>({
         queryKey: ['messages', id],
         queryFn: async () => {
             if (!id) return null;
@@ -52,9 +70,9 @@ export default function ChatView() {
 
         socket.emit('join_session', id);
 
-        const handleNewMessage = (payload: any) => {
+        const handleNewMessage = (payload: SocketPayload) => {
             if (payload.sessionId === id) {
-                queryClient.setQueryData(['messages', id], (old: any) => {
+                queryClient.setQueryData(['messages', id], (old: SessionData | undefined) => {
                     if (!old) return old;
                     return {
                         ...old,
@@ -132,7 +150,7 @@ export default function ChatView() {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30" ref={scrollRef}>
-                {data?.messages?.map((msg: any, idx: number) => (
+                {data?.messages?.map((msg: MessageData, idx: number) => (
                     <Message 
                         key={idx}
                         role={msg.role} 

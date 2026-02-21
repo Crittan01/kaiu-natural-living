@@ -4,9 +4,19 @@ import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import React from "react";
+
+interface Session {
+    id: string;
+    phone: string;
+    name?: string;
+    status: 'bot' | 'human' | 'handover';
+    lastMsg: string;
+    time?: string;
+}
 
 // Helper to fetch sessions
-const fetchSessions = async () => {
+const fetchSessions = async (): Promise<Session[]> => {
     // In production this needs the full URL or proxy setup. 
     // Vite proxy is usually set in vite.config.ts, assuming /api proxies to localhost:3001
     // For now we assume local dev environment
@@ -39,7 +49,7 @@ export default function ChatList() {
             </div>
             
             <div className="flex-1 overflow-y-auto">
-                {sessions?.map((session: any) => (
+                {sessions?.map((session: Session) => (
                     <div 
                         key={session.id} 
                         onClick={() => navigate(`/dashboard/chats/${session.id}`)}
@@ -73,7 +83,7 @@ export default function ChatList() {
     );
 }
 
-function Badge({ icon, label, color }: { icon: any, label: string, color: string }) {
+function Badge({ icon, label, color }: { icon: React.ReactNode, label: string, color: string }) {
     return (
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium ${color}`}>
             {icon} {label}
