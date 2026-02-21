@@ -27,12 +27,16 @@ const Terms = lazy(() => import("./pages/Terms"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Retracto = lazy(() => import("./pages/Retracto"));
 
-// Dashboard (New)
+// Dashboard (New Unified)
 const DashboardLayout = lazy(() => import('./components/dashboard/DashboardLayout'));
 const DashboardChatList = lazy(() => import('./components/dashboard/ChatList'));
 const DashboardChatView = lazy(() => import('./components/dashboard/ChatView'));
 const DashboardBase = lazy(() => import('./pages/Dashboard'));
 const KnowledgePanel = lazy(() => import('./components/dashboard/KnowledgePanel'));
+const OverviewPanel = lazy(() => import('./components/dashboard/OverviewPanel'));
+const OrdersPanel = lazy(() => import('./components/dashboard/OrdersPanel'));
+import { InventoryManager } from './components/admin/InventoryManager';
+import { ProtectedRoute } from './components/dashboard/ProtectedRoute';
 
 const queryClient = new QueryClient();
 
@@ -67,15 +71,48 @@ const App = () => (
                   <Route path="/privacidad" element={<Privacy />} />
                   <Route path="/retracto" element={<Retracto />} />
 
-                  {/* Dashboard Routes */}
-                  <Route path="/dashboard" element={<DashboardLayout />}>
-                      <Route index element={<DashboardChatList />} /> 
-                      <Route path="chats" element={<DashboardBase />}>
-                          <Route index element={<DashboardChatList />} />
-                          <Route path=":id" element={<DashboardChatView />} />
+                  {/* Dashboard Routes (RBAC Protected) */}
+                  <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE', 'SUPPORT']} />}>
+                      <Route element={<DashboardLayout />}>
+                          {/* ADMIN ONLY */}
+                          <Route index element={
+                              <ProtectedRoute allowedRoles={['ADMIN']}>
+                                  <OverviewPanel />
+                              </ProtectedRoute>
+                          } />
+                          <Route path="settings" element={
+                              <ProtectedRoute allowedRoles={['ADMIN']}>
+                                  <div className="p-10 text-gray-500">Configuración (Próximamente)</div>
+                              </ProtectedRoute>
+                          } />
+
+                          {/* ADMIN & SUPPORT */}
+                          <Route path="chats" element={
+                              <ProtectedRoute allowedRoles={['ADMIN', 'SUPPORT']}>
+                                  <DashboardBase />
+                              </ProtectedRoute>
+                          }>
+                              <Route index element={<DashboardChatList />} />
+                              <Route path=":id" element={<DashboardChatView />} />
+                          </Route>
+                          <Route path="knowledge" element={
+                              <ProtectedRoute allowedRoles={['ADMIN', 'SUPPORT']}>
+                                  <KnowledgePanel />
+                              </ProtectedRoute>
+                          } />
+
+                          {/* ADMIN & WAREHOUSE */}
+                          <Route path="orders" element={
+                              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE']}>
+                                  <OrdersPanel />
+                              </ProtectedRoute>
+                          } />
+                          <Route path="inventory" element={
+                              <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE']}>
+                                  <InventoryManager token={sessionStorage.getItem('kaiu_admin_token')} />
+                              </ProtectedRoute>
+                          } />
                       </Route>
-                      <Route path="knowledge" element={<KnowledgePanel />} />
-                      <Route path="settings" element={<div className="p-10 text-gray-500">Configuración (Próximamente)</div>} />
                   </Route>
 
                   {/* Fallback */}

@@ -20,13 +20,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const { username, pin } = req.body; // 'username' here is used as 'email'
+  const { username, password } = req.body; // 'username' here is used as 'email'
   
   const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-dev-only'; 
   
   console.log(`🔑 Login Attempt: User=${username}`);
 
-  if (!username || !pin) {
+  if (!username || !password) {
       return res.status(400).json({ error: 'Faltan credenciales' });
   }
 
@@ -44,20 +44,18 @@ export default async function handler(req, res) {
       }
 
       // 3. Verificar Password (Hash)
-      const validPassword = await bcrypt.compare(pin, user.password);
+      const validPassword = await bcrypt.compare(password, user.password);
       if (!validPassword) {
           console.warn(`❌ Login: Invalid Password for (${username})`);
           await new Promise(resolve => setTimeout(resolve, 1000));
           return res.status(401).json({ error: 'Credenciales inválidas' });
       }
 
-      // 4. Verificar Rol (Opcional, pero recomendado)
-      if (user.role !== 'ADMIN') {
-          console.warn(`❌ Login: User is not ADMIN (${username})`);
-          return res.status(403).json({ error: 'Acceso denegado' });
-      }
+      // 4. Se eliminó la restricción rígida de (user.role !== 'ADMIN') 
+      // porque el ProtectedRoute en el Frontend ahora se encarga 
+      // del Control de Acceso Basado en Roles (RBAC) para ADMIN, WAREHOUSE y SUPPORT.
 
-      console.log(`✅ Login Success: ${username}`);
+      console.log(`✅ Login Success: ${username} | Role: ${user.role}`);
 
       // 5. Generar Token
       const token = jwt.sign(

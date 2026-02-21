@@ -15,7 +15,8 @@ datasource db {
 enum Role {
   CUSTOMER  // Cliente final
   ADMIN     // Dueño del negocio (Acceso total)
-  WAREHOUSE // Bodeguero (Solo ver pedidos y generar guías)
+  WAREHOUSE // Bodeguero (Logística, Envios, Inventario)
+  SUPPORT   // Agente de Soporte (Chats WhatsApp, Conocimiento RAG)
 }
 
 model User {
