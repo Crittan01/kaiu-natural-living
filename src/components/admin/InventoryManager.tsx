@@ -3,15 +3,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, LayoutGrid, List as ListIcon, Save, Filter, X } from 'lucide-react';
+import { Loader2, Search, LayoutGrid, List as ListIcon, Save, Filter, X, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ProductInventory {
     sku: string;
     name: string;
+    description?: string;
     variantName: string | null;
     price: number;
     stock: number;
@@ -40,11 +44,13 @@ const getDirectImage = (url: string | undefined): string => {
     return url;
 };
 
-export function InventoryManager({ token }: { token: string | null }) {
+export function InventoryManager() {
+    const token = sessionStorage.getItem('kaiu_admin_token');
     const [products, setProducts] = useState<ProductInventory[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+    const [editingProduct, setEditingProduct] = useState<ProductInventory | null>(null);
     const { toast } = useToast();
 
     const [sortConfig, setSortConfig] = useState<{ key: keyof ProductInventory; direction: 'asc' | 'desc' } | null>(null);
@@ -322,6 +328,7 @@ export function InventoryManager({ token }: { token: string | null }) {
                                             >
                                                 Estado {sortConfig?.key === 'isActive' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                             </TableHead>
+                                            <TableHead className="w-[60px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -373,6 +380,11 @@ export function InventoryManager({ token }: { token: string | null }) {
                                                         onCheckedChange={(checked) => handleUpdate(product.sku, { isActive: checked })}
                                                     />
                                                 </TableCell>
+                                                <TableCell>
+                                                    <Button variant="ghost" size="icon" onClick={() => setEditingProduct(product)} title="Editar Detalles">
+                                                        <Edit className="h-4 w-4 text-muted-foreground" />
+                                                    </Button>
+                                                </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -403,9 +415,14 @@ export function InventoryManager({ token }: { token: string | null }) {
                                             </Badge>
                                         </div>
                                         <div className="p-4 flex-1 flex flex-col">
-                                            <div className="mb-2">
-                                                <h3 className="font-semibold truncate" title={product.name}>{product.name}</h3>
-                                                <p className="text-xs text-muted-foreground">{product.variantName || product.sku}</p>
+                                            <div className="mb-2 flex justify-between items-start">
+                                                <div className="flex-1 overflow-hidden pr-2">
+                                                    <h3 className="font-semibold truncate" title={product.name}>{product.name}</h3>
+                                                    <p className="text-xs text-muted-foreground">{product.variantName || product.sku}</p>
+                                                </div>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingProduct(product)}>
+                                                    <Edit className="h-3.5 w-3.5 text-muted-foreground" />
+                                                </Button>
                                             </div>
                                             
                                             <div className="mt-auto space-y-3 pt-2">
@@ -443,7 +460,58 @@ export function InventoryManager({ token }: { token: string | null }) {
                     </>
                 )}
             </CardContent>
+            {editingProduct && (
+                <EditProductModal 
+                    product={editingProduct} 
+                    onClose={() => setEditingProduct(null)} 
+                    onSave={(sku, updates) => {
+                        handleUpdate(sku, updates);
+                        setEditingProduct(null);
+                    }} 
+                />
+            )}
         </Card>
+    );
+}
+
+function EditProductModal({ product, onClose, onSave }: { product: ProductInventory, onClose: () => void, onSave: (sku: string, updates: Partial<ProductInventory>) => void }) {
+    const [name, setName] = useState(product.name);
+    const [description, setDescription] = useState(product.description || '');
+    const [category, setCategory] = useState(product.category || '');
+    const [variantName, setVariantName] = useState(product.variantName || '');
+
+    return (
+        <Dialog open={true} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Editar Detalles del Producto</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                        <Label>Nombre del Producto</Label>
+                        <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ej: Aceite de Coco" />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Descripción Comercial</Label>
+                        <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Beneficios y usos del producto..." />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label>Categoría</Label>
+                            <Input value={category} onChange={e => setCategory(e.target.value)} placeholder="Ej: Aceites Naturales" />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Nombre Variante</Label>
+                            <Input value={variantName} onChange={e => setVariantName(e.target.value)} placeholder="Ej: Frasco 100ml" />
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+                    <Button onClick={() => onSave(product.sku, { name, description, category, variantName })} className="bg-kaiu-forest text-white hover:bg-kaiu-forest/90">Guardar Cambios</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 

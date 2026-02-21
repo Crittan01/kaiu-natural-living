@@ -109,7 +109,7 @@ const App = () => (
                           } />
                           <Route path="inventory" element={
                               <ProtectedRoute allowedRoles={['ADMIN', 'WAREHOUSE']}>
-                                  <InventoryManager token={sessionStorage.getItem('kaiu_admin_token')} />
+                                  <InventoryManager />
                               </ProtectedRoute>
                           } />
                       </Route>

@@ -34,12 +34,16 @@ export default async function handler(req, res) {
       }
 
       // Allowed fields to update
-      const { price, stock, isActive } = updates;
+      const { price, stock, isActive, name, description, category, variantName } = updates;
       
       const dataToUpdate = {};
       if (typeof price !== 'undefined') dataToUpdate.price = Number(price);
       if (typeof stock !== 'undefined') dataToUpdate.stock = Number(stock);
       if (typeof isActive !== 'undefined') dataToUpdate.isActive = Boolean(isActive);
+      if (typeof name !== 'undefined') dataToUpdate.name = String(name);
+      if (typeof description !== 'undefined') dataToUpdate.description = String(description);
+      if (typeof category !== 'undefined') dataToUpdate.category = String(category);
+      if (typeof variantName !== 'undefined') dataToUpdate.variantName = String(variantName);
 
       const updatedProduct = await prisma.product.update({
         where: { sku: sku },

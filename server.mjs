@@ -17,6 +17,7 @@ import adminRequestPickupHandler from './backend/admin/request-pickup.js';
 import checkTransactionHandler from './backend/wompi/check-transaction.js';
 import dashboardStatsHandler from './backend/admin/dashboard-stats.js';
 import adminInventoryHandler from './backend/admin/inventory.js';
+import adminKnowledgeHandler from './backend/admin/knowledge.js';
 import syncShipmentsHandler from './backend/admin/sync-shipments.js';
 import mockChatWebhook from './backend/whatsapp/webhook-mock.js';
 import whatsappWebhook from './backend/whatsapp/webhook.js';
@@ -84,6 +85,7 @@ app.post('/api/admin/request-pickup', adminRequestPickupHandler);
 app.get('/api/admin/dashboard-stats', dashboardStatsHandler);
 app.get('/api/admin/inventory', adminInventoryHandler);
 app.put('/api/admin/inventory', adminInventoryHandler); // Support PUT for updates
+app.all('/api/admin/knowledge', adminKnowledgeHandler); // Support GET, POST, DELETE
 app.post('/api/admin/sync-shipments', syncShipmentsHandler);
 
 // WhatsApp Webhook (Mock & Real)
