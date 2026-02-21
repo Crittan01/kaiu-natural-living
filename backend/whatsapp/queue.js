@@ -105,7 +105,7 @@ export const worker = new Worker('whatsapp-ai', async job => {
             return; // STOP AI PROCESSING
         }
 
-        // 4. AI Processing (RAG)
+        // 4. AI Processing (RAG + Tools)
         const aiResponse = await generateSupportResponse(text, history);
         
         // 5. Append Bot Message
