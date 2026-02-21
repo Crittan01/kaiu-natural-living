@@ -84,6 +84,7 @@ app.post('/api/admin/confirm-order', adminConfirmOrderHandler);
 app.post('/api/admin/request-pickup', adminRequestPickupHandler);
 app.get('/api/admin/dashboard-stats', dashboardStatsHandler);
 app.get('/api/admin/inventory', adminInventoryHandler);
+app.post('/api/admin/inventory', adminInventoryHandler); // Support POST for creation
 app.put('/api/admin/inventory', adminInventoryHandler); // Support PUT for updates
 app.all('/api/admin/knowledge', adminKnowledgeHandler); // Support GET, POST, DELETE
 app.post('/api/admin/sync-shipments', syncShipmentsHandler);

@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, LayoutGrid, List as ListIcon, Save, Filter, X, Edit } from 'lucide-react';
+import { Loader2, Search, LayoutGrid, List as ListIcon, Save, Filter, X, Edit, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -57,6 +57,7 @@ export function InventoryManager() {
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [editingProduct, setEditingProduct] = useState<ProductInventory | null>(null);
     const [isAddingProduct, setIsAddingProduct] = useState(false);
+    const [variantDraft, setVariantDraft] = useState<Partial<ProductInventory> | null>(null);
     const { toast } = useToast();
 
     const [sortConfig, setSortConfig] = useState<{ key: keyof ProductInventory; direction: 'asc' | 'desc' } | null>(null);
@@ -67,10 +68,11 @@ export function InventoryManager() {
     const [selectedVolume, setSelectedVolume] = useState<string>('all');
 
     // Derived Lists for Selects
-    const { categories, types, volumes } = useMemo(() => {
+    const { categories, types, volumes, allVariants } = useMemo(() => {
         const cats = new Set<string>();
         const typs = new Set<string>();
         const vols = new Set<string>();
+        const vars = new Set<string>();
 
         products.forEach(p => {
             if (p.category) cats.add(p.category);
@@ -88,12 +90,15 @@ export function InventoryManager() {
             // Volume Parsing
             const volMatch = fullName.match(/(\d+)\s?(ml|g|gr)/);
             if (volMatch) vols.add(volMatch[0].replace(/\s/g, ''));
+
+            if (p.variantName) vars.add(p.variantName);
         });
 
         return {
             categories: Array.from(cats).sort(),
             types: Array.from(typs).sort(),
-            volumes: Array.from(vols).sort((a, b) => parseInt(a) - parseInt(b)) // Numeric sort roughly
+            volumes: Array.from(vols).sort((a, b) => parseInt(a) - parseInt(b)), // Numeric sort roughly
+            allVariants: Array.from(vars).sort()
         };
     }, [products]);
 
@@ -160,6 +165,7 @@ export function InventoryManager() {
             toast({ title: "Creado", description: "Producto agregado correctamente", duration: 1500 });
             await fetchInventory(); // Refresh full list to get IDs and DB specifics
             setIsAddingProduct(false);
+            setVariantDraft(null);
         } catch (error) {
             toast({ title: "Error", description: "No se pudo crear el producto", variant: "destructive" });
         }
@@ -221,6 +227,40 @@ export function InventoryManager() {
             }
         });
 
+    const groupedProducts = useMemo(() => {
+        const groups: { [name: string]: ProductInventory[] } = {};
+        filteredAndSortedProducts.forEach(p => {
+            if (!groups[p.name]) groups[p.name] = [];
+            groups[p.name].push(p);
+        });
+
+        return Object.entries(groups).map(([name, products]) => {
+            const minPrice = Math.min(...products.map(p => p.price));
+            const maxPrice = Math.max(...products.map(p => p.price));
+            const priceLabel = minPrice === maxPrice 
+                ? `$${minPrice.toLocaleString('es-CO')}` 
+                : `$${minPrice.toLocaleString('es-CO')} - $${maxPrice.toLocaleString('es-CO')}`;
+                
+            return {
+                name,
+                products,
+                totalStock: products.reduce((sum, p) => sum + p.stock, 0),
+                priceLabel,
+                isActive: products.some(p => p.isActive),
+                images: products.find(p => p.images && p.images.length > 0)?.images || []
+            };
+        });
+    }, [filteredAndSortedProducts]);
+
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+    const toggleGroup = (name: string) => {
+        setExpandedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(name)) next.delete(name);
+            else next.add(name);
+            return next;
+        });
+    };
 
     return (
         <Card className="flex flex-col h-full">
@@ -232,7 +272,7 @@ export function InventoryManager() {
                             <CardDescription>Administra tus productos, precios y stock.</CardDescription>
                         </div>
                         <div className="flex items-center gap-4">
-                            <Button className="bg-kaiu-forest text-white hover:bg-kaiu-forest/90" onClick={() => setIsAddingProduct(true)}>
+                            <Button className="bg-kaiu-forest text-white hover:bg-kaiu-forest/90" onClick={() => { setVariantDraft(null); setIsAddingProduct(true); }}>
                                 + Agregar Producto
                             </Button>
                             <div className="flex items-center gap-2 border-l pl-4">
@@ -364,129 +404,204 @@ export function InventoryManager() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {filteredAndSortedProducts.map((product) => (
-                                            <TableRow key={product.sku}>
-                                                <TableCell>
-                                                    <div className="h-12 w-12 rounded bg-muted overflow-hidden border">
-                                                        {product.images && product.images.length > 0 ? (
-                                                            <img 
-                                                                src={getDirectImage(product.images[0])} 
-                                                                alt={product.name} 
-                                                                className="h-full w-full object-cover" 
-                                                                loading="lazy"
-                                                                referrerPolicy="no-referrer"
-                                                                onError={(e) => {
-                                                                    e.currentTarget.src = 'https://placehold.co/100?text=No+Img';
-                                                                    e.currentTarget.onerror = null;
-                                                                }}
-                                                            />
-                                                        ) : (
-                                                            <div className="h-full w-full flex items-center justify-center bg-gray-100 text-gray-300 text-xs">Sin Foto</div>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="font-medium">{product.name}</div>
-                                                    <div className="text-xs text-muted-foreground font-mono mt-0.5">{product.variantName || product.sku}</div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Input 
-                                                        type="number" 
-                                                        value={product.price} 
-                                                        onChange={(e) => handleUpdate(product.sku, { price: Number(e.target.value) })}
-                                                        className="w-32 h-8"
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Input 
-                                                        type="number" 
-                                                        value={product.stock} 
-                                                        onChange={(e) => handleUpdate(product.sku, { stock: Number(e.target.value) })}
-                                                        className={`w-24 h-8 ${product.stock < 5 ? 'border-red-300 bg-red-50' : ''}`}
-                                                    />
-                                                    {product.stock < 5 && <span className="text-[10px] text-red-500 block mt-1">Stock Bajo</span>}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Switch 
-                                                        checked={product.isActive} 
-                                                        onCheckedChange={(checked) => handleUpdate(product.sku, { isActive: checked })}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Button variant="ghost" size="icon" onClick={() => setEditingProduct(product)} title="Editar Detalles">
-                                                        <Edit className="h-4 w-4 text-muted-foreground" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {groupedProducts.map((group) => {
+                                            const isExpanded = expandedGroups.has(group.name);
+                                            return (
+                                                <React.Fragment key={group.name}>
+                                                    {/* Parent Group Row */}
+                                                    <TableRow 
+                                                        className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                                        onClick={() => toggleGroup(group.name)}
+                                                    >
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-3">
+                                                                {isExpanded ? <ChevronDown className="w-5 h-5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />}
+                                                                <div className="h-10 w-10 rounded bg-muted overflow-hidden border hidden sm:block flex-shrink-0">
+                                                                    {group.images && group.images.length > 0 ? (
+                                                                        <img 
+                                                                            src={getDirectImage(group.images[0])} 
+                                                                            alt={group.name} 
+                                                                            className="h-full w-full object-cover" 
+                                                                            loading="lazy"
+                                                                            onError={(e) => {
+                                                                                e.currentTarget.src = 'https://placehold.co/100?text=No+Img';
+                                                                            }}
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="h-full w-full flex items-center justify-center bg-gray-100 text-gray-300 text-[10px]">Sin Foto</div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="font-semibold">{group.name}</div>
+                                                            <div className="text-xs text-muted-foreground mt-0.5">{group.products.length} variante(s)</div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <span className="font-medium text-sm">{group.priceLabel}</span>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant={group.totalStock > 10 ? 'default' : group.totalStock > 0 ? 'secondary' : 'destructive'}>
+                                                                {group.totalStock} unidades
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-2">
+                                                                <Badge variant={group.isActive ? 'default' : 'secondary'} className={group.isActive ? 'bg-green-600' : ''}>
+                                                                    {group.isActive ? 'Activo' : 'Inactivo'}
+                                                                </Badge>
+                                                                <Button 
+                                                                    variant="outline" 
+                                                                    size="sm" 
+                                                                    className="h-7 text-xs ml-2 text-kaiu-forest border-kaiu-forest/30 hover:bg-kaiu-forest/10"
+                                                                    onClick={(e) => { 
+                                                                        e.stopPropagation(); 
+                                                                        setIsAddingProduct(true); 
+                                                                        setVariantDraft(group.products[0]); 
+                                                                    }} 
+                                                                    title="Agregar Variante"
+                                                                >
+                                                                    <Plus className="h-3 w-3 mr-1" /> Añadir Variante
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell></TableCell>
+                                                    </TableRow>
+                                                    
+                                                    {/* Expanded Variants Rows */}
+                                                    {isExpanded && group.products.map((product) => (
+                                                        <TableRow key={product.sku} className="bg-muted/10 border-b border-muted/50">
+                                                            <TableCell className="pl-12 text-muted-foreground">
+                                                                <div className="w-6 h-6 border-l-2 border-b-2 border-muted-foreground/30 rounded-bl-md ml-4 mb-2"></div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="text-sm font-medium">{product.variantName || 'Principal'}</div>
+                                                                <div className="text-xs text-muted-foreground font-mono">{product.sku}</div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Input 
+                                                                    type="number" 
+                                                                    value={product.price} 
+                                                                    onChange={(e) => handleUpdate(product.sku, { price: Number(e.target.value) })}
+                                                                    className="w-28 h-8"
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Input 
+                                                                    type="number" 
+                                                                    value={product.stock} 
+                                                                    onChange={(e) => handleUpdate(product.sku, { stock: Number(e.target.value) })}
+                                                                    className={`w-20 h-8 ${product.stock < 5 ? 'border-red-300 bg-red-50' : ''}`}
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Switch 
+                                                                    checked={product.isActive} 
+                                                                    onCheckedChange={(checked) => handleUpdate(product.sku, { isActive: checked })}
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Button variant="ghost" size="icon" onClick={() => setEditingProduct(product)} title="Editar Detalles">
+                                                                    <Edit className="h-4 w-4 text-muted-foreground" />
+                                                                </Button>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </React.Fragment>
+                                            );
+                                        })}
                                     </TableBody>
                                 </Table>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                {filteredAndSortedProducts.map((product) => (
-                                    <div key={product.sku} className="border rounded-lg overflow-hidden flex flex-col bg-card hover:shadow-sm transition-shadow">
-                                        <div className="h-40 bg-muted relative">
-                                            {product.images && product.images.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {groupedProducts.map((group) => {
+                                    const isExpanded = expandedGroups.has(group.name);
+                                    return (
+                                    <div key={group.name} className="border rounded-lg overflow-hidden flex flex-col bg-card hover:shadow-sm transition-shadow">
+                                        <div className="h-40 bg-muted relative cursor-pointer group" onClick={() => toggleGroup(group.name)}>
+                                            {group.images && group.images.length > 0 ? (
                                                 <img 
-                                                    src={getDirectImage(product.images[0])} 
-                                                    alt={product.name} 
-                                                    className="h-full w-full object-cover" 
+                                                    src={getDirectImage(group.images[0])} 
+                                                    alt={group.name} 
+                                                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" 
                                                     loading="lazy"
-                                                    referrerPolicy="no-referrer"
                                                     onError={(e) => {
                                                         e.currentTarget.src = 'https://placehold.co/100?text=No+Img';
-                                                        e.currentTarget.onerror = null;
                                                     }}
                                                 />
                                             ) : (
                                                 <div className="h-full w-full flex items-center justify-center text-muted-foreground">Sin Imagen</div>
                                             )}
-                                            <Badge className={`absolute top-2 right-2 ${product.isActive ? 'bg-green-500' : 'bg-gray-400'}`}>
-                                                {product.isActive ? 'Activo' : 'Inactivo'}
+                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="bg-white/90 text-black px-4 py-2 rounded-full font-medium text-sm flex items-center gap-2">
+                                                    {isExpanded ? <ChevronDown className="w-4 h-4"/> : <ChevronRight className="w-4 h-4"/>} 
+                                                    {isExpanded ? 'Ocultar Variantes' : `Ver ${group.products.length} Variantes`}
+                                                </div>
+                                            </div>
+                                            <Badge className={`absolute top-2 right-2 ${group.isActive ? 'bg-green-500' : 'bg-gray-400'}`}>
+                                                {group.isActive ? 'Activo' : 'Inactivo'}
                                             </Badge>
                                         </div>
                                         <div className="p-4 flex-1 flex flex-col">
-                                            <div className="mb-2 flex justify-between items-start">
-                                                <div className="flex-1 overflow-hidden pr-2">
-                                                    <h3 className="font-semibold truncate" title={product.name}>{product.name}</h3>
-                                                    <p className="text-xs text-muted-foreground">{product.variantName || product.sku}</p>
-                                                </div>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingProduct(product)}>
-                                                    <Edit className="h-3.5 w-3.5 text-muted-foreground" />
-                                                </Button>
+                                            <div className="mb-4">
+                                                <h3 className="text-lg font-semibold leading-tight">{group.name}</h3>
+                                                <p className="text-sm text-muted-foreground mt-1">{group.priceLabel}</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Stock Total: <span className="font-medium text-foreground">{group.totalStock}</span></p>
                                             </div>
                                             
-                                            <div className="mt-auto space-y-3 pt-2">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-sm text-muted-foreground">Precio:</span>
-                                                    <Input 
-                                                        type="number" 
-                                                        value={product.price}
-                                                        onChange={(e) => handleUpdate(product.sku, { price: Number(e.target.value) })}
-                                                        className="w-28 h-8 text-right"
-                                                    />
+                                            {isExpanded ? (
+                                                <div className="space-y-3 mt-auto pt-4 border-t">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-xs font-semibold text-muted-foreground">Variantes</span>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="sm" 
+                                                            className="h-6 text-kaiu-forest px-2 py-0" 
+                                                            onClick={() => {
+                                                                setIsAddingProduct(true); 
+                                                                setVariantDraft(group.products[0]); 
+                                                            }}
+                                                        >
+                                                            <Plus className="h-3.5 w-3.5 mr-1" /> Nueva Variante
+                                                        </Button>
+                                                    </div>
+                                                    {group.products.map(product => (
+                                                        <div key={product.sku} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center text-sm bg-muted/30 p-2 rounded-md">
+                                                            <div className="truncate pr-2 font-medium" title={product.variantName || product.sku}>
+                                                                {product.variantName || 'Principal'}
+                                                            </div>
+                                                            <Input 
+                                                                type="number" 
+                                                                value={product.price}
+                                                                onChange={(e) => handleUpdate(product.sku, { price: Number(e.target.value) })}
+                                                                className="w-20 h-7 text-xs px-2"
+                                                                title="Precio"
+                                                            />
+                                                            <Input 
+                                                                type="number" 
+                                                                value={product.stock}
+                                                                onChange={(e) => handleUpdate(product.sku, { stock: Number(e.target.value) })}
+                                                                className={`w-14 h-7 text-xs px-2 ${product.stock < 5 ? 'text-red-600 border-red-200' : ''}`}
+                                                                title="Stock"
+                                                            />
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingProduct(product)}>
+                                                                <Edit className="h-3.5 w-3.5 text-muted-foreground" />
+                                                            </Button>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-sm text-muted-foreground">Stock:</span>
-                                                    <Input 
-                                                        type="number" 
-                                                        value={product.stock}
-                                                        onChange={(e) => handleUpdate(product.sku, { stock: Number(e.target.value) })}
-                                                        className={`w-20 h-8 text-right ${product.stock < 5 ? 'text-red-600 border-red-200' : ''}`}
-                                                    />
+                                            ) : (
+                                                <div className="mt-auto pt-4 border-t flex justify-center">
+                                                     <Button variant="outline" className="w-full text-xs" onClick={() => toggleGroup(group.name)}>
+                                                        Gestionar Inventario ({group.products.length})
+                                                     </Button>
                                                 </div>
-                                                <div className="flex items-center justify-between pt-2 border-t">
-                                                     <span className="text-xs text-muted-foreground">Visible en tienda</span>
-                                                     <Switch 
-                                                        checked={product.isActive} 
-                                                        onCheckedChange={(checked) => handleUpdate(product.sku, { isActive: checked })}
-                                                    />
-                                                </div>
-                                            </div>
+                                            )}
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </>
@@ -495,6 +610,8 @@ export function InventoryManager() {
             {editingProduct && (
                 <EditProductModal 
                     product={editingProduct} 
+                    existingCategories={categories}
+                    existingVariants={allVariants}
                     onClose={() => setEditingProduct(null)} 
                     onSave={(sku, updates) => {
                         handleUpdate(sku, updates);
@@ -504,18 +621,20 @@ export function InventoryManager() {
             )}
             {isAddingProduct && (
                 <AddProductModal 
-                    onClose={() => setIsAddingProduct(false)} 
+                    existingCategories={categories}
+                    existingVariants={allVariants}
+                    onClose={() => { setIsAddingProduct(false); setVariantDraft(null); }} 
                     onSave={handleCreate} 
+                    initialData={variantDraft || undefined}
                 />
             )}
         </Card>
     );
 }
 
-function EditProductModal({ product, onClose, onSave }: { product: ProductInventory, onClose: () => void, onSave: (sku: string, updates: Partial<ProductInventory>) => void }) {
+function EditProductModal({ product, existingCategories, existingVariants, onClose, onSave }: { product: ProductInventory, existingCategories: string[], existingVariants: string[], onClose: () => void, onSave: (sku: string, updates: Partial<ProductInventory>) => void }) {
     const [name, setName] = useState(product.name);
     const [description, setDescription] = useState(product.description || '');
-    const [variantName, setVariantName] = useState(product.variantName || '');
     const [benefits, setBenefits] = useState(product.benefits || '');
     const [weight, setWeight] = useState(product.weight?.toString() || '0.2');
     const [width, setWidth] = useState(product.width?.toString() || '10');
@@ -523,20 +642,27 @@ function EditProductModal({ product, onClose, onSave }: { product: ProductInvent
     const [length, setLength] = useState(product.length?.toString() || '10');
 
     // Category Logic
-    const predefinedCategories = ["Aceites Esenciales", "Aceites Vegetales", "Cuidado Corporal", "Cuidado Facial", "Sinergias", "Kits", "Difusores"];
+    const predefinedCategories = existingCategories.length > 0 ? existingCategories : ["Aceites Esenciales", "Aceites Vegetales"];
     const initialCategory = product.category || '';
     const isCustom = initialCategory !== '' && !predefinedCategories.includes(initialCategory);
-    
     const [categorySelect, setCategorySelect] = useState(isCustom ? 'Otros' : initialCategory);
     const [customCategory, setCustomCategory] = useState(isCustom ? initialCategory : '');
 
+    // Variant Logic
+    const predefinedVariants = existingVariants.length > 0 ? existingVariants : ["Principal"];
+    const initialVariant = product.variantName || '';
+    const isCustomVariant = initialVariant !== '' && !predefinedVariants.includes(initialVariant);
+    const [variantSelect, setVariantSelect] = useState(isCustomVariant ? 'Otros' : (initialVariant || 'Principal'));
+    const [customVariant, setCustomVariant] = useState(isCustomVariant ? initialVariant : '');
+
     const handleSave = () => {
         const finalCategory = categorySelect === 'Otros' ? customCategory : categorySelect;
+        const finalVariant = variantSelect === 'Otros' ? customVariant : variantSelect;
         onSave(product.sku, { 
             name, 
             description, 
             category: finalCategory, 
-            variantName,
+            variantName: finalVariant,
             benefits,
             weight: Number(weight) || 0.2,
             width: Number(width) || 10,
@@ -593,7 +719,23 @@ function EditProductModal({ product, onClose, onSave }: { product: ProductInvent
                         </div>
                         <div className="grid gap-2">
                             <Label>Nombre Variante</Label>
-                            <Input value={variantName} onChange={e => setVariantName(e.target.value)} placeholder="Ej: Frasco 100ml" />
+                            <Select value={variantSelect} onValueChange={setVariantSelect}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar variante..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {predefinedVariants.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                    <SelectItem value="Otros">Otra variante...</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {variantSelect === 'Otros' && (
+                                <Input 
+                                    value={customVariant} 
+                                    onChange={e => setCustomVariant(e.target.value)} 
+                                    placeholder="Escribe la nueva variante" 
+                                    className="mt-2"
+                                />
+                            )}
                         </div>
                     </div>
                     <div className="mt-4 pt-4 border-t">
@@ -627,28 +769,37 @@ function EditProductModal({ product, onClose, onSave }: { product: ProductInvent
     );
 }
 
-function AddProductModal({ onClose, onSave }: { onClose: () => void, onSave: (product: Partial<ProductInventory>) => void }) {
-    const [name, setName] = useState('');
+function AddProductModal({ onClose, onSave, initialData, existingCategories, existingVariants }: { onClose: () => void, onSave: (product: Partial<ProductInventory>) => void, initialData?: Partial<ProductInventory>, existingCategories: string[], existingVariants: string[] }) {
+    const [name, setName] = useState(initialData?.name || '');
     const [sku, setSku] = useState('');
     const [price, setPrice] = useState('');
     const [stock, setStock] = useState('');
-    const [description, setDescription] = useState('');
-    const [variantName, setVariantName] = useState('');
-    const [benefits, setBenefits] = useState('');
+    const [description, setDescription] = useState(initialData?.description || '');
+    const [benefits, setBenefits] = useState(initialData?.benefits || '');
     
     // Default config values
-    const [weight, setWeight] = useState('0.2');
-    const [width, setWidth] = useState('10');
-    const [height, setHeight] = useState('10');
-    const [length, setLength] = useState('10');
+    const [weight, setWeight] = useState(initialData?.weight?.toString() || '0.2');
+    const [width, setWidth] = useState(initialData?.width?.toString() || '10');
+    const [height, setHeight] = useState(initialData?.height?.toString() || '10');
+    const [length, setLength] = useState(initialData?.length?.toString() || '10');
 
     // Category Logic
-    const predefinedCategories = ["Aceites Esenciales", "Aceites Vegetales", "Cuidado Corporal", "Cuidado Facial", "Sinergias", "Kits", "Difusores"];
-    const [categorySelect, setCategorySelect] = useState('');
-    const [customCategory, setCustomCategory] = useState('');
+    const predefinedCategories = existingCategories.length > 0 ? existingCategories : ["Aceites Esenciales", "Aceites Vegetales"];
+    const initialCat = initialData?.category || '';
+    const isCustomCat = initialCat !== '' && !predefinedCategories.includes(initialCat);
+    const [categorySelect, setCategorySelect] = useState(isCustomCat ? 'Otros' : initialCat);
+    const [customCategory, setCustomCategory] = useState(isCustomCat ? initialCat : '');
+
+    // Variant Logic
+    const predefinedVariants = existingVariants.length > 0 ? existingVariants : ["Principal"];
+    const initialVar = initialData?.variantName || '';
+    const isCustomVar = initialVar !== '' && !predefinedVariants.includes(initialVar);
+    const [variantSelect, setVariantSelect] = useState(isCustomVar ? 'Otros' : (initialVar || 'Principal'));
+    const [customVariant, setCustomVariant] = useState(isCustomVar ? initialVar : '');
 
     const handleSave = () => {
         const finalCategory = categorySelect === 'Otros' ? customCategory : categorySelect;
+        const finalVariant = variantSelect === 'Otros' ? customVariant : variantSelect;
         onSave({ 
             sku,
             name, 
@@ -656,7 +807,7 @@ function AddProductModal({ onClose, onSave }: { onClose: () => void, onSave: (pr
             stock: Number(stock || 0), 
             description, 
             category: finalCategory, 
-            variantName,
+            variantName: finalVariant,
             benefits,
             weight: Number(weight) || 0.2,
             width: Number(width) || 10,
@@ -723,7 +874,23 @@ function AddProductModal({ onClose, onSave }: { onClose: () => void, onSave: (pr
                         </div>
                         <div className="grid gap-2">
                             <Label>Nombre Variante</Label>
-                            <Input value={variantName} onChange={e => setVariantName(e.target.value)} placeholder="Ej: Frasco 50g" />
+                            <Select value={variantSelect} onValueChange={setVariantSelect}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar variante..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {predefinedVariants.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                    <SelectItem value="Otros">Otra variante...</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {variantSelect === 'Otros' && (
+                                <Input 
+                                    value={customVariant} 
+                                    onChange={e => setCustomVariant(e.target.value)} 
+                                    placeholder="Escribe la nueva variante" 
+                                    className="mt-2"
+                                />
+                            )}
                         </div>
                     </div>
                     <div className="mt-4 pt-4 border-t">
