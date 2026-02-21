@@ -92,7 +92,7 @@ const App = () => (
                                   <DashboardBase />
                               </ProtectedRoute>
                           }>
-                              <Route index element={<DashboardChatList />} />
+                              <Route index element={<DashboardChatView />} />
                               <Route path=":id" element={<DashboardChatView />} />
                           </Route>
                           <Route path="knowledge" element={

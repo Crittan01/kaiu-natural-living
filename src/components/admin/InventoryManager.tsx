@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, LayoutGrid, List as ListIcon, Save, Filter, X, Edit, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { Loader2, Search, LayoutGrid, List as ListIcon, Save, Filter, X, Edit, ChevronDown, ChevronRight, Plus, Upload, ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -641,6 +641,38 @@ function EditProductModal({ product, existingCategories, existingVariants, onClo
     const [height, setHeight] = useState(product.height?.toString() || '10');
     const [length, setLength] = useState(product.length?.toString() || '10');
 
+    // Images logic
+    const [images, setImages] = useState<string[]>(product.images || []);
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        try {
+            const token = sessionStorage.getItem('kaiu_admin_token');
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Authorization': `Bearer ${token}` } // Wait, FormData boundary will be set by browser, no Content-Type needed
+            });
+            if (!res.ok) throw new Error('Upload failed');
+            const data = await res.json();
+            if (data.url) {
+                setImages([data.url]); // Replace image for now
+            }
+        } catch (error) {
+            console.error("Error uploading image:", error);
+            alert("No se pudo subir la imagen.");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     // Category Logic
     const predefinedCategories = existingCategories.length > 0 ? existingCategories : ["Aceites Esenciales", "Aceites Vegetales"];
     const initialCategory = product.category || '';
@@ -667,7 +699,8 @@ function EditProductModal({ product, existingCategories, existingVariants, onClo
             weight: Number(weight) || 0.2,
             width: Number(width) || 10,
             height: Number(height) || 10,
-            length: Number(length) || 10
+            length: Number(length) || 10,
+            images
         });
     };
 
@@ -695,6 +728,35 @@ function EditProductModal({ product, existingCategories, existingVariants, onClo
                     <div className="grid gap-2">
                         <Label>Beneficios / Tags (separados por coma)</Label>
                         <Input value={benefits} onChange={e => setBenefits(e.target.value)} placeholder="Ej: Hidratante, Calmante, Vegano" />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Imagen del Producto</Label>
+                        <div className="flex items-center gap-4">
+                            <div className="h-20 w-20 rounded bg-muted border overflow-hidden flex items-center justify-center flex-shrink-0">
+                                {images.length > 0 ? (
+                                    <img src={images[0].startsWith('http') ? images[0] : `http://localhost:3001${images[0]}`} alt="Product" className="h-full w-full object-cover" />
+                                ) : (
+                                    <ImageIcon className="text-muted-foreground w-6 h-6" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <Label htmlFor="image-upload" className="cursor-pointer">
+                                    <div className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-muted/50 transition-colors bg-white">
+                                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                        <span className="text-sm font-medium">{isUploading ? 'Subiendo...' : 'Subir nueva imagen'}</span>
+                                    </div>
+                                    <input 
+                                        id="image-upload" 
+                                        type="file" 
+                                        accept="image/*" 
+                                        className="hidden" 
+                                        onChange={handleImageUpload}
+                                        disabled={isUploading}
+                                    />
+                                </Label>
+                                <p className="text-xs text-muted-foreground mt-1">Recomendado: 500x500px. JPG, PNG o WEBP.</p>
+                            </div>
+                        </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
@@ -783,6 +845,38 @@ function AddProductModal({ onClose, onSave, initialData, existingCategories, exi
     const [height, setHeight] = useState(initialData?.height?.toString() || '10');
     const [length, setLength] = useState(initialData?.length?.toString() || '10');
 
+    // Images logic
+    const [images, setImages] = useState<string[]>(initialData?.images || []);
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        try {
+            const token = sessionStorage.getItem('kaiu_admin_token');
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Upload failed');
+            const data = await res.json();
+            if (data.url) {
+                setImages([data.url]); // Replace image for now
+            }
+        } catch (error) {
+            console.error("Error uploading image:", error);
+            alert("No se pudo subir la imagen.");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     // Category Logic
     const predefinedCategories = existingCategories.length > 0 ? existingCategories : ["Aceites Esenciales", "Aceites Vegetales"];
     const initialCat = initialData?.category || '';
@@ -812,7 +906,8 @@ function AddProductModal({ onClose, onSave, initialData, existingCategories, exi
             weight: Number(weight) || 0.2,
             width: Number(width) || 10,
             height: Number(height) || 10,
-            length: Number(length) || 10
+            length: Number(length) || 10,
+            images
         });
     };
 
@@ -850,6 +945,35 @@ function AddProductModal({ onClose, onSave, initialData, existingCategories, exi
                     <div className="grid gap-2">
                         <Label>Beneficios / Tags (separados por coma)</Label>
                         <Input value={benefits} onChange={e => setBenefits(e.target.value)} placeholder="Ej: Hidratante, Calmante" />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Imagen del Producto</Label>
+                        <div className="flex items-center gap-4">
+                            <div className="h-20 w-20 rounded bg-muted border overflow-hidden flex items-center justify-center flex-shrink-0">
+                                {images.length > 0 ? (
+                                    <img src={images[0].startsWith('http') ? images[0] : `http://localhost:3001${images[0]}`} alt="Product" className="h-full w-full object-cover" />
+                                ) : (
+                                    <ImageIcon className="text-muted-foreground w-6 h-6" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <Label htmlFor="add-image-upload" className="cursor-pointer">
+                                    <div className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-muted/50 transition-colors bg-white">
+                                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                        <span className="text-sm font-medium">{isUploading ? 'Subiendo...' : 'Subir Imagen'}</span>
+                                    </div>
+                                    <input 
+                                        id="add-image-upload" 
+                                        type="file" 
+                                        accept="image/*" 
+                                        className="hidden" 
+                                        onChange={handleImageUpload}
+                                        disabled={isUploading}
+                                    />
+                                </Label>
+                                <p className="text-xs text-muted-foreground mt-1">Recomendado: 500x500px. JPG, PNG o WEBP.</p>
+                            </div>
+                        </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">

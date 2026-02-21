@@ -108,14 +108,41 @@ export const worker = new Worker('whatsapp-ai', async job => {
         // 4. AI Processing (RAG + Tools)
         const aiResponse = await generateSupportResponse(text, history);
         
+        // --- IMAGE EXTRACTION ---
+        let finalText = aiResponse.text;
+        const imageRegex = /\[SEND_IMAGE:\s*([^\]]+)\]/g;
+        let match;
+        const imageIds = [];
+        
+        while ((match = imageRegex.exec(finalText)) !== null) {
+            imageIds.push(match[1]);
+        }
+        
+        // Remove the tags from the text for history/dashboard
+        finalText = finalText.replace(imageRegex, '')
+                             .replace(/<[^>]+>/g, '') // Strip all XML tags (e.g., <result>, </result>)
+                             .replace(/_🤖 Asistente Virtual KAIU_\s*$/g, '') // Strip footer if it accidentally appended twice
+                             .trim();
+        // Fetch image URLs from DB first to save in history
+        const imageUrls = [];
+        for (const pid of imageIds) {
+            const product = await prisma.product.findUnique({ where: { id: pid.trim() } });
+            if (product && product.images && product.images.length > 0) {
+                const rawUrl = product.images[0];
+                const cleanUrl = rawUrl.startsWith('http') ? rawUrl : `${process.env.BASE_URL || 'http://localhost:3001'}${rawUrl}`;
+                imageUrls.push(cleanUrl);
+            }
+        }
+
         // 5. Append Bot Message
-        const aiMsg = { role: 'assistant', content: aiResponse.text };
+        const aiMsg = { role: 'assistant', content: finalText || "(Envía una imagen sin texto)" };
+        if (imageUrls.length > 0) aiMsg.images = imageUrls;
         history.push(aiMsg);
 
         // Emit AI Message to Dashboard
         if (io) io.to(`session_${session.id}`).emit('new_message', { 
             sessionId: session.id, 
-            message: { role: 'assistant', content: aiResponse.text, time: "Just now" } 
+            message: { ...aiMsg, time: "Just now" } 
         });
 
         // 6. Save Updated History
@@ -126,16 +153,32 @@ export const worker = new Worker('whatsapp-ai', async job => {
             }
         });
         
-        // 7. Send Response via Meta API
-        await axios.post(
-            `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_ID}/messages`,
-            {
-                messaging_product: "whatsapp",
-                to: from,
-                text: { body: aiResponse.text }
-            },
-            { headers: { 'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' } }
-        );
+        // 7. Send Text Response via Meta API
+        if (finalText) {
+            await axios.post(
+                `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_ID}/messages`,
+                {
+                    messaging_product: "whatsapp",
+                    to: from,
+                    text: { body: finalText }
+                },
+                { headers: { 'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' } }
+            );
+        }
+
+        // 8. Send Images via Meta Media API
+        for (const cleanUrl of imageUrls) {
+            await axios.post(
+                `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_ID}/messages`,
+                {
+                    messaging_product: "whatsapp",
+                    to: from,
+                    type: "image",
+                    image: { link: cleanUrl }
+                },
+                { headers: { 'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' } }
+            );
+        }
         
         console.log(`✅ Job Completed: ${job.id}`);
     } catch (error) {

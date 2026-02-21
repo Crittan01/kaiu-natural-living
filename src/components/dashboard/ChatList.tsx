@@ -15,12 +15,12 @@ interface Session {
     time?: string;
 }
 
-// Helper to fetch sessions
 const fetchSessions = async (): Promise<Session[]> => {
-    // In production this needs the full URL or proxy setup. 
-    // Vite proxy is usually set in vite.config.ts, assuming /api proxies to localhost:3001
-    // For now we assume local dev environment
-    const { data } = await axios.get('http://localhost:3001/api/sessions');
+    const token = sessionStorage.getItem('kaiu_admin_token');
+    // Using relative URL since Vite proxies /api to backend (port 3001)
+    const { data } = await axios.get('/api/sessions', {
+        headers: { Authorization: `Bearer ${token}` }
+    });
     return data;
 };
 

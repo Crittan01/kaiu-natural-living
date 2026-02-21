@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   
   else if (req.method === 'POST') {
     try {
-      const { sku, name, description, variantName, category, price, stock, isActive, benefits, weight, width, height, length } = req.body;
+      const { sku, name, description, variantName, category, price, stock, isActive, benefits, weight, width, height, length, images } = req.body;
       
       if (!name || price === undefined) {
           return res.status(400).json({ error: 'Name and price are required' });
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
           price: Number(price),
           stock: Number(stock || 0),
           isActive: isActive !== undefined ? Boolean(isActive) : true,
-          images: [],
+          images: Array.isArray(images) ? images : [],
           benefits: benefits ? String(benefits) : null,
           weight: weight !== undefined ? Number(weight) : 0.2,
           width: width !== undefined ? Number(width) : 10,
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
       }
 
       // Allowed fields to update
-      const { price, stock, isActive, name, description, category, variantName, benefits, weight, width, height, length } = updates;
+      const { price, stock, isActive, name, description, category, variantName, benefits, weight, width, height, length, images } = updates;
       
       const dataToUpdate = {};
       if (typeof price !== 'undefined') dataToUpdate.price = Number(price);
@@ -88,6 +88,7 @@ export default async function handler(req, res) {
       if (typeof width !== 'undefined') dataToUpdate.width = Number(width);
       if (typeof height !== 'undefined') dataToUpdate.height = Number(height);
       if (typeof length !== 'undefined') dataToUpdate.length = Number(length);
+      if (typeof images !== 'undefined' && Array.isArray(images)) dataToUpdate.images = images;
 
       const updatedProduct = await prisma.product.update({
         where: { sku: sku },

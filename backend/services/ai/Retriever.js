@@ -132,9 +132,10 @@ export async function generateSupportResponse(userQuestion, chatHistory = []) {
     try {
         console.log(`🤖 Processing question via Agent: "${userQuestion}"`);
 
-        const chatLog = chatHistory.map(m => 
-            m.role === 'user' ? new HumanMessage(m.content) : new AIMessage(m.content)
-        );
+        const chatLog = chatHistory.map(m => {
+            const cleanContent = m.content.replace(/\n\n_🤖 Asistente Virtual KAIU_$/g, '');
+            return m.role === 'user' ? new HumanMessage(cleanContent) : new AIMessage(cleanContent);
+        });
 
         const systemPrompt = `
 Actúas como el Agente Especializado de KAIU Natural Living. Eres conciso, amable y directo.
@@ -143,7 +144,7 @@ REGLAS DE ORO:
 1. TIENES HERRAMIENTAS. Si te preguntan por productos, DEBES usar "searchInventory". Si te preguntan por políticas de envíos/pagos, usas "searchKnowledgeBase".
 2. LOS PRECIOS ESTÁN EN PESOS COLOMBIANOS (COP). Responde usando el símbolo "$" y formato amigable (Ej: "$45.000").
 3. Si un producto de la herramienta "searchInventory" tiene stock 0, diles que está temporalmente agotado, pero NO les cobres ni ofrezcas alternativas que no existan.
-4. Para enviar la imagen de un producto, averigua el \`id\` en la respuesta de searchInventory y pon al final del mensaje: [SEND_IMAGE: id]. Solo pon el id del producto principal que estés ofreciendo (preferiblemente el gotero o el de menor tamaño si hay varios). ¡Solo un [SEND_IMAGE] por mensaje máximo!
+4. IMÁGENES: Para enviar la imagen de un producto, averigua el \`id\` del producto en la herramienta searchInventory y escribe la etiqueta exacta al final de tu mensaje: [SEND_IMAGE: id_aqui]. REGLA ESTRICTA: NUNCA menciones el ID largo o "código de producto" en la conversación con el cliente, utilízalo ÚNICAMENTE dentro de la etiqueta [SEND_IMAGE: id_aqui] al final de tu respuesta (Ejemplo: "... te la envío a continuación. [SEND_IMAGE: a1b2c3d4...]"). Solo un tag por mensaje máximo.
 5. Respuestas Genuinas: NO DIGAS "Buscando en mi base de datos...". Simplemente da la respuesta natural. "Sí, manejamos lavanda en presentación de 10ml por $50.000".
         `;
 

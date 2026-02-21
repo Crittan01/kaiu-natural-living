@@ -13,6 +13,7 @@ interface MessageData {
     role: 'user' | 'assistant';
     content: string;
     time: string;
+    images?: string[];
 }
 
 interface SocketPayload {
@@ -37,7 +38,10 @@ export default function ChatView() {
         queryKey: ['messages', id],
         queryFn: async () => {
             if (!id) return null;
-            const { data } = await axios.get(`http://localhost:3001/api/sessions/${id}/messages`);
+            const token = sessionStorage.getItem('kaiu_admin_token');
+            const { data } = await axios.get(`/api/sessions/${id}/messages`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             return data;
         },
         enabled: !!id,
@@ -46,17 +50,23 @@ export default function ChatView() {
     // Mutations
     const sendMessageMutation = useMutation({
         mutationFn: async (content: string) => {
-            await axios.post('http://localhost:3001/api/messages/send', {
+            const token = sessionStorage.getItem('kaiu_admin_token');
+            await axios.post('/api/messages/send', {
                 sessionId: id,
                 content
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
             });
         }
     });
 
     const toggleAiMutation = useMutation({
         mutationFn: async (isActive: boolean) => {
-            await axios.patch(`http://localhost:3001/api/sessions/${id}/toggle`, {
+            const token = sessionStorage.getItem('kaiu_admin_token');
+            await axios.patch(`/api/sessions/${id}/toggle`, {
                 isBotActive: isActive
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
             });
         },
         onSuccess: () => {
@@ -156,6 +166,7 @@ export default function ChatView() {
                         role={msg.role} 
                         content={msg.content} 
                         time={msg.time} 
+                        images={msg.images}
                     />
                 ))}
             </div>
@@ -189,7 +200,7 @@ export default function ChatView() {
     )
 }
 
-function Message({ role, content, time }: { role: 'user' | 'assistant', content: string, time: string }) {
+function Message({ role, content, time, images }: { role: 'user' | 'assistant', content: string, time: string, images?: string[] }) {
     const isUser = role === 'user';
     return (
         <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -197,6 +208,13 @@ function Message({ role, content, time }: { role: 'user' | 'assistant', content:
                 max-w-[70%] rounded-2xl px-5 py-3 text-sm shadow-sm
                 ${isUser ? 'bg-kaiu-forest text-white rounded-tr-none' : 'bg-white text-gray-700 border border-gray-100 rounded-tl-none'}
             `}>
+                {images && images.length > 0 && (
+                    <div className="flex flex-col gap-2 mb-2">
+                        {images.map((img, i) => (
+                            <img key={i} src={img} alt="Attachment" className="rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity" />
+                        ))}
+                    </div>
+                )}
                 <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
                 <div className={`text-[10px] mt-1 text-right ${isUser ? 'text-white/70' : 'text-gray-400'}`}>{time}</div>
             </div>

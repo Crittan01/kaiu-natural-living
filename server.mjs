@@ -58,7 +58,11 @@ const PORT = 3001;
 
 // Middlewares Globales
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+    verify: (req, res, buf) => {
+        req.rawBody = buf;
+    }
+}));
 
 // API Routes (Dashboard)
 app.use('/api', apiRoutes);
@@ -90,8 +94,7 @@ app.all('/api/admin/knowledge', adminKnowledgeHandler); // Support GET, POST, DE
 app.post('/api/admin/sync-shipments', syncShipmentsHandler);
 
 // WhatsApp Webhook (Mock & Real)
-app.post('/webhook/whatsapp', whatsappWebhook);
-app.get('/webhook/whatsapp', whatsappWebhook); // Verification GET
+app.use('/api/whatsapp', whatsappWebhook);
 
 // Socket.IO Events
 io.on('connection', (socket) => {
