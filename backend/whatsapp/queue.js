@@ -15,18 +15,19 @@ export const setIO = (ioInstance) => {
 };
 
 // CONNECTION CONFIG
-const redisOptions = {
-    maxRetriesPerRequest: null,
-    enableReadyCheck: false,
-    keepAlive: 10000,
-    tls: process.env.REDIS_URL && process.env.REDIS_URL.includes("rediss://") ? { rejectUnauthorized: false } : undefined
-};
+const redisUrl = process.env.REDIS_URL;
+const redisOpts = { maxRetriesPerRequest: null };
 
-const connection = process.env.REDIS_URL 
-    ? new IORedis(process.env.REDIS_URL, redisOptions)
-    : new IORedis(process.env.REDIS_PORT || 6379, process.env.REDIS_HOST || 'localhost', redisOptions);
+if (!redisUrl) {
+    redisOpts.host = process.env.REDIS_HOST || 'localhost';
+    redisOpts.port = process.env.REDIS_PORT || 6379;
+    redisOpts.password = process.env.REDIS_PASSWORD;
+}
 
-export const whatsappQueue = new Queue('whatsapp-ai', { connection });
+const queueConnection = redisUrl ? new IORedis(redisUrl, redisOpts) : new IORedis(redisOpts);
+const workerConnection = redisUrl ? new IORedis(redisUrl, redisOpts) : new IORedis(redisOpts);
+
+export const whatsappQueue = new Queue('whatsapp-ai', { connection: queueConnection });
 
 // WORKER LOGIC
 console.log("🚀 Initializing WhatsApp AI Worker...");
@@ -193,7 +194,7 @@ export const worker = new Worker('whatsapp-ai', async job => {
     }
 
 }, { 
-    connection,
+    connection: workerConnection,
     limiter: {
         max: 10, // Max 10 processing jobs at a time
         duration: 1000
