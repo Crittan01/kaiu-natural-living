@@ -1,10 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, Clock, CheckCircle2, User, AlertTriangle } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import React from "react";
+import React, { useEffect } from "react";
+import { io } from "socket.io-client";
+
+const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const socket = io(socketUrl);
 
 interface Session {
     id: string;
@@ -26,13 +30,31 @@ const fetchSessions = async (): Promise<Session[]> => {
 
 export default function ChatList() {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     
-    // Poll every 5 seconds for simple real-time updates (or use Socket in next step for instant)
+    // Fetch sessions
     const { data: sessions, isLoading, error } = useQuery({
         queryKey: ['sessions'],
         queryFn: fetchSessions,
-        refetchInterval: 5000 
+        refetchInterval: 15000 // Fallback slow poll, WebSockets handle fast updates 
     });
+
+    useEffect(() => {
+        const handleUpdate = () => {
+             console.log("WebSocket: Global chat list update trigger");
+             queryClient.invalidateQueries({ queryKey: ['sessions'] });
+        };
+
+        socket.on('chat_list_update', handleUpdate);
+        socket.on('session_new', handleUpdate);
+        socket.on('session_update', handleUpdate);
+
+        return () => {
+            socket.off('chat_list_update', handleUpdate);
+            socket.off('session_new', handleUpdate);
+            socket.off('session_update', handleUpdate);
+        };
+    }, [queryClient]);
 
     if (isLoading) return <div className="p-4 text-center text-gray-400 text-sm">Cargando chats...</div>;
     if (error) return <div className="p-4 text-center text-red-400 text-sm">Error al cargar chats</div>;

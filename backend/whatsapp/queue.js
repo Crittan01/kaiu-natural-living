@@ -71,10 +71,13 @@ export const worker = new Worker('whatsapp-ai', async job => {
         history.push(userMsg);
         
         // Emit User Message to Dashboard (Real-time)
-        if (io) io.to(`session_${session.id}`).emit('new_message', { 
-            sessionId: session.id, 
-            message: { role: 'user', content: text, time: "Just now" } 
-        });
+        if (io) {
+            io.to(`session_${session.id}`).emit('new_message', { 
+                sessionId: session.id, 
+                message: { role: 'user', content: text, time: "Just now" } 
+            });
+            io.emit('chat_list_update', { sessionId: session.id }); // Update Sidebar
+        }
         
         // Keep only last 10 messages
         if (history.length > 10) history = history.slice(-10);
@@ -147,10 +150,13 @@ export const worker = new Worker('whatsapp-ai', async job => {
         history.push(aiMsg);
 
         // Emit AI Message to Dashboard
-        if (io) io.to(`session_${session.id}`).emit('new_message', { 
-            sessionId: session.id, 
-            message: { ...aiMsg, time: "Just now" } 
-        });
+        if (io) {
+            io.to(`session_${session.id}`).emit('new_message', { 
+                sessionId: session.id, 
+                message: { ...aiMsg, time: "Just now" } 
+            });
+            io.emit('chat_list_update', { sessionId: session.id }); // Update Sidebar
+        }
 
         // 6. Save Updated History
         await prisma.whatsAppSession.update({
