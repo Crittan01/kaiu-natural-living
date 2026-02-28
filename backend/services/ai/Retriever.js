@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import { pipeline } from '@xenova/transformers';
 import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage, SystemMessage, ToolMessage, AIMessage } from "@langchain/core/messages";
 
