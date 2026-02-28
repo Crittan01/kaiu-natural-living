@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "api": "nodemon server.mjs"
+    "api": "node server.mjs",
+    "api:dev": "nodemon server.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
