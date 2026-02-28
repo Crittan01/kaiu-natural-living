@@ -5,8 +5,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { io } from "socket.io-client";
 
-// Initialize Socket (Singleton-ish for this component)
-const socket = io('http://localhost:3001'); // Ensure this matches backend port
+// Initialize Socket (Fallback to localhost if env var not set)
+const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const socket = io(socketUrl);
 
 // Interfaces
 interface MessageData {

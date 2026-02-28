@@ -734,7 +734,7 @@ function EditProductModal({ product, existingCategories, existingVariants, onClo
                         <div className="flex items-center gap-4">
                             <div className="h-20 w-20 rounded bg-muted border overflow-hidden flex items-center justify-center flex-shrink-0">
                                 {images.length > 0 ? (
-                                    <img src={images[0].startsWith('http') ? images[0] : `http://localhost:3001${images[0]}`} alt="Product" className="h-full w-full object-cover" />
+                                    <img src={images[0].startsWith('http') ? images[0] : `${import.meta.env.VITE_API_URL || ''}${images[0]}`} alt="Product" className="h-full w-full object-cover" />
                                 ) : (
                                     <ImageIcon className="text-muted-foreground w-6 h-6" />
                                 )}
@@ -951,7 +951,7 @@ function AddProductModal({ onClose, onSave, initialData, existingCategories, exi
                         <div className="flex items-center gap-4">
                             <div className="h-20 w-20 rounded bg-muted border overflow-hidden flex items-center justify-center flex-shrink-0">
                                 {images.length > 0 ? (
-                                    <img src={images[0].startsWith('http') ? images[0] : `http://localhost:3001${images[0]}`} alt="Product" className="h-full w-full object-cover" />
+                                    <img src={images[0].startsWith('http') ? images[0] : `${import.meta.env.VITE_API_URL || ''}${images[0]}`} alt="Product" className="h-full w-full object-cover" />
                                 ) : (
                                     <ImageIcon className="text-muted-foreground w-6 h-6" />
                                 )}
