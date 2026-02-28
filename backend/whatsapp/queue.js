@@ -1,4 +1,5 @@
 import { Queue, Worker } from 'bullmq';
+import IORedis from 'ioredis';
 import { generateSupportResponse } from '../services/ai/Retriever.js';
 import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
@@ -14,11 +15,13 @@ export const setIO = (ioInstance) => {
 };
 
 // CONNECTION CONFIG
-const connection = {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: process.env.REDIS_PORT || 6379,
-    password: process.env.REDIS_PASSWORD
-};
+const connection = process.env.REDIS_URL 
+    ? new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
+    : {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: process.env.REDIS_PORT || 6379,
+        password: process.env.REDIS_PASSWORD
+      };
 
 export const whatsappQueue = new Queue('whatsapp-ai', { connection });
 
