@@ -1,0 +1,69 @@
+# Diagrama de Entidad-Relación (DER) - WhatsApp AI Orchestrator v2026
+
+Este diagrama refleja la estructura de datos para la Fase 1, incluyendo soporte para RAG (Vectores) y gestión de sesiones de WhatsApp.
+
+```mermaid
+erDiagram
+    User {
+        String id PK "UUID"
+        String email UK
+        String password "Hash"
+        String name
+        String role "CUSTOMER | ADMIN | WAREHOUSE"
+        String bsuid UK "Business-Scoped User ID (WhatsApp)"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+
+    WhatsAppSession {
+        String id PK "UUID"
+        String phoneNumber UK "User Phone Number"
+        Boolean isBotActive "Default: true"
+        Json sessionContext "Variables temporales"
+        String handoverTrigger "Motivo escalamiento"
+        DateTime expiresAt "Ventana 24h/72h"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+
+    KnowledgeBase {
+        String id PK "UUID"
+        String content "Texto plano"
+        Json metadata "Fuente, Título, ID Producto"
+        Unsupported vector "embedding(1536)"
+        DateTime createdAt
+    }
+
+    Product {
+        String id PK "UUID"
+        String sku UK
+        String name
+        String slug UK
+        String description
+        Int price
+        Int stock
+        Boolean isActive
+        String[] images
+        DateTime createdAt
+        DateTime updatedAt
+    }
+
+    Order {
+        String id PK "UUID"
+        Int readableId "Auto-increment"
+        String status
+        String paymentMethod
+        Int total
+        String userId FK
+        DateTime createdAt
+    }
+
+    %% Relaciones
+    User ||--o{ Order : "places"
+    WhatsAppSession |o--|| User : "linked_to (optional)"
+```
+
+## Notas Técnicas
+1.  **Vector Column**: `KnowledgeBase` usa `Unsupported("vector(1536)")` para compatibilidad con pgvector y Prisma.
+2.  **BSUID**: Se añade a `User` para identificar usuarios únicos a través de la API de WhatsApp Business.
+3.  **Indices**: Se crearán índices HNSW en `KnowledgeBase.embedding` mediante migración SQL RAW (Prisma no lo soporta nativamente en esquema).

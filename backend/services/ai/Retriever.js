@@ -132,7 +132,10 @@ export async function generateSupportResponse(userQuestion, chatHistory = []) {
     try {
         console.log(`🤖 Processing question via Agent: "${userQuestion}"`);
 
-        const chatLog = chatHistory.map(m => {
+        // Truncate history to last 4 messages to prevent tool hallucinations 
+        // Force the model to query the database again instead of relying on long-term context
+        const recentHistory = chatHistory.slice(-4);
+        const chatLog = recentHistory.map(m => {
             const cleanContent = m.content.replace(/\n\n_🤖 Asistente Virtual KAIU_$/g, '');
             return m.role === 'user' ? new HumanMessage(cleanContent) : new AIMessage(cleanContent);
         });
@@ -141,17 +144,24 @@ export async function generateSupportResponse(userQuestion, chatHistory = []) {
 Actúas como el Agente Especializado de KAIU Natural Living. Eres conciso, amable y directo.
 
 REGLAS DE ORO:
-1. TIENES HERRAMIENTAS. Si te preguntan por productos, DEBES usar "searchInventory". Si te preguntan por políticas de envíos/pagos, usas "searchKnowledgeBase".
+1. ESTRICTAMENTE PROHIBIDO ADIVINAR O ALUCINAR DATOS. NUNCA respondas sobre la existencia, precios, variantes o imágenes de un producto basándote en tu memoria. SIEMPRE, sin excepción, INVOCA la herramienta "searchInventory" cada vez que el usuario pregunte por CUALQUIER producto nuevo o existente, incluso si crees que ya lo buscaste antes.
 2. LOS PRECIOS ESTÁN EN PESOS COLOMBIANOS (COP). Responde usando el símbolo "$" y formato amigable (Ej: "$45.000").
-3. Si un producto de la herramienta "searchInventory" tiene stock 0, diles que está temporalmente agotado, pero NO les cobres ni ofrezcas alternativas que no existan.
-4. IMÁGENES: Para enviar la imagen de un producto, averigua el \`id\` del producto en la herramienta searchInventory y escribe la etiqueta exacta al final de tu mensaje: [SEND_IMAGE: id_aqui]. REGLA ESTRICTA: NUNCA menciones el ID largo o "código de producto" en la conversación con el cliente, utilízalo ÚNICAMENTE dentro de la etiqueta [SEND_IMAGE: id_aqui] al final de tu respuesta (Ejemplo: "... te la envío a continuación. [SEND_IMAGE: a1b2c3d4...]"). Solo un tag por mensaje máximo.
-5. Respuestas Genuinas: NO DIGAS "Buscando en mi base de datos...". Simplemente da la respuesta natural. "Sí, manejamos lavanda en presentación de 10ml por $50.000".
+3. Si un producto de la herramienta "searchInventory" tiene stock 0, diles que está temporalmente agotado, pero NO les cobres ni ofrezcas alternativas que no existan en la respuesta de la herramienta.
+4. IMÁGENES: Si el usuario te pide FOTOS, IMÁGENES o VER los productos, DEBES usar la etiqueta [SEND_IMAGE: id_del_producto] en tu texto. Puedes usar múltiples etiquetas en un mensaje. NUNCA inventes IDs falsos ni dejes espacios en blanco. Si no tienes los IDs recientes en la memoria inmediata de las herramientas, vuelve a ejecutar "searchInventory" para obtener los verdaderos IDs alfanuméricos UUID. REGLA ESTRICTA: El ID largo NUNCA se le muestra al usuario en el texto natural; va oculto SÓLO dentro de la etiqueta [SEND_IMAGE: id] al final de la descripción. (Ej: "... te envío la de 10ml. [SEND_IMAGE: a1b...]")
+5. Respuestas Genuinas y Profesionales: NO DIGAS "Buscando en mi base de datos...". Eres directo y comercial. "Sí, manejamos lavanda en presentación de 10ml por $50.000". NUNCA ofrezcas un tamaño, precio, o producto que no te haya devuelto la herramienta "searchInventory" explícitamente.
         `;
+
+        // --- ANTI-HALLUCINATION HOOK ---
+        // Force the model to query the database again if asked for photos, because it forgets UUIDs
+        let finalUserQuestion = userQuestion;
+        if (/(foto|imagen|imágen|ver|mostrar)/i.test(finalUserQuestion)) {
+            finalUserQuestion += "\n[SISTEMA: Obligatorio ejecutar searchInventory ahora mismo para obtener los IDs reales (UUID) de las imágenes. NO inventes IDs aleatorios.]";
+        }
 
         const messages = [
             new SystemMessage(systemPrompt),
             ...chatLog,
-            new HumanMessage(userQuestion)
+            new HumanMessage(finalUserQuestion)
         ];
 
         const modelWithTools = getChatModel().bindTools(tools);
