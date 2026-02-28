@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: kaiu-api
+    env: node
+    region: ohio
+    buildCommand: npm install
+    startCommand: npm run api
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: VENNDELO_API_KEY
+        sync: false
+      - key: VITE_WOMPI_PUB_KEY
+        sync: false
+      - key: WOMPI_PRV_KEY
+        sync: false
+      - key: WOMPI_EVENTS_SECRET
+        sync: false
+      - key: WOMPI_INTEGRITY_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: WHATSAPP_PHONE_ID
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        value: kaiu_secure_webhook_token_123
