@@ -13,8 +13,9 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 async function getEmbeddingPipe() {
     if (!embeddingPipe) {
-        console.log("🔌 Loading Embedding Model...");
-        embeddingPipe = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+        console.log("🔌 Loading Embedding Model (BYPASSED FOR RENDER FREE TIER OOM PROTECTION)...");
+        // We bypass the actual transformer load to save 300MB of RAM
+        embeddingPipe = () => { return { toList: () => new Array(1536).fill(0.0) } };
     }
     return embeddingPipe;
 }
@@ -105,23 +106,11 @@ async function executeSearchInventory(query) {
 }
 
 async function executeSearchKnowledgeBase(query) {
-    console.log(`🛠️ Executing Tool: searchKnowledgeBase with query: "${query}"`);
-    const pipe = await getEmbeddingPipe();
-    const output = await pipe(query, { pooling: 'mean', normalize: true });
-    const questionVector = Array.from(output.data);
-
-    const results = await prisma.$queryRaw`
-        SELECT id, content, metadata
-        FROM knowledge_base
-        ORDER BY embedding <=> ${questionVector}::vector
-        LIMIT 3;
-    `;
-    
-    if (results.length === 0) {
-         return JSON.stringify({ error: "No se encontró información en las políticas de la empresa." });
-    }
-    
-    return JSON.stringify(results.map(r => ({ metadata: r.metadata, content: r.content })));
+    console.log(`🧠 (OOM Protection) Executing Tool: searchKnowledgeBase for query: "${query}"`);
+    return JSON.stringify({ 
+        info: "Políticas y RAG desactivado temporalmente por limites de Memoria RAM en servidor Cloud gratuito original. Dile al cliente que te repita la pregunta directa o solicite agendamiento humano si la duda es sobre politicas de envios. No trates de inventar politicas.",
+        original_query: query 
+    });
 }
 
 // ---------------------------------------------------------
