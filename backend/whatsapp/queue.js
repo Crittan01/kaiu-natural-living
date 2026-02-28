@@ -15,13 +15,16 @@ export const setIO = (ioInstance) => {
 };
 
 // CONNECTION CONFIG
+const redisOptions = {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+    keepAlive: 10000,
+    tls: process.env.REDIS_URL && process.env.REDIS_URL.includes("rediss://") ? { rejectUnauthorized: false } : undefined
+};
+
 const connection = process.env.REDIS_URL 
-    ? new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
-    : {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: process.env.REDIS_PORT || 6379,
-        password: process.env.REDIS_PASSWORD
-      };
+    ? new IORedis(process.env.REDIS_URL, redisOptions)
+    : new IORedis(process.env.REDIS_PORT || 6379, process.env.REDIS_HOST || 'localhost', redisOptions);
 
 export const whatsappQueue = new Queue('whatsapp-ai', { connection });
 
