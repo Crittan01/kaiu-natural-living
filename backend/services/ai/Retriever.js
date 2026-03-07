@@ -89,7 +89,7 @@ async function executeSearchInventory(query) {
                     { name: { contains: t, mode: 'insensitive' } },
                     { category: { contains: t, mode: 'insensitive' } },
                     { variantName: { contains: t, mode: 'insensitive' } },
-                    { tags: { has: t } } // Assuming you might have tags, otherwise harmless
+                    { description: { contains: t, mode: 'insensitive' } } 
                 ]
             }))
         };
