@@ -3,37 +3,31 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import dotenv from 'dotenv';
-import createOrderHandler from './backend/create-order.js';
-import quoteShippingHandler from './backend/quote-shipping.js';
 import getProductsHandler from './backend/get-products.js';
-import trackOrderHandler from './backend/track-order.js';
-import wompiSignatureHandler from './backend/wompi/sign.js';
-import wompiWebhookHandler from './backend/wompi/webhook.js';
-import adminLoginHandler from './backend/admin/login.js';
-import adminOrdersHandler from './backend/admin/orders.js';
-import adminGenerateLabelHandler from './backend/admin/generate-label.js';
-import adminConfirmOrderHandler from './backend/admin/confirm-order.js';
-import adminRequestPickupHandler from './backend/admin/request-pickup.js';
-import checkTransactionHandler from './backend/wompi/check-transaction.js';
-import dashboardStatsHandler from './backend/admin/dashboard-stats.js';
-import adminInventoryHandler from './backend/admin/inventory.js';
-import adminKnowledgeHandler from './backend/admin/knowledge.js';
-import syncShipmentsHandler from './backend/admin/sync-shipments.js';
 import mockChatWebhook from './backend/whatsapp/webhook-mock.js';
 import whatsappWebhook from './backend/whatsapp/webhook.js';
 
-// Configuración inicial
+// Configuración inicial de Entorno (Flexible)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const envPath = path.resolve(__dirname, '.env.local');
-const result = dotenv.config({ path: envPath });
 
-console.log(`Intentando cargar ENV desde: ${envPath}`);
-if (result.error) {
-    console.warn("No se pudo cargar .env.local:", result.error.message);
+// 1. Intentar cargar el .env estándar
+let dotenvResult = dotenv.config({ path: path.resolve(__dirname, '.env') });
+
+// 2. Si falla o estamos en local, intentar cargar .env.local
+if (dotenvResult.error || process.env.NODE_ENV !== 'production') {
+    const envLocalPath = path.resolve(__dirname, '.env.local');
+    const localResult = dotenv.config({ path: envLocalPath });
+    
+    if (localResult.error && dotenvResult.error) {
+        console.warn("⚠️ No se pudo cargar ni .env ni .env.local. Dependiendo de las variables inyectadas por el sistema.");
+    } else if (!localResult.error) {
+        console.log(`✅ Archivo .env.local cargado con éxito.`);
+    }
 } else {
-    // Verificación de carga exitosa
-    console.log(`.env.local cargado. Tienda Origen: ${process.env.VENNDELO_PICKUP_NAME || 'NO_DEFINIDO'}`);
+    console.log(`✅ Archivo .env principal cargado con éxito.`);
 }
+
+console.log(`Tienda Origen Configuracion: ${process.env.VENNDELO_PICKUP_NAME || 'NO_DEFINIDO'}`);
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import apiRoutes from './backend/api/routes.js';
@@ -67,31 +61,17 @@ app.use(express.json({
 // API Routes (Dashboard)
 app.use('/api', apiRoutes);
 
-// Legacy/Frontend Product Route
+import publicRoutes from './backend/routes/public.routes.js';
+import adminRoutes from './backend/routes/admin.routes.js';
+import wompiRoutes from './backend/routes/wompi.routes.js';
+
+// Legacy/Frontend Product Route (Mantenido global para la vista del index por ahora si quieres)
 app.get('/api/products', getProductsHandler);
 
-// Public API Routes (Checkout & Tracking)
-app.post('/api/create-order', createOrderHandler);
-app.post('/api/quote-shipping', quoteShippingHandler);
-app.get('/api/track-order', trackOrderHandler);
-
-// Wompi Integration
-app.post('/api/wompi/sign', wompiSignatureHandler);
-app.post('/api/wompi/webhook', wompiWebhookHandler);
-app.get('/api/wompi/check-transaction/:id', checkTransactionHandler);
-
-// Admin API Routes
-app.post('/api/admin/login', adminLoginHandler);
-app.get('/api/admin/orders', adminOrdersHandler);
-app.post('/api/admin/generate-label', adminGenerateLabelHandler);
-app.post('/api/admin/confirm-order', adminConfirmOrderHandler);
-app.post('/api/admin/request-pickup', adminRequestPickupHandler);
-app.get('/api/admin/dashboard-stats', dashboardStatsHandler);
-app.get('/api/admin/inventory', adminInventoryHandler);
-app.post('/api/admin/inventory', adminInventoryHandler); // Support POST for creation
-app.put('/api/admin/inventory', adminInventoryHandler); // Support PUT for updates
-app.all('/api/admin/knowledge', adminKnowledgeHandler); // Support GET, POST, DELETE
-app.post('/api/admin/sync-shipments', syncShipmentsHandler);
+// Nuevos enrutadores conectados
+app.use('/api', publicRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/wompi', wompiRoutes);
 
 // WhatsApp Webhook (Mock & Real)
 app.use('/api/whatsapp', whatsappWebhook);
@@ -122,9 +102,9 @@ if (process.env.NODE_ENV !== 'production' || process.argv[1] === fileURLToPath(i
 
     // Graceful Shutdown
     const shutdown = () => {
-        console.log('Cerrando servidor API...');
-        server.close(() => {
-            console.log('Servidor API cerrado.');
+        console.log('🛑 Cerrando servidor API (Graceful Shutdown) ...');
+        httpServer.close(() => {
+            console.log('✅ Servidor API cerrado de forma segura.');
             process.exit(0);
         });
     };

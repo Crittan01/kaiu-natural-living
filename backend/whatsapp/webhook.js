@@ -67,8 +67,35 @@ router.get('/webhook', (req, res) => {
     }
 });
 
+import rateLimit from 'express-rate-limit';
+
+// Rate Limiter configurado basado en el identificador del remitente (número de WhatsApp)
+// En vez de usar IP (Meta Data Centers), leeremos el interior del JSON entrante.
+const whatsappLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // Ventana de 1 minuto
+    max: 20, // Permitir hasta 20 mensajes por minuto por usuario
+    message: "Demasiados mensajes recibidos. Por favor, espera un minuto.",
+    standardHeaders: false,
+    legacyHeaders: false,
+    // Usamos una función keyGenerator personalizada para rastrear por el `from` (número WhatsApp)
+    keyGenerator: (req, res) => {
+        try {
+            const body = req.body;
+            if (body?.object === 'whatsapp_business_account') {
+                const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+                if (message && message.from) {
+                    return message.from; // Limitar por número telefónico cliente
+                }
+            }
+        } catch (e) {
+             return req.ip; // Fallback a la IP (aunque en Meta serán las IPs de Facebook)
+        }
+        return req.ip;
+    }
+});
+
 // 2. POST /api/whatsapp/webhook - Incoming Messages
-router.post('/webhook', validateSignature, async (req, res) => {
+router.post('/webhook', validateSignature, whatsappLimiter, async (req, res) => {
     // IMMEDIATE 200 OK
     res.sendStatus(200);
 
