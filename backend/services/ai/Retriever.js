@@ -73,36 +73,53 @@ const tools = [
 
 async function executeSearchInventory(query) {
     console.log(`🛠️ Executing Tool: searchInventory with query: "${query}"`);
-    // Basic text search. Prisma doesn't have native Full Text Search on Postgres enabled by default easily without creating vectors, 
-    // so we will split the query and do a permissive OR search using contains.
-    const terms = query.split(' ').filter(w => w.length > 3);
-    const searchConditions = terms.map(t => ({
-        OR: [
-            { name: { contains: t, mode: 'insensitive' } },
-            { category: { contains: t, mode: 'insensitive' } },
-            { variantName: { contains: t, mode: 'insensitive' } }
-        ]
-    }));
-
-    // If query is too short or terms didn't meet length requirement, default to direct match
-    const filter = searchConditions.length > 0 
-        ? { OR: searchConditions } 
-        : { name: { contains: query, mode: 'insensitive' } };
-
-    const products = await prisma.product.findMany({
-        where: filter,
-        select: { id: true, name: true, variantName: true, price: true, stock: true, isActive: true, category: true, description: true }
-    });
     
-    // Filter out inactive products 
-    const activeProducts = products.filter(p => p.isActive);
-
-    if (activeProducts.length === 0) {
-        return JSON.stringify({ error: "INVENTARIO_VACIO_O_PRODUCTO_NO_EXISTE", instruction_for_ai: "Dile al cliente textualmente que KAIU no vende ni maneja ese producto actualmente." });
+    // Normalizar query removiendo palabras vacías (stop words) comunes
+    const stopWords = ['de', 'la', 'el', 'los', 'las', 'un', 'una', 'para', 'con', 'sin', 'vegetales', 'esenciales'];
+    const terms = query.toLowerCase().split(' ').filter(w => w.length > 2 && !stopWords.includes(w));
+    
+    // Si la query es muy ambigua (ej: "aceites"), Prisma devolverá todo. Forzamos un AND implícito sobre los términos útiles.
+    let filter = {};
+    
+    if (terms.length > 0) {
+        // En lugar de un OR global permisivo, requerimos que TODOS los términos clave existan en el producto (en Nombre, Categoría O Variante)
+        filter = {
+            AND: terms.map(t => ({
+                OR: [
+                    { name: { contains: t, mode: 'insensitive' } },
+                    { category: { contains: t, mode: 'insensitive' } },
+                    { variantName: { contains: t, mode: 'insensitive' } },
+                    { tags: { has: t } } // Assuming you might have tags, otherwise harmless
+                ]
+            }))
+        };
+    } else {
+        // Fallback exacto
+        filter = { name: { contains: query, mode: 'insensitive' } };
     }
-    
-    // Safety Net: Limit to 10 products so the AI window doesn't overflow and hallucinate
-    return JSON.stringify(activeProducts.slice(0, 10));
+
+    try {
+        const products = await prisma.product.findMany({
+            where: filter,
+            select: { id: true, name: true, variantName: true, price: true, stock: true, isActive: true, category: true, description: true }
+        });
+        
+        const activeProducts = products.filter(p => p.isActive);
+
+        if (activeProducts.length === 0) {
+            // INYECCIÓN LETAL contra la alucinación: Si prisma devuelve cero, mandamos una orden militar al LLM.
+            return JSON.stringify({ 
+                error: "DATO_CRITICO: INVENTARIO_VACIO_O_PRODUCTO_NO_EXISTE", 
+                instruction_for_ai: `EXTREMADAMENTE IMPORTANTE: KAIU NATURAL LIVING NO VENDE '${query}'. DILE AL CLIENTE QUE NO MANEJAMOS ESE PRODUCTO. NO INVENTES NADA.` 
+            });
+        }
+        
+        // Safety Net: Limit to 5 products to prevent token overflow hallucination
+        return JSON.stringify(activeProducts.slice(0, 5));
+    } catch (e) {
+        console.error("Inventory DB Search Error", e);
+        return JSON.stringify({ error: "DB_ERROR", instruction_for_ai: "Ocurrió un error buscando el inventario, pide amablemente que reformulen la pregunta." });
+    }
 }
 
 async function executeSearchKnowledgeBase(query) {
