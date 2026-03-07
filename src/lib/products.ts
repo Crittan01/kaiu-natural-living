@@ -46,12 +46,14 @@ const convertGoogleDriveLink = (url: string) => {
     return url;
 };
 
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://kaiu-api.onrender.com' : '');
+
 /**
  * Fetches products from the backend API (which wraps the Database)
  * @param sheetName Optional category filter (formerly sheet name)
  */
 export const fetchProducts = async (categoryFilter?: string): Promise<Product[]> => {
-  let API_URL = '/api/products';
+  let API_URL = `${API_BASE}/api/products`;
   
   if (categoryFilter) {
       API_URL += `?sheet=${encodeURIComponent(categoryFilter)}`;
