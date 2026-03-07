@@ -112,7 +112,8 @@ async function executeSearchInventory(query) {
             });
         }
         
-        return JSON.stringify(activeProducts.slice(0, 5));
+        // El límite de 5 era muy bajo y cortaba las variantes de los productos (ej: Roll-on). 25 es un número seguro para Claude.
+        return JSON.stringify(activeProducts.slice(0, 25));
     } catch (e) {
         console.error("Inventory DB Search Error", e);
         return JSON.stringify({ error: "DB_ERROR", instruction_for_ai: "Ocurrió un error buscando el inventario." });
