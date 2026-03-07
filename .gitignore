@@ -27,3 +27,16 @@ debug/
 
 /generated/prisma
 dump.rdb
+
+# Ad-hoc Test & Simulation Scripts
+test-*.js
+test-*.mjs
+simulate-*.js
+simulate-*.mjs
+check-live*.mjs
+insert-dummy*.mjs
+get-admin.mjs
+scripts/simulate_webhook_test.js
+scripts/test-ai.js
+scripts/test-chat-flow.js
+scripts/test-chat.js
