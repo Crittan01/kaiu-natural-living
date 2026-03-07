@@ -93,22 +93,50 @@ erDiagram
     }
 ```
 
-### Tablas Nucleares de E-Commerce
+### Diccionario de Datos (Tablas y Campos Nucleares)
 
-- `Product`: Control de catálogo.
-  - _Campos Críticos:_ `sku` (PK), `name` (Agrupador visual frontend), `variantName` (Gotero 10ml, etc), `price` (en Centavos COP).
-  - _Logística:_ `weight`, `width`, `height` (Variables imperativas para cotizar envíos con transportadoras Nacionales).
-- `Order` y `OrderItem`: Entidades transaccionales inmutables.
-  - _Campos Críticos:_ `status` (PENDING, PAID, SHIPPED). Dependen umbilicalmente de que el **Webhook privado de Wompi** haga la validación de Integridad Criptográfica para pasar a `PAID`.
-  - _Snapshot Logic:_ `shippingAddress` guarda un JSON duro. No se normaliza como relación, pues si el usuario muda de casa mañana, el histórico de esta factura no debe alterarse.
+El sistema opera bajo 6 entidades centrales que interactúan de la siguiente manera:
 
-### Tablas Nucleares de Inteligencia Artificial (RAG & Webhooks)
+#### 1. `USER` (Usuarios y Roles)
 
-- `WhatsAppSession`: El Director de Orquesta de Meta Cloud.
-  - _Campo `isBotActive` (Boolean):_ Dictamina el Handover. Si es `True`, BullMQ autoriza a Claude procesar la respuesta. Si es `False`, Claude descarta el job y asume que un humano responderá desde el Dashboard.
-  - _Campo `sessionContext`:_ Diccionario JSON temporal de memoria de LangChain (¿De qué estaban hablando hace 5 minutos?).
-- `KnowledgeBase`: Colección Vectorial de Embeddings.
-  - _Campo `embedding`:_ Casteado nativamente por extension `pgvector` (`Unsupported("vector(1536)")`). Almacena la traducción numérica de los manuales de envío y políticas de cambios. Prisma usa sentencias crudas SQL `ORDER BY embedding <=> '[...]'` para extraer los textos más acordes a la duda del usuario y dárselos a la IA antes de que ésta conteste.
+Gestiona la autenticación y nivel de acceso (RBAC) para el Dashboard Admin, diferenciando a los clientes finales ("Gents") de los operadores del negocio.
+
+- **`email` / `password`:** Credenciales de ingreso (Hash Bcrypt).
+- **`role` (Enum):** Control de UI. Puede ser `CUSTOMER`, `ADMIN` (Acceso Total), `WAREHOUSE` (Inventario/Órdenes), o `SUPPORT` (Solo Chats).
+- **`bsuid`:** Identificador Único de Negocio de Meta Cloud, útil para asociar un celular corporativo WA con un usuario de base de datos.
+
+#### 2. `PRODUCT` (Inventario y Catálogo)
+
+El corazón transaccional del e-commerce. Sus datos se hidratan en el dashboard y se leen vía API al pintar el Home público.
+
+- **`sku` (PK):** Código Universal. Pieza clave para el "Tool Calling" de Claude, quien le dice al backend: "Cotizame el SKU X".
+- **`stock` y `price`:** Campos financieros puros. El precio siempre se almacena en **Centavos de Peso (Cop)** para evitar errores de coma flotante en pasarelas de pago.
+- **`weight` (y Metadatos Volumétricos):** Variables `float` obligatorias que exige "Coordinadora" (o transportadoras nacionales colombianas) para emitir cobros automáticos de envíos vía API.
+- **`isActive`:** Interruptor Lógico que permite realizar "Soft Deletes" para retirar productos del catálogo sin dañar el historial relacional de facturas antiguas.
+
+#### 3. `ORDER` y `ORDER_ITEM` (Transacciones y Logística)
+
+Entidades Inmutables diseñadas para bloquear cambios post-venta y generar Guías de Envío legalmente válidas.
+
+- **`status` (Enum Crítico):** Motor de estado (`PENDING` -> `CONFIRMED` -> `SHIPPED`). Este valor lo dicta el webhook blindado criptográficamente de la pasarela **Wompi**. Ningún humano puede marcar arbitrariamente como "Pagado" si la API de Wompi no manda el evento.
+- **`paymentMethod`:** Codifica la procedencia del pago (`WOMPI` para el checkout online, `COD` para los pedidos telefónicos o por WhatsApp contra-entrega).
+- **`shippingAddress` (JSON estático):** Una vez la persona compra, la dirección a la que pidió `((Calle X, Apto Y))` se inyecta como un JSON duro. No es relacional. Esto es por diseño: si el usuario se muda de casa en 6 meses, su factura del pasado debe seguir registrando la dirección original inalterada.
+- **`trackingNumber`:** Número de guía asignado por la transportadora, imprimible luego por etiqueta térmica PDF en el Dashboard.
+
+#### 4. `WHATSAPP_SESSION` (Orquestador Conversacional)
+
+El semáforo principal del flujo de atención al cliente de Meta.
+
+- **`phoneNumber`:** Número con formato internacional (Ej: `57300123...`) que identifica la sesión.
+- **`isBotActive` (Boolean):** **El interruptor más importante de la empresa.** Si está activo, el servidor NodeJS deja que la IA de Anthropic responda los SMS que llegan al webhook. Si cambia a false ("Handover Human"), el Bot se silencia para cederle el chat de forma remota a soporte humano.
+- **`sessionContext` (JSON):** Memoria efímera. Almacena en string crudo el historial relacional de Langchain sobre la charla del cliente antes de los cortes HTTP (ej. "¿De qué aceite veníamos hablando?").
+- **`expiresAt`:** Restricción propia de Meta que obliga a responder interacciones antes de las 24 Horas comerciales.
+
+#### 5. `KNOWLEDGE_BASE` (El Cerebro RAG de Memoria Vectorial)
+
+La tabla "Mágica". En lugar de un modelo If/Else, el KAIU se apoya aquí para volverse inteligente sobre manuales de políticas de envío o ingredientes botánicos.
+
+- **`embedding` (`Unsupported("vector(1536)")`):** El backend extrae el texto de un PDF ("Los envíos a Pasto demoran 2 días"), le envía eso al LLM API, nos devuelve un tensor matemático de 1536 flotantes, y Prisma lo guarda nativamente gracias a `pgvector`. Cuando llega la duda, el backend lanza una ecuación de `Similitud del Coseno (<=>)` por SQL Puro contra todos los vectores para hallar la respuesta ideal.
 
 ---
 
