@@ -1,3 +1,4 @@
+const API_BASE = import.meta.env.VITE_API_URL || '';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -67,8 +68,8 @@ export default function AdminDashboard() {
         
         // Parallel Fetch: Stats and Orders
         const [ordersRes, statsRes] = await Promise.all([
-            fetch('/api/admin/orders', { headers }),
-            fetch('/api/admin/dashboard-stats', { headers })
+            fetch(`${API_BASE}/api/admin/orders', { headers }),
+            fetch(`${API_BASE}/api/admin/dashboard-stats', { headers })
         ]);
 
         if (ordersRes.status === 401 || statsRes.status === 401) {
@@ -110,7 +111,7 @@ export default function AdminDashboard() {
     if (!confirm('¿Generar/Imprimir Guía para esta orden?')) return;
     setGeneratingLabel(orderId);
     try {
-        const res = await fetch('/api/admin/generate-label', {
+        const res = await fetch(`${API_BASE}/api/admin/generate-label', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -165,7 +166,7 @@ export default function AdminDashboard() {
   const handleRequestPickup = async (orderId: string) => {
     if (!confirm('¿Solicitar recogida para esta orden?')) return;
     try {
-        const res = await fetch('/api/admin/request-pickup', {
+        const res = await fetch(`${API_BASE}/api/admin/request-pickup', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -187,7 +188,7 @@ export default function AdminDashboard() {
     try {
         toast({ title: "Sincronizando...", description: "Consultando estados en Venndelo..." });
         
-        const res = await fetch('/api/admin/sync-shipments', {
+        const res = await fetch(`${API_BASE}/api/admin/sync-shipments', {
              method: 'POST',
              headers: { 'Authorization': `Bearer ${token}` }
         });

@@ -1,3 +1,4 @@
+const API_BASE = import.meta.env.VITE_API_URL || '';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -36,7 +37,7 @@ export default function TrackOrder() {
     setResult(null);
 
     try {
-      const res = await fetch(`/api/track-order?id=${queryId}`);
+      const res = await fetch(`${API_BASE}/api/track-order?id=${queryId}`);
       const data = await res.json();
 
       if (!res.ok) {

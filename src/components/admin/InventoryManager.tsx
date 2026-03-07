@@ -108,7 +108,7 @@ export function InventoryManager() {
         if (!token) return;
         setLoading(true);
         try {
-            const res = await fetch('/api/admin/inventory', {
+            const res = await fetch(`${API_BASE}/api/admin/inventory', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) throw new Error('Error cargando inventario');
@@ -131,7 +131,7 @@ export function InventoryManager() {
             // Optimistic Update
             setProducts(prev => prev.map(p => p.sku === sku ? { ...p, ...updates } : p));
 
-            const res = await fetch('/api/admin/inventory', {
+            const res = await fetch(`${API_BASE}/api/admin/inventory', {
                 method: 'PUT',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -151,7 +151,7 @@ export function InventoryManager() {
 
     const handleCreate = async (newProduct: Partial<ProductInventory>) => {
         try {
-            const res = await fetch('/api/admin/inventory', {
+            const res = await fetch(`${API_BASE}/api/admin/inventory', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -655,7 +655,7 @@ function EditProductModal({ product, existingCategories, existingVariants, onClo
         
         try {
             const token = sessionStorage.getItem('kaiu_admin_token');
-            const res = await fetch('/api/upload', {
+            const res = await fetch(`${API_BASE}/api/upload', {
                 method: 'POST',
                 body: formData,
                 headers: { 'Authorization': `Bearer ${token}` } // Wait, FormData boundary will be set by browser, no Content-Type needed
@@ -859,7 +859,7 @@ function AddProductModal({ onClose, onSave, initialData, existingCategories, exi
         
         try {
             const token = sessionStorage.getItem('kaiu_admin_token');
-            const res = await fetch('/api/upload', {
+            const res = await fetch(`${API_BASE}/api/upload', {
                 method: 'POST',
                 body: formData,
                 headers: { 'Authorization': `Bearer ${token}` }

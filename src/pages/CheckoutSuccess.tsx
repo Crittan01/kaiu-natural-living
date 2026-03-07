@@ -1,3 +1,4 @@
+const API_BASE = import.meta.env.VITE_API_URL || '';
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -46,7 +47,7 @@ export default function CheckoutSuccess() {
             
             const check = async () => {
                 try {
-                    const res = await fetch(`/api/wompi/check-transaction/${transactionId}`);
+                    const res = await fetch(`${API_BASE}/api/wompi/check-transaction/${transactionId}`);
                     if (!res.ok) throw new Error('Error checking status');
                     
                     const data = await res.json();

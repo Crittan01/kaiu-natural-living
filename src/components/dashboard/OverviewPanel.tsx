@@ -1,3 +1,4 @@
+const API_BASE = import.meta.env.VITE_API_URL || '';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, DollarSign, Activity, Package, Users } from 'lucide-react';
@@ -32,7 +33,7 @@ export default function OverviewPanel() {
 
     const fetchStats = async () => {
       try {
-        const res = await fetch('/api/admin/dashboard-stats', {
+        const res = await fetch(`${API_BASE}/api/admin/dashboard-stats', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 

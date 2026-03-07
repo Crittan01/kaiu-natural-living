@@ -1,3 +1,4 @@
+const API_BASE = import.meta.env.VITE_API_URL || '';
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -79,7 +80,7 @@ export function ChatWidget() {
 
       setIsLoading(true); // Show "Typing..." dots
 
-      const res = await fetch('/api/chat', {
+      const res = await fetch(`${API_BASE}/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, history })
