@@ -21,10 +21,12 @@ El proyecto Vercel (React/Vite) compila una sola SPA (Single Page Application), 
 
 - **Enrutamiento:** Protegido bajo el layout `/dashboard/*`.
 - **Seguridad:** Requiere Login (JWT). El backend verifica un PIN contra la variable estática JSON `KAIU_ADMIN_USERS`. El token Bearer es obligatorio en todas estas rutas.
-- **Módulos del Dashboard:**
-  - `/dashboard/inventory`: Maestro de CRUD de Productos y Variantes en Tiempo Real.
-  - `/dashboard/orders`: Rastreo de compras aprobadas por Wompi y asignación de Guías de Envío.
-  - `/dashboard/chats`: Consola WebSockets (`Socket.io`). El Admin puede ver en vivo lo que la IA de Anthropic Claude le responde al cliente en WhatsApp, y usar un Toggle "_Handover_" para silenciar al bot y tomar el control humano.
+- **Topología de Módulos (Los 5 Pilares del Dashboard):**
+  1. **Resumen Ejecutivo (`/dashboard/`):** Componente `OverviewPanel.tsx`. Muestra KPIs financieros (Ticket promedio, Total de órdenes) y gráficas en React Recharts extrayendo estadísticas del backend.
+  2. **Órdenes y Envíos (`/dashboard/orders`):** Componente `OrdersPanel.tsx`. Central de logística. Monitorea cambios de estado post-Wompi (`PAID`, `SHIPPED`), imprime guías de transporte PDF haciendo proxy con la API oficial y audita la base de datos `Order`.
+  3. **Inventario (`/dashboard/inventory`):** Componente `InventoryManager.tsx`. Maestro CRUD de `Products` y sus variantes. Controla precios, stock, dimensiones y "Soft Delete" seguro de variantes.
+  4. **Conversaciones Inteligentes (`/dashboard/chats`):** Componentes `ChatList` y `ChatView`. Terminal de WebSockets (`Socket.io`). Observa en vivo qué responde la IA a cada celular, e incluye el botón **"Tomar Control (Handover)"** para mutear a Claude y hablar de humano a humano.
+  5. **Cerebro RAG & Conocimiento (`/dashboard/knowledge`):** Componente `KnowledgePanel.tsx`. Entrena al LLM inyectando manuales en texto que son divididos en "Chunks" y casteados a vectores multidimensionales en `pgvector`.
 
 ---
 
