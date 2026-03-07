@@ -41,7 +41,7 @@ export default function TrackOrder() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'No pudimos encontrar tu orden.');
+        throw new Error(data.error || "No pudimos encontrar tu orden.");
       }
       setResult(data);
     } catch (err) {

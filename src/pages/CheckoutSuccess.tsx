@@ -48,7 +48,7 @@ export default function CheckoutSuccess() {
             const check = async () => {
                 try {
                     const res = await fetch(`${API_BASE}/api/wompi/check-transaction/${transactionId}`);
-                    if (!res.ok) throw new Error('Error checking status');
+                    if (!res.ok) throw new Error("Error checking status");
                     
                     const data = await res.json();
                     
