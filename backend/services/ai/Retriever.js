@@ -234,11 +234,19 @@ REGLAS DE ORO (ESTRICTAMENTE PROHIBIDO VIOLARLAS):
             aiMessage = await modelWithTools.invoke(messages);
         }
 
+        // Parse final text properly (Claude 3 can return content blocks array instead of raw string)
+        let finalText = "";
+        if (typeof aiMessage.content === 'string') {
+            finalText = aiMessage.content;
+        } else if (Array.isArray(aiMessage.content)) {
+            finalText = aiMessage.content.find(c => c.type === 'text')?.text || "";
+        }
+
         // Return compliance footer
         const footer = "\n\n_🤖 Asistente Virtual KAIU_";
         
         return {
-            text: aiMessage.content + footer,
+            text: finalText + footer,
             sources: [] // We drop sources for now as Anthropic absorbs them
         };
 
