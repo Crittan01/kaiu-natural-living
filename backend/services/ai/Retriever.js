@@ -74,15 +74,14 @@ const tools = [
 async function executeSearchInventory(query) {
     console.log(`🛠️ Executing Tool: searchInventory with query: "${query}"`);
     
-    // Normalizar query removiendo palabras vacías (stop words) comunes
-    const stopWords = ['de', 'la', 'el', 'los', 'las', 'un', 'una', 'para', 'con', 'sin', 'vegetales', 'esenciales'];
+    // Normalizar query. NUNCA eliminar adjetivos clave como "vegetales" o "esenciales". 
+    // Solo quitamos conectores inservibles.
+    const stopWords = ['de', 'la', 'el', 'los', 'las', 'un', 'una', 'para', 'con', 'sin', 'que', 'tienes', 'hay', 'busco', 'necesito'];
     const terms = query.toLowerCase().split(' ').filter(w => w.length > 2 && !stopWords.includes(w));
     
-    // Si la query es muy ambigua (ej: "aceites"), Prisma devolverá todo. Forzamos un AND implícito sobre los términos útiles.
     let filter = {};
-    
     if (terms.length > 0) {
-        // En lugar de un OR global permisivo, requerimos que TODOS los términos clave existan en el producto (en Nombre, Categoría O Variante)
+        // AND RIGUROSO: Si el usuario busca "Aceite Vegetal Coco", el producto devuelto SÍ O SÍ debe hacer match con los tres
         filter = {
             AND: terms.map(t => ({
                 OR: [
@@ -94,7 +93,6 @@ async function executeSearchInventory(query) {
             }))
         };
     } else {
-        // Fallback exacto
         filter = { name: { contains: query, mode: 'insensitive' } };
     }
 
@@ -107,18 +105,17 @@ async function executeSearchInventory(query) {
         const activeProducts = products.filter(p => p.isActive);
 
         if (activeProducts.length === 0) {
-            // INYECCIÓN LETAL contra la alucinación: Si prisma devuelve cero, mandamos una orden militar al LLM.
+            // INYECCIÓN LETAL contra la alucinación
             return JSON.stringify({ 
-                error: "DATO_CRITICO: INVENTARIO_VACIO_O_PRODUCTO_NO_EXISTE", 
-                instruction_for_ai: `EXTREMADAMENTE IMPORTANTE: KAIU NATURAL LIVING NO VENDE '${query}'. DILE AL CLIENTE QUE NO MANEJAMOS ESE PRODUCTO. NO INVENTES NADA.` 
+                error: "DATO_CRITICO: INVENTARIO_VACIO", 
+                instruction_for_ai: `ORDEN ESTRICTA DEL SISTEMA: KAIU NATURAL LIVING **NO** TIENE NI VENDE NADA RELACIONADO A "${query}". ESTÁ PROHIBIDO SUGERIR O INVENTAR SUSTITUTOS. DEBES DILE AL CLIENTE LITERAMENTE: "Lo siento, actualmente no manejamos ${query} en nuestro catálogo." Y NADA MÁS.` 
             });
         }
         
-        // Safety Net: Limit to 5 products to prevent token overflow hallucination
         return JSON.stringify(activeProducts.slice(0, 5));
     } catch (e) {
         console.error("Inventory DB Search Error", e);
-        return JSON.stringify({ error: "DB_ERROR", instruction_for_ai: "Ocurrió un error buscando el inventario, pide amablemente que reformulen la pregunta." });
+        return JSON.stringify({ error: "DB_ERROR", instruction_for_ai: "Ocurrió un error buscando el inventario." });
     }
 }
 
@@ -188,6 +185,7 @@ REGLAS DE ORO (ESTRICTAMENTE PROHIBIDO VIOLARLAS):
 4. Mostrar precios siempre en pesos colombianos formato: $45.000 COP.
 5. Usa tono cálido, emojis sutiles (🌿✨).
 6. Si preguntan por imágenes o ver un producto, usa [SEND_IMAGE: UUID_REAL_DEVUELTO_POR_HERRAMIENTA_AQUI]. Nunca te inventes el UUID.
+7. REGLA ANTI-AMALGAMA: Si el usuario busca "Aceite Vegetal de Coco" y el JSON devuelto SÓLO tiene "Aceite Vegetal de Ricino" y "Aceite Vegetal de Lavanda", NO PUEDES RESPONDER diciendo que tienes Coco. Responde: "Lo siento, actualmente tenemos Aceites Vegetales, pero el ingrediente COCO/ALMENDRAS no lo manejamos." No fusiones nombres de la herramienta con la petición del cliente.
 `;
 
         // --- ANTI-HALLUCINATION HOOK ---
