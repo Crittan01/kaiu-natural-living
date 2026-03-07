@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://kaiu-api.onrender.com' : '');
 import { useState, useEffect, useCallback } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { useCart } from '@/context/CartContextDef';

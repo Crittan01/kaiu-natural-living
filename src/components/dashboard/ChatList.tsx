@@ -7,7 +7,7 @@ import { es } from "date-fns/locale";
 import React, { useEffect } from "react";
 import { io } from "socket.io-client";
 
-const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const socketUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://kaiu-api.onrender.com' : 'http://localhost:3001');
 const socket = io(socketUrl);
 
 interface Session {
@@ -19,7 +19,7 @@ interface Session {
     time?: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://kaiu-api.onrender.com' : '');
 
 const fetchSessions = async (): Promise<Session[]> => {
     const token = sessionStorage.getItem('kaiu_admin_token');

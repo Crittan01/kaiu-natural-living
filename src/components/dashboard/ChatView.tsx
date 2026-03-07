@@ -6,9 +6,9 @@ import axios from "axios";
 import { io } from "socket.io-client";
 
 // Initialize Socket (Fallback to localhost if env var not set)
-const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const socketUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://kaiu-api.onrender.com' : 'http://localhost:3001');
 const socket = io(socketUrl);
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://kaiu-api.onrender.com' : '');
 
 // Interfaces
 interface MessageData {

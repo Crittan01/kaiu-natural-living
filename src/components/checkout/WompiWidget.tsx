@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://kaiu-api.onrender.com' : '');
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, CreditCard } from 'lucide-react';
