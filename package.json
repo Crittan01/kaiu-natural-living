@@ -83,8 +83,8 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^13.0.0",
     "vaul": "^0.9.9",
-    "vercel": "^50.4.7",
-    "vite-plugin-pwa": "^1.2.0",
+    "vercel": "^32.3.0",
+    "vite-plugin-pwa": "^0.19.8",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -103,7 +103,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
-    "jsdom": "^20.0.3",
+    "jsdom": "^28.1.0",
     "nodemon": "^3.1.11",
     "postcss": "^8.5.6",
     "prisma": "^6.19.2",
@@ -111,7 +111,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
-    "vite": "^5.4.19",
+    "vite": "^7.3.1",
     "vitest": "^3.2.4"
   },
   "prisma": {
