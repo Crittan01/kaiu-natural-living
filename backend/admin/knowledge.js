@@ -27,17 +27,32 @@ export default async function handler(req, res) {
       const { content, title, type } = req.body;
       if (!content) return res.status(400).json({ error: 'Content is required' });
 
-      // Idealmente, aquí también llamaríamos al modelo de Embeddings (ej. OpenAI)
-      // para generar el vector y guardarlo. Por ahora, guardamos el texto plano
-      // que puede ser usado como RAG estático o indexado luego por un worker.
+      // Dinamically import to save initial load time if possible, or just standard import
+      const { OpenAIEmbeddings } = await import('@langchain/openai');
       
-      const newKnowledge = await prisma.knowledgeBase.create({
-        data: {
-          content,
-          metadata: { title: title || 'Sin Título', type: type || 'Documento' }
-        }
+      const embeddings = new OpenAIEmbeddings({
+          openAIApiKey: process.env.OPENAI_API_KEY,
+          modelName: "text-embedding-3-small"
       });
-      return res.status(201).json({ success: true, id: newKnowledge.id });
+
+      console.log(`🧠 Generating Vector Embeddings for new Knowledge Base article: ${title}`);
+      
+      // Request exactly 1 vector for the entire content (Or implement chunking here if huge texts)
+      const vector = await embeddings.embedQuery(content);
+
+      // Prisma ORM doesn't support direct object relational mapping for vectors. 
+      // We must insert RAG records using Raw SQL 
+      
+      const vectorString = `[${vector.join(',')}]`;
+      const stringifiedMetadata = JSON.stringify({ title: title || 'Sin Título', type: type || 'Documento' });
+      
+      const result = await prisma.$queryRaw`
+        INSERT INTO "knowledge_base" ("id", "content", "metadata", "embedding") 
+        VALUES (gen_random_uuid(), ${content}, ${stringifiedMetadata}::jsonb, ${vectorString}::vector)
+        RETURNING "id"
+      `;
+      
+      return res.status(201).json({ success: true, id: result[0].id });
     }
 
     else if (req.method === 'DELETE') {

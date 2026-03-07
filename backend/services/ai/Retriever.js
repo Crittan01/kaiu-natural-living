@@ -106,11 +106,42 @@ async function executeSearchInventory(query) {
 }
 
 async function executeSearchKnowledgeBase(query) {
-    console.log(`🧠 (OOM Protection) Executing Tool: searchKnowledgeBase for query: "${query}"`);
-    return JSON.stringify({ 
-        info: "Políticas y RAG desactivado temporalmente por limites de Memoria RAM en servidor Cloud gratuito original. Dile al cliente que te repita la pregunta directa o solicite agendamiento humano si la duda es sobre politicas de envios. No trates de inventar politicas.",
-        original_query: query 
-    });
+    console.log(`🧠 Executing Tool: searchKnowledgeBase for query: "${query}"`);
+    try {
+        const { OpenAIEmbeddings } = await import('@langchain/openai');
+        const embeddings = new OpenAIEmbeddings({
+            openAIApiKey: process.env.OPENAI_API_KEY,
+            modelName: "text-embedding-3-small"
+        });
+
+        // 1. Vectorize User Question
+        const queryVector = await embeddings.embedQuery(query);
+        const vectorString = `[${queryVector.join(',')}]`;
+
+        // 2. Perform Cosine Similarity Search (<=>)
+        // Adjust limit (e.g. 2 chunks) to avoid flooding Claude's window
+        const matches = await prisma.$queryRaw`
+            SELECT id, content, metadata, 1 - (embedding <=> ${vectorString}::vector) as similarity
+            FROM "knowledge_base"
+            WHERE embedding IS NOT NULL
+            ORDER BY embedding <=> ${vectorString}::vector
+            LIMIT 2;
+        `;
+
+        if (!matches || matches.length === 0 || matches[0].similarity < 0.25) {
+            return JSON.stringify({ error: "POLITICA_NO_ENCONTRADA_O_DATO_IRRELEVANTE", instruction_for_ai: "El manual no tiene respuesta a esto. Pide disculpas y ofrece contactar con un humano 👨🏻‍💻." });
+        }
+
+        return JSON.stringify(matches.map(m => ({
+            source: m.metadata?.title || 'Documento Interno',
+            relevance: Math.round(m.similarity * 100) + '%',
+            content: m.content
+        })));
+        
+    } catch (e) {
+        console.error("RAG Error:", e);
+        return JSON.stringify({ error: "INTERNAL_RAG_ERROR", detail: "Falla temporal extrayendo el manual." });
+    }
 }
 
 // ---------------------------------------------------------
