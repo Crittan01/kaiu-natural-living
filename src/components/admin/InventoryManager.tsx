@@ -1,3 +1,4 @@
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://kaiu-api.onrender.com' : '');
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
