@@ -32,7 +32,66 @@ El proyecto Vercel (React/Vite) compila una sola SPA (Single Page Application), 
 
 ## 🗄️ 2. Topología Estructural de Bases de Datos (Prisma Schema)
 
-El cerebro de persistencia es PostgreSQL 15, estructurado a través de **Prisma ORM**. Todo el ecosistema debe mutar estas tablas con precisión quirúrgica.
+El cerebro de persistencia es PostgreSQL 15, estructurado a través de **Prisma ORM**. A continuación se presenta el Diagrama Entidad-Relación (DER) exacto mapeado para KAIU V.2026:
+
+```mermaid
+erDiagram
+    USER ||--o{ ORDER : "realiza"
+    USER ||--o{ ADDRESS : "tiene"
+    USER ||--o| WHATSAPP_SESSION : "posee (opcional)"
+
+    ORDER ||--|{ ORDER_ITEM : "contiene"
+    PRODUCT ||--o{ ORDER_ITEM : "se vende como"
+
+    USER {
+        string id PK
+        string email UK
+        string role "CUSTOMER | ADMIN | SUPPORT"
+        string bsuid "Business-Scoped ID (Meta)"
+    }
+
+    PRODUCT {
+        string sku PK
+        string name "Agrupador"
+        string variantName "Ej: Gotero 10ml"
+        int price "Centavos COP"
+        int stock
+        boolean isActive
+        float weight "Logística (Kg)"
+    }
+
+    ORDER {
+        string id PK
+        int readableId "Ej: #1024"
+        string status "PENDING | CONFIRMED | SHIPPED"
+        string paymentMethod "WOMPI | COD"
+        int total "COP"
+        json shippingAddress "Snapshot inmutable"
+        string trackingNumber "Guía transportadora"
+    }
+
+    ORDER_ITEM {
+        string id PK
+        string orderId FK
+        string productId FK
+        int price "Precio congelado al comprar"
+        int quantity
+    }
+
+    WHATSAPP_SESSION {
+        string id PK
+        string phoneNumber UK
+        boolean isBotActive "Toggle (Bot vs Humano)"
+        json sessionContext "Memoria RAG (LangChain)"
+        datetime expiresAt "Ventana de Meta (24h)"
+    }
+
+    KNOWLEDGE_BASE {
+        string id PK
+        string content "Manual en texto plano"
+        vector embedding "pgvector(1536) Búsqueda Coseno"
+    }
+```
 
 ### Tablas Nucleares de E-Commerce
 
