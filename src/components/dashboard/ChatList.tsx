@@ -19,10 +19,11 @@ interface Session {
     time?: string;
 }
 
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
 const fetchSessions = async (): Promise<Session[]> => {
     const token = sessionStorage.getItem('kaiu_admin_token');
-    // Using relative URL since Vite proxies /api to backend (port 3001)
-    const { data } = await axios.get('/api/sessions', {
+    const { data } = await axios.get(`${API_BASE}/api/sessions`, {
         headers: { Authorization: `Bearer ${token}` }
     });
     return data;

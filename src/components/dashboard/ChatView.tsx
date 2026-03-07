@@ -8,6 +8,7 @@ import { io } from "socket.io-client";
 // Initialize Socket (Fallback to localhost if env var not set)
 const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const socket = io(socketUrl);
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 // Interfaces
 interface MessageData {
@@ -40,7 +41,7 @@ export default function ChatView() {
         queryFn: async () => {
             if (!id) return null;
             const token = sessionStorage.getItem('kaiu_admin_token');
-            const { data } = await axios.get(`/api/sessions/${id}/messages`, {
+            const { data } = await axios.get(`${API_BASE}/api/sessions/${id}/messages`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return data;
@@ -52,7 +53,7 @@ export default function ChatView() {
     const sendMessageMutation = useMutation({
         mutationFn: async (content: string) => {
             const token = sessionStorage.getItem('kaiu_admin_token');
-            await axios.post('/api/messages/send', {
+            await axios.post(`${API_BASE}/api/messages/send`, {
                 sessionId: id,
                 content
             }, {
@@ -64,7 +65,7 @@ export default function ChatView() {
     const toggleAiMutation = useMutation({
         mutationFn: async (isActive: boolean) => {
             const token = sessionStorage.getItem('kaiu_admin_token');
-            await axios.patch(`/api/sessions/${id}/toggle`, {
+            await axios.patch(`${API_BASE}/api/sessions/${id}/toggle`, {
                 isBotActive: isActive
             }, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -82,14 +83,12 @@ export default function ChatView() {
         socket.emit('join_session', id);
 
         const handleNewMessage = (payload: SocketPayload) => {
+            console.log("WebSocket: New message received", payload);
             if (payload.sessionId === id) {
-                queryClient.setQueryData(['messages', id], (old: SessionData | undefined) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        messages: [...old.messages, payload.message]
-                    };
-                });
+                // Instantly force React Query to fetch the latest messages from DB
+                queryClient.invalidateQueries({ queryKey: ['messages', id] });
+                // Also invalidate the sidebar chat list
+                queryClient.invalidateQueries({ queryKey: ['sessions'] });
             }
         };
 

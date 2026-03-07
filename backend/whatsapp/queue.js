@@ -129,9 +129,11 @@ export const worker = new Worker('whatsapp-ai', async job => {
         }
         
         // Remove the tags from the text for history/dashboard
-        finalText = finalText.replace(imageRegex, '')
+        // Also strip blank lines left by removing the tag mid-text
+        finalText = finalText.replace(/\n?\[SEND_IMAGE:\s*[^\]]+\]\n?/g, '\n')
                              .replace(/<[^>]+>/g, '') // Strip all XML tags (e.g., <result>, </result>)
                              .replace(/_🤖 Asistente Virtual KAIU_\s*$/g, '') // Strip footer if it accidentally appended twice
+                             .replace(/\n{3,}/g, '\n\n') // Collapse 3+ newlines into max 2
                              .trim();
         // Fetch image URLs from DB first to save in history
         const imageUrls = [];
