@@ -519,9 +519,14 @@ export function InventoryManager() {
                                                                 />
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Button variant="ghost" size="icon" onClick={() => setEditingProduct(product)} title="Editar Detalles">
-                                                                    <Edit className="h-4 w-4 text-muted-foreground" />
-                                                                </Button>
+                                                                <div className="flex items-center">
+                                                                    <Button variant="ghost" size="icon" onClick={() => setEditingProduct(product)} title="Editar Detalles">
+                                                                        <Edit className="h-4 w-4 text-muted-foreground" />
+                                                                    </Button>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 ml-1" onClick={() => setDeletingProduct(product)} title="Eliminar Variante">
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
                                                             </TableCell>
                                                         </TableRow>
                                                     ))}
