@@ -103,8 +103,28 @@ export default async function handler(req, res) {
     }
   }
 
+  else if (req.method === 'DELETE') {
+    try {
+      const { sku } = req.query;
+      
+      if (!sku) {
+          return res.status(400).json({ error: 'Missing SKU' });
+      }
+
+      await prisma.product.delete({
+        where: { sku: sku }
+      });
+
+      return res.status(200).json({ success: true });
+
+    } catch (error) {
+      console.error('Error deleting inventory:', error);
+      return res.status(500).json({ error: 'Failed to delete product' });
+    }
+  }
+
   else {
-    res.setHeader('Allow', ['GET', 'POST', 'PUT']);
+    res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 }

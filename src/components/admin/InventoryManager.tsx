@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, LayoutGrid, List as ListIcon, Save, Filter, X, Edit, ChevronDown, ChevronRight, Plus, Upload, ImageIcon } from 'lucide-react';
+import { Loader2, Search, LayoutGrid, List as ListIcon, Save, Filter, X, Edit, ChevronDown, ChevronRight, Plus, Upload, ImageIcon, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -58,6 +58,7 @@ export function InventoryManager() {
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [editingProduct, setEditingProduct] = useState<ProductInventory | null>(null);
     const [isAddingProduct, setIsAddingProduct] = useState(false);
+    const [deletingProduct, setDeletingProduct] = useState<ProductInventory | null>(null);
     const [variantDraft, setVariantDraft] = useState<Partial<ProductInventory> | null>(null);
     const { toast } = useToast();
 
@@ -126,6 +127,22 @@ export function InventoryManager() {
     useEffect(() => {
         fetchInventory();
     }, [fetchInventory]);
+
+    const handleDelete = async (sku: string) => {
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/inventory?sku=${sku}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Fallo al eliminar');
+            
+            toast({ title: "Eliminado", description: "Variante eliminada exitosamente", duration: 1500 });
+            setDeletingProduct(null);
+            fetchInventory();
+        } catch (error) {
+            toast({ title: "Error", description: "No se pudo eliminar la variante", variant: "destructive" });
+        }
+    };
 
     const handleUpdate = async (sku: string, updates: Partial<ProductInventory>) => {
         try {
@@ -568,7 +585,7 @@ export function InventoryManager() {
                                                         </Button>
                                                     </div>
                                                     {group.products.map(product => (
-                                                        <div key={product.sku} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center text-sm bg-muted/30 p-2 rounded-md">
+                                                        <div key={product.sku} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center text-sm bg-muted/30 p-2 rounded-md">
                                                             <div className="truncate pr-2 font-medium" title={product.variantName || product.sku}>
                                                                 {product.variantName || 'Principal'}
                                                             </div>
@@ -589,6 +606,9 @@ export function InventoryManager() {
                                                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingProduct(product)}>
                                                                 <Edit className="h-3.5 w-3.5 text-muted-foreground" />
                                                             </Button>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => setDeletingProduct(product)}>
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </Button>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -608,6 +628,25 @@ export function InventoryManager() {
                     </>
                 )}
             </CardContent>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!deletingProduct} onOpenChange={(open) => !open && setDeletingProduct(null)}>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Eliminar Variante</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                    <p className="text-sm text-muted-foreground">
+                        ¿Estás seguro que deseas eliminar la variante <strong>{deletingProduct?.variantName || 'Principal'}</strong> del producto <strong>{deletingProduct?.name}</strong>?
+                    </p>
+                    <p className="text-xs text-red-500 mt-2">Esta acción no se puede deshacer y borrará permanentemente la variante de la base de datos.</p>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setDeletingProduct(null)}>Cancelar</Button>
+                    <Button variant="destructive" onClick={() => deletingProduct && handleDelete(deletingProduct.sku)}>Sí, Eliminar</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
             {editingProduct && (
                 <EditProductModal 
                     product={editingProduct} 
