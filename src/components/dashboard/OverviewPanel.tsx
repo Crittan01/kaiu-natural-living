@@ -33,7 +33,7 @@ export default function OverviewPanel() {
 
     const fetchStats = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/admin/dashboard-stats', {
+        const res = await fetch(`${API_BASE}/api/admin/dashboard-stats`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 

@@ -49,7 +49,7 @@ export default function OrdersPanel() {
   const fetchData = async () => {
     setLoading(true);
     try {
-        const res = await fetch(`${API_BASE}/api/admin/orders', {
+        const res = await fetch(`${API_BASE}/api/admin/orders`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -92,7 +92,7 @@ export default function OrdersPanel() {
   const handleGenerateLabel = async (orderId: string) => {
     setGeneratingLabel(orderId);
     try {
-        const res = await fetch(`${API_BASE}/api/admin/generate-label', {
+        const res = await fetch(`${API_BASE}/api/admin/generate-label`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ orderId })
@@ -121,7 +121,7 @@ export default function OrdersPanel() {
   const handleRequestPickup = async (orderId: string) => {
     if (!confirm('¿Solicitar recogida para esta orden?')) return;
     try {
-        const res = await fetch(`${API_BASE}/api/admin/request-pickup', {
+        const res = await fetch(`${API_BASE}/api/admin/request-pickup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ orderIds: [orderId] })
@@ -140,7 +140,7 @@ export default function OrdersPanel() {
   const handleSyncShipments = async () => {
     try {
         toast({ title: "Sincronizando...", description: "Consultando estados en Venndelo..." });
-        const res = await fetch(`${API_BASE}/api/admin/sync-shipments', {
+        const res = await fetch(`${API_BASE}/api/admin/sync-shipments`, {
              method: 'POST',
              headers: { 'Authorization': `Bearer ${token}` }
         });

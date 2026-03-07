@@ -25,7 +25,7 @@ export function WompiWidget({ amountInCents, currency, reference, email, fullNam
              setLoading(true);
              setError(null);
              try {
-                 const res = await fetch(`${API_BASE}/api/wompi/sign', {
+                 const res = await fetch(`${API_BASE}/api/wompi/sign`, {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json' },
                      body: JSON.stringify({ reference, amount: amountInCents, currency })

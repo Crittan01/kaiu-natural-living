@@ -80,7 +80,7 @@ export function ChatWidget() {
 
       setIsLoading(true); // Show "Typing..." dots
 
-      const res = await fetch(`${API_BASE}/api/chat', {
+      const res = await fetch(`${API_BASE}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, history })

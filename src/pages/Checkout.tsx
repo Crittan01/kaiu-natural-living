@@ -101,7 +101,7 @@ const Checkout = () => {
     setShippingCost(null);
 
     try {
-        const response = await fetch(`${API_BASE}/api/quote-shipping', {
+        const response = await fetch(`${API_BASE}/api/quote-shipping`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -217,7 +217,7 @@ const Checkout = () => {
             discounts: []
         };
 
-        const orderRes = await fetch(`${API_BASE}/api/create-order', {
+        const orderRes = await fetch(`${API_BASE}/api/create-order`, {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify(orderPayload)
@@ -233,7 +233,7 @@ const Checkout = () => {
         const finalReference = `KAIU-${kaiuPin}`; 
         const amountInCents = Math.round(finalTotal * 100);
 
-        const signRes = await fetch(`${API_BASE}/api/wompi/sign', {
+        const signRes = await fetch(`${API_BASE}/api/wompi/sign`, {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify({ 
@@ -332,7 +332,7 @@ const Checkout = () => {
         discounts: []
       };
 
-      const response = await fetch(`${API_BASE}/api/create-order', {
+      const response = await fetch(`${API_BASE}/api/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderPayload)

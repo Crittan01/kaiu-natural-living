@@ -21,7 +21,7 @@ export default function KnowledgePanel() {
         setLoading(true);
         try {
             const token = sessionStorage.getItem('kaiu_admin_token');
-            const res = await fetch(`${API_BASE}/api/admin/knowledge', {
+            const res = await fetch(`${API_BASE}/api/admin/knowledge`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) throw new Error('Fallo al cargar base de datos RAG');
@@ -40,7 +40,7 @@ export default function KnowledgePanel() {
         if (!confirm('¿Borrar este fragmento de inteligencia de la IA?')) return;
         try {
             const token = sessionStorage.getItem('kaiu_admin_token');
-            const res = await fetch(`${API_BASE}/api/admin/knowledge', {
+            const res = await fetch(`${API_BASE}/api/admin/knowledge`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ id })
@@ -136,7 +136,7 @@ function AddKnowledgeModal({ onClose, onAdded }: { onClose: () => void, onAdded:
         setSaving(true);
         try {
             const token = sessionStorage.getItem('kaiu_admin_token');
-            const res = await fetch(`${API_BASE}/api/admin/knowledge', {
+            const res = await fetch(`${API_BASE}/api/admin/knowledge`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ title, type, content })
