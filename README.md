@@ -1,97 +1,95 @@
-# KAIU Natural Living - Orquestador Híbrido AI & E-Commerce (V.2026)
+# KAIU Natural Living - Documentación Maestra Arquitectónica (V.2026)
 
-## 📌 1. Visión General del Proyecto y Patrón Arquitectónico
-
-**KAIU** es una plataforma de software de grado de producción dividida en dos grandes dominios que interactúan de forma asíncrona:
-
-1.  **Dashboard Frontend (SPA):** Una aplicación React/Vite orientada al administrador (Inventario, UI de Chats en tiempo real, Estadísticas) y al consumidor público (Tienda, Checkout Wompi).
-2.  **Motor Backend IA (Event-Driven):** Un servidor Node.js/Express.js diseñado específicamente para interceptar webhooks de alta velocidad (WhatsApp), gestionar el estado de sesión de los clientes y delegar órdenes cognitivas a un LLM (Claude) empoderado con Recuperación Vectorial de Memoria (RAG).
-
-Este repositorio implementa el patrón **Backend for Frontend (BFF)** con una pipeline de datos orientada a eventos para el procesamiento de Inteligencia Artificial mediante Workers de rescate.
+Este documento es el **Whitepaper Técnico Definitivo** del proyecto KAIU. Está diseñado para ser asimilado por Ingenieros de Software Senior, Arquitectos Cloud, o Agentes de Inteligencia Artificial que requieran el 100% del contexto operativo, bases de datos y separaciones de capa lógica antes de intervenir el código.
 
 ---
 
-## 🏗️ 2. Stack Tecnológico (Core)
+## 🖥 1. Separación de Capas Frontend (BFF Pattern)
 
-### Capa de Presentación (Frontend)
+El proyecto Vercel (React/Vite) compila una sola SPA (Single Page Application), pero lógicamente está bifurcado por el enrutador (`react-router-dom`) en dos ecosistemas que no cruzan datos:
 
-- **Construcción:** React 18, TypeScript, Vite v5.4.11.
-- **UI/UX:** Tailwind CSS v3.4, `shadcn/ui` (Radix Primitives), Framer Motion.
-- **Gestión de Estado & Red:** Axios (HTTP), `socket.io-client` v4.8 (Suscripción WebSockets para mensajería síncrona).
-- **Despliegue Asignado:** Vercel (Sitio estático CDN).
+### 🟢 A. Capa Cliente (Pública - Tienda e-Commerce)
 
-### Capa de Orquestación e IA (Backend de Rendimiento)
+- **Enrutamiento:** Rutas en la raíz (ej: `/`, `/catalogo`, `/checkout`).
+- **Funcionalidades:**
+  - Vitrina dinámica que hidrata su estado leyendo de `GET /api/products` (Data Pública).
+  - Motor de Carrito basado en memoria local (`CartContext`).
+  - **Pasarela de Pago Wompi integrada mediante IFrame/Widget** protegido por `VITE_WOMPI_PUB_KEY` para pre-autorizar tarjetas de crédito o Nequi.
+- **Seguridad:** No requiere autenticación. Genera peticiones anónimas al motor de productos.
 
-- **Entorno:** Node.js v20+, Express.js v4.19.
-- **Orquestación de IA:** [LangChain JS](https://js.langchain.com/). Define topologías de grafos de lenguaje, llamadas a herramientas en JSON estricto (`.bindTools`) y manejo de historia de mensajes AI.
-- **Motor LLM:** `claude-3-5-sonnet-20241022` (vía `@langchain/anthropic`).
-- **Job Queues (Workers):** [BullMQ](https://docs.bullmq.io/) v5.69 + Redis. Patrón indispensable para absorber el alto caudal (throughput) de Webhooks entrantes de Meta sin bloquear el Single Event Loop de Node (Node bloquea durante las resoluciones I/O lentas de APIs de IA externas).
-- **Comunicación Síncrona Web:** Servidor `Socket.io` v4 enganchado a Express.
-- **Despliegue Asignado:** Render.com (Web Service / Docker).
+### 🔴 B. Capa Admin (Privada - Orquestador KAIU)
 
-### Capa de Persistencia y Modelos (Base de Datos)
-
-- **Base de Datos Relacional:** PostgreSQL 15+.
-- **Motor de Similitud Vectorial:** Extensión Nativa `pgvector`. Permite castear arreglos numéricos flotantes como `vector(1536)` para posibilitar búsquedas matemáticas de _Similitud del Coseno_ en la Base de Conocimientos de KAIU.
-- **Motor Transaccional (ORM):** Prisma ORM v6.19. Archivo clave: `prisma/schema.prisma`.
-- **Almacenamiento Binario (Buckets):** Supabase Storage enlazado mediante Service Role para subidas de imagen desde la memoria (multer) sin pasar por disco duro.
+- **Enrutamiento:** Protegido bajo el layout `/dashboard/*`.
+- **Seguridad:** Requiere Login (JWT). El backend verifica un PIN contra la variable estática JSON `KAIU_ADMIN_USERS`. El token Bearer es obligatorio en todas estas rutas.
+- **Módulos del Dashboard:**
+  - `/dashboard/inventory`: Maestro de CRUD de Productos y Variantes en Tiempo Real.
+  - `/dashboard/orders`: Rastreo de compras aprobadas por Wompi y asignación de Guías de Envío.
+  - `/dashboard/chats`: Consola WebSockets (`Socket.io`). El Admin puede ver en vivo lo que la IA de Anthropic Claude le responde al cliente en WhatsApp, y usar un Toggle "_Handover_" para silenciar al bot y tomar el control humano.
 
 ---
 
-## 🔄 3. Ciclo de Vida de Eventos Críticos (Data Pipelines)
+## 🗄️ 2. Topología Estructural de Bases de Datos (Prisma Schema)
 
-El verdadero reto arquitectónico de este repositorio es manejar el asincronismo. A un AI que vaya a modificar este código en el futuro: **¡Atención a este Pipeline!**
+El cerebro de persistencia es PostgreSQL 15, estructurado a través de **Prisma ORM**. Todo el ecosistema debe mutar estas tablas con precisión quirúrgica.
 
-### 🔥 Pipeline 1: Webhook WhatsApp a Respuesta de IA (Flujo Asíncrono)
+### Tablas Nucleares de E-Commerce
 
-1.  **Entrada Webhook:** El cliente manda un SMS vía WhatsApp. Los servidores Cloud de Meta ejecutan un webhook a `POST /api/whatsapp/webhook`.
-2.  **Validación Middleware:** Se computa un HMAC SHA-256 local sobre el _req.body_ original usando la variable `WHATSAPP_APP_SECRET`. Si es válida, continúa.
-3.  **Inyección a Redis (Job Queue):** Node inserta de manera no-bloqueante el cuerpo del mensaje en la cola BullMQ (`whatsappQueue.add()`).
-4.  **Escape de Red:** Fast-Return de Node. Tira un código `200 OK` al API de Meta Cloud en < 200 milisegundos. _Si no se hace esto, Meta aborta, cataloga el servidor de KAIU como defectuoso, y retenta el mensaje 5 veces saturando todo_.
-5.  **Procesamiento Subproceso (El Worker BullMQ asume el control):**
-    - **Lectura Dual Base:** Lee en Prisma la tabla `whatsapp_sessions`. Evalúa el booleano `isBotActive` del remitente. Si está `false` (hubo un Escalamiento/Handover en curso manual), la IA se inhibe y finaliza el Job.
-    - **Si es True:** Instancia el Agente de LangChain. Langchain carga el System Prompt predefinido y manda el contexto a la LLM.
-6.  **The Agent Loop (Tool Calling):**
-    - El LLM de Anthropic puede requerir consultar inventario. En vez de responder en texto, emite una orden JSON especial: `{"name":"searchInventory", "args": {"query": "Lavanda"}}`.
-    - Node intercepta esta orden, acude a Prisma, extrae inventario, y devuelve el resultado crudo al árbol del LLM de Anthropic.
-    - Anthropic sintetiza la información empírica y la traduce a lenguaje natural empático de vendedor.
-7.  **Despacho y WebSockets:**
-    - Worker Node envía un POST a la Graph API v21.0 de Meta emulando un envío al WAMID del cliente usando `WHATSAPP_ACCESS_TOKEN`.
-    - Inmediatamente invoca a local `app.get('io').emit("newMessage", data)`, que empuja el texto final a las pantallas React en el Dashboard (`/dashboard/chats`).
+- `Product`: Control de catálogo.
+  - _Campos Críticos:_ `sku` (PK), `name` (Agrupador visual frontend), `variantName` (Gotero 10ml, etc), `price` (en Centavos COP).
+  - _Logística:_ `weight`, `width`, `height` (Variables imperativas para cotizar envíos con transportadoras Nacionales).
+- `Order` y `OrderItem`: Entidades transaccionales inmutables.
+  - _Campos Críticos:_ `status` (PENDING, PAID, SHIPPED). Dependen umbilicalmente de que el **Webhook privado de Wompi** haga la validación de Integridad Criptográfica para pasar a `PAID`.
+  - _Snapshot Logic:_ `shippingAddress` guarda un JSON duro. No se normaliza como relación, pues si el usuario muda de casa mañana, el histórico de esta factura no debe alterarse.
 
-### 📦 Pipeline 2: Gestión Vectorial de Políticas RAG
+### Tablas Nucleares de Inteligencia Artificial (RAG & Webhooks)
 
-1.  **Aprovisionamiento (Seed):** Scripts de backend leen Markdown o TXT. LangChain divide en Chunks el texto, luego llama al Embedding API para convertir "Nuestras envíos a Bogotá duran 1 día" a un Array de 1536 flotantes [0.124, 0.44...].
-2.  **Consulta (Vector Search):** Cuando un cliente pregunta por envíos, la IA de Claude llama a la herramienta `searchKnowledgeBase`. La herramienta embebe la pregunta en vector, y Prisma emite SQL crudo estilo `ORDER BY embedding <=> '[...]' LIMIT 3`. El texto semánticamente más afín se retorna a Claude.
+- `WhatsAppSession`: El Director de Orquesta de Meta Cloud.
+  - _Campo `isBotActive` (Boolean):_ Dictamina el Handover. Si es `True`, BullMQ autoriza a Claude procesar la respuesta. Si es `False`, Claude descarta el job y asume que un humano responderá desde el Dashboard.
+  - _Campo `sessionContext`:_ Diccionario JSON temporal de memoria de LangChain (¿De qué estaban hablando hace 5 minutos?).
+- `KnowledgeBase`: Colección Vectorial de Embeddings.
+  - _Campo `embedding`:_ Casteado nativamente por extension `pgvector` (`Unsupported("vector(1536)")`). Almacena la traducción numérica de los manuales de envío y políticas de cambios. Prisma usa sentencias crudas SQL `ORDER BY embedding <=> '[...]'` para extraer los textos más acordes a la duda del usuario y dárselos a la IA antes de que ésta conteste.
 
 ---
 
-## � 4. Modelos de Base de Datos y Variables de Entorno Seguras
+## ⚡ 3. El Pipeline Asíncrono Híbrido (Data Workflow)
 
-### Mapa Mental Prisma Schema (`prisma/schema.prisma`):
+Para proteger a la Base de Datos y al Server de Node de morir por picos de tráfico en pautas de Facebook Ads (Millones de Webhooks simultáneos), el flujo de entrada es asíncrono.
 
-- `Product`: Tabula PK `sku`, `name`, `variantName`, `price`, `stock`, `isActive`. Relaciones de Variante agrupadas estéticamente en frontend. Dispone de Soft-Delete / Hard-Delete.
-- `WhatsAppSession`: Motor de estado para WebHooks de Meta. Define si la conversación requiere IA o intervención humana al alterar la flag `isBotActive`.
-- `KnowledgeBase`: La tabla RAG, incluye matriz `vector(1536)` inyectado SQL crudo con PostGis.
-- `Order` / `OrderItem`: Tablas enlazadas dependientes de retrollamadas privadas webhook de la pasarela Wompi.
+1.  **Recepción:** Meta emite el mensaje JSON a `POST /api/whatsapp/webhook`.
+2.  **Validación de Firma:** Node calcula el Hash `x-hub-signature-256` usando la llave maestra privada de Meta (`WHATSAPP_APP_SECRET`). Cortafuegos anti-inyección.
+3.  **Buffer en Memoria (Redis):** Si pasa, se inyecta en milisegundos a la cola BullMQ e inmediatamente Node responde `200 OK` a Meta (Requisito estricto de Meta para evitar Timeouts).
+4.  **Ejecución Pesada (Worker Thread):** Un Worker secundario de BullMQ saca el ticket. Descarga historial de Prisma, arma el grafo contextual (LangChain), e invoca la API `claude-3-5-sonnet`.
+5.  **Invocación de Herramientas (Tool Calling):** Claude puede retornar JSON en lugar de texto (Ej: `{"action": "searchInventory", "sku": "LAV-1"}`). El Worker atrapa esto, escanea la tabla `Product` y retorna los precios exactos al cerebro LLM.
+6.  **Despacho Dual:** Una vez Claude decide el texto final:
+    - Se hace POST a Meta Graph API v21 para enviar el SMS al celular físico del usuario (Usa `WHATSAPP_ACCESS_TOKEN`).
+    - Se dispara el Web Socket `io.emit()` para que las pantallas de Vercel/React del administrador reciban la burbuja verde tipo WhatsApp Web al instante.
 
-### Inyección de Entorno (Separación Vercel vs Render)
+---
 
-Para que un futuro desarrollador no comprometa las llaves, la segmentación es tajante:
+## 🔐 4. Matriz Criptográfica y Variables de Entorno
 
-**Capa PÚBLICA (Vercel):** Se definen bajo `.env.production`
+### Entorno Vercel (Front) `.env.production`
 
-- `VITE_API_URL`: Dirección de la app Node (Render).
-- `VITE_WOMPI_PUB_KEY`: Pública. Renderiza los widgets iframe de pagos de Vercel.
+Ningún secreto profundo va aquí. El código de React es visible desde F12 (Inspect).
 
-**Capa PRIVADA (Render/VPS):** Variables críticas del Backend
+- `VITE_API_URL`: Enlaza Vercel con la IP del Servidor API (Render).
+- `VITE_WOMPI_PUB_KEY`: Pública mercantil.
 
-- `DATABASE_URL="postgresql://...?pgbouncer=true"` (Conexión Transaccional Prisma)
-- `REDIS_URL="rediss://..."` (Obligatorio para el Worker queue de BullMQ)
-- `ANTHROPIC_API_KEY="sk-ant..."` (Cerebro Inteligencia Artificial)
-- `WHATSAPP_APP_SECRET="/WHATSAPP_VERIFY_TOKEN/WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_ID"` (Triangulación API Meta)
-- `SUPABASE_SERVICE_ROLE_KEY` (Role admin bypass policy para subir buffers img en RAM).
-- `WOMPI_EVENTS_SECRET` / `WOMPI_INTEGRITY_SECRET` (Acredita vía Hashing asimétrico los webhooks de pago pagados).
-- `KAIU_ADMIN_USERS='[{"username":"admin","pin":"1234"}]'` (El JSON Array parseado internamente por el Controller de Auth que inyecta tokens JWT para el dashboard).
+### Entorno Render (Servidor) `.env`
 
-_(Documentación Técnica Oficial. Actualizada y Revisada Exhaustivamente en Ciclo V.2026)._
+Bóveda fuerte. No accesibles desde afuera.
+
+- `DATABASE_URL` (Conector Prisma PostgreSQL transaccional)
+- `REDIS_URL` (Motor Broker de Mensajes para BullMQ)
+- `ANTHROPIC_API_KEY` (Facturación de API LLM Claude)
+- `WHATSAPP_PHONE_ID` / `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_VERIFY_TOKEN` (Cerebro Conector WA)
+- `WHATSAPP_APP_SECRET` (Llave de firma HMAC SHA-256 de webhooks)
+- `WOMPI_EVENTS_SECRET` / `WOMPI_INTEGRITY_SECRET` (Validación SHA-256 para prevenir que cibercriminales simulen que ya pagaron un pedido).
+- `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` (Acceso root de almacenamiento para Subir Imagenes eludiendo límites RLS de Postgres).
+
+### Instrucciones de Re-Despliegue Local Rápido
+
+- Arrancar DB: `npx prisma db push`
+- Arrancar API Node: `npm run api` (Puerto 3001)
+- Arrancar Vite: `npm run dev` (Puerto 3000)
+- Simulador Webhook (Para codear sin Meta Cloud): `node scripts/simulate_webhook_test.js`
