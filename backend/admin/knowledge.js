@@ -32,7 +32,8 @@ export default async function handler(req, res) {
       
       const embeddings = new OpenAIEmbeddings({
           openAIApiKey: process.env.OPENAI_API_KEY,
-          modelName: "text-embedding-3-small"
+          modelName: "text-embedding-3-small",
+          dimensions: 384 // Force 384 dimensions to match the existing Postgres column
       });
 
       console.log(`🧠 Generating Vector Embeddings for new Knowledge Base article: ${title}`);

@@ -111,7 +111,8 @@ async function executeSearchKnowledgeBase(query) {
         const { OpenAIEmbeddings } = await import('@langchain/openai');
         const embeddings = new OpenAIEmbeddings({
             openAIApiKey: process.env.OPENAI_API_KEY,
-            modelName: "text-embedding-3-small"
+            modelName: "text-embedding-3-small",
+            dimensions: 384 // Force 384 dimensions to match the existing Postgres column
         });
 
         // 1. Vectorize User Question
