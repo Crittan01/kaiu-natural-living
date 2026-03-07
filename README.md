@@ -38,7 +38,7 @@ El cerebro de persistencia es PostgreSQL 15, estructurado a través de **Prisma 
 erDiagram
     USER ||--o{ ORDER : "realiza"
     USER ||--o{ ADDRESS : "tiene"
-    USER ||--o| WHATSAPP_SESSION : "posee (opcional)"
+    USER ||--o| WHATSAPP_SESSION : "posee"
 
     ORDER ||--|{ ORDER_ITEM : "contiene"
     PRODUCT ||--o{ ORDER_ITEM : "se vende como"
@@ -46,50 +46,50 @@ erDiagram
     USER {
         string id PK
         string email UK
-        string role "CUSTOMER | ADMIN | SUPPORT"
-        string bsuid "Business-Scoped ID (Meta)"
+        string role
+        string bsuid
     }
 
     PRODUCT {
         string sku PK
-        string name "Agrupador"
-        string variantName "Ej: Gotero 10ml"
-        int price "Centavos COP"
+        string name
+        string variantName
+        int price
         int stock
         boolean isActive
-        float weight "Logística (Kg)"
+        float weight
     }
 
     ORDER {
         string id PK
-        int readableId "Ej: #1024"
-        string status "PENDING | CONFIRMED | SHIPPED"
-        string paymentMethod "WOMPI | COD"
-        int total "COP"
-        json shippingAddress "Snapshot inmutable"
-        string trackingNumber "Guía transportadora"
+        int readableId
+        string status
+        string paymentMethod
+        int total
+        json shippingAddress
+        string trackingNumber
     }
 
     ORDER_ITEM {
         string id PK
         string orderId FK
         string productId FK
-        int price "Precio congelado al comprar"
+        int price
         int quantity
     }
 
     WHATSAPP_SESSION {
         string id PK
         string phoneNumber UK
-        boolean isBotActive "Toggle (Bot vs Humano)"
-        json sessionContext "Memoria RAG (LangChain)"
-        datetime expiresAt "Ventana de Meta (24h)"
+        boolean isBotActive
+        json sessionContext
+        datetime expiresAt
     }
 
     KNOWLEDGE_BASE {
         string id PK
-        string content "Manual en texto plano"
-        vector embedding "pgvector(1536) Búsqueda Coseno"
+        string content
+        vector embedding
     }
 ```
 
