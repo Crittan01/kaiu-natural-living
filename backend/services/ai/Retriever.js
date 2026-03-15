@@ -105,10 +105,10 @@ async function executeSearchInventory(query) {
         const activeProducts = products.filter(p => p.isActive);
 
         if (activeProducts.length === 0) {
-            // INYECCIÓN LETAL contra la alucinación
+            // INYECCIÓN LETAL Y RE-ENRUTAMIENTO TERAPÉUTICO (Multi-Turn)
             return JSON.stringify({ 
                 error: "DATO_CRITICO: INVENTARIO_VACIO", 
-                instruction_for_ai: `ORDEN ESTRICTA DEL SISTEMA: KAIU NATURAL LIVING **NO** TIENE NI VENDE NADA RELACIONADO A "${query}". ESTÁ PROHIBIDO SUGERIR O INVENTAR SUSTITUTOS. DEBES DILE AL CLIENTE LITERAMENTE: "Lo siento, actualmente no manejamos ${query} en nuestro catálogo." Y NADA MÁS.` 
+                instruction_for_ai: `CRÍTICO: '${query}' NO DIO RESULTADOS EXACTOS. REGLA 1: Si el usuario buscaba un INGREDIENTE ESPECÍFICO que no tenemos (ej: Coco, Jengibre), DETENTE AHORA y dile textualmente "Lo siento, no manejamos ${query}". REGLA 2: Si el usuario te describió un SÍNTOMA, NECESIDAD o BENEFICIO TERAPÉUTICO (ej: "para dormir bien", "acné", "dolor de cabeza"), APLICA TUS CONOCIMIENTOS BOTÁNICOS para deducir qué planta KAIU sirve (ej: Lavanda, Árbol de Té, Menta) y VUELVE A INVOCAR inmediatamente la herramienta 'searchInventory' buscando esa planta exacta. ¡NUNCA RECOMIENDES UN PRODUCTO QUE NO HAYAS COMPROBADO EN UN SEGUNDO SALTO!` 
             });
         }
         
@@ -207,9 +207,15 @@ REGLAS DE ORO (ESTRICTAMENTE PROHIBIDO VIOLARLAS):
         // 1. Initial invocation (let it decide if it needs a tool)
         let aiMessage = await modelWithTools.invoke(messages);
         
-        // 2. Process Tools (Agent Loop)
-        // If the model decides to call one or more tools, we process them
-        if (aiMessage.tool_calls && aiMessage.tool_calls.length > 0) {
+        // 2. Process Tools (Agent Multi-Turn Loop)
+        // Permite que Claude haga preguntas correctivas a la DB hasta 3 veces por mensaje
+        let iterations = 0;
+        const maxIterations = 3;
+        
+        while (aiMessage.tool_calls && aiMessage.tool_calls.length > 0 && iterations < maxIterations) {
+            iterations++;
+            console.log(`🔄 Agent Tool Loop Iteration ${iterations}...`);
+            
             messages.push(aiMessage); // Append the "intent to call tool" message
             
             for (const toolCall of aiMessage.tool_calls) {
@@ -230,9 +236,13 @@ REGLAS DE ORO (ESTRICTAMENTE PROHIBIDO VIOLARLAS):
                 }));
             }
             
-            // 3. Second invocation (now with tool results included)
-            console.log("🧠 Tools resolved, generating final answer...");
+            // 3. Second/Third invocation (now with tool results included)
+            console.log("🧠 Tools resolved, generating next thought or final answer...");
             aiMessage = await modelWithTools.invoke(messages);
+        }
+        
+        if (iterations >= maxIterations) {
+            console.log("⚠️ Agent loop limits reached to prevent infinite tool calling.");
         }
 
         // Parse final text properly (Claude 3 can return content blocks array instead of raw string)
