@@ -4,6 +4,72 @@ Este documento es el **Whitepaper Técnico Definitivo** del proyecto KAIU. Está
 
 ---
 
+## 🛠️ Stack Tecnológico
+
+KAIU Natural Living es una plataforma full-stack de e-commerce con IA conversacional. A continuación se resumen brevemente las tecnologías involucradas:
+
+### Frontend
+| Tecnología | Rol |
+|---|---|
+| **React 18** + **Vite 5** | SPA con compilación ultrarrápida vía SWC |
+| **TypeScript 5** | Tipado estático en todo el proyecto |
+| **Tailwind CSS 3** + **shadcn/ui** | Estilos utilitarios + componentes accesibles (Radix UI) |
+| **React Router DOM 6** | Enrutamiento del lado cliente (SPA) |
+| **TanStack React Query 5** | Caché y sincronización de datos del servidor |
+| **React Hook Form 7** + **Zod** | Formularios con validación declarativa |
+| **Framer Motion 12** | Animaciones declarativas |
+| **Recharts 2** | Gráficos de KPIs en el dashboard administrativo |
+| **Vite PWA** + **Workbox** | App instalable con soporte offline |
+
+### Backend
+| Tecnología | Rol |
+|---|---|
+| **Node.js** (ES Modules) | Runtime del servidor |
+| **Express 4** | API REST (rutas públicas, admin, pagos, WhatsApp) |
+| **Socket.IO 4** | WebSockets para monitoreo en tiempo real del dashboard |
+| **BullMQ 5** | Cola de trabajos asíncronos para procesar mensajes de WhatsApp |
+| **Redis** (ioredis) | Broker de mensajes para BullMQ |
+| **JWT** + **bcryptjs** | Autenticación y hash de contraseñas |
+| **Multer** | Carga de archivos (imágenes de productos) |
+| **express-rate-limit** | Protección contra abuso de la API |
+
+### Base de Datos
+| Tecnología | Rol |
+|---|---|
+| **PostgreSQL 15** | Base de datos relacional principal |
+| **Prisma ORM 6** | Modelado de esquema, migraciones y cliente tipado |
+| **pgvector** | Extensión de PostgreSQL para búsqueda vectorial (embeddings 1536-dim) |
+| **Supabase** | Almacenamiento de archivos (imágenes) vía PostgreSQL gestionado |
+
+### Inteligencia Artificial
+| Tecnología | Rol |
+|---|---|
+| **Anthropic Claude 3.5 Sonnet** | LLM principal para atención al cliente por WhatsApp |
+| **LangChain** (`@langchain/core`, `@langchain/anthropic`) | Orquestación de cadenas RAG y tool calling |
+| **OpenAI** (`@langchain/openai`) | Modelos de embeddings para la base de conocimiento |
+| **pgvector** + similitud coseno | Recuperación semántica (RAG) de la base de conocimiento |
+
+### Integraciones Externas
+| Tecnología | Rol |
+|---|---|
+| **WhatsApp Business API** (Meta Cloud) | Canal de mensajería al cliente y webhooks |
+| **Wompi** | Pasarela de pagos colombiana (tarjeta de crédito, Nequi) |
+| **Resend** | Servicio de envío de correos transaccionales |
+| **Coordinadora / Venndelo** | APIs de transportadoras para cotizar y generar guías de envío |
+| **Vercel** | Despliegue del frontend (SPA) |
+| **Render** | Despliegue del backend Node.js |
+
+### Herramientas de Desarrollo
+| Tecnología | Rol |
+|---|---|
+| **ESLint 9** | Linting del código fuente |
+| **Vitest 3** + **React Testing Library** | Pruebas unitarias y de componentes |
+| **Nodemon** | Recarga automática del servidor en desarrollo |
+| **tsx** | Ejecución de TypeScript directamente en Node |
+| **Prisma CLI** | Migraciones y seed de base de datos |
+
+---
+
 ## 🖥 1. Separación de Capas Frontend (BFF Pattern)
 
 El proyecto Vercel (React/Vite) compila una sola SPA (Single Page Application), pero lógicamente está bifurcado por el enrutador (`react-router-dom`) en dos ecosistemas que no cruzan datos:
